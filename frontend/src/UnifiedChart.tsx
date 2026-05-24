@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import * as echarts from 'echarts'
 import type { downloader } from '../wailsjs/go/models'
 import { GetStockKlines, GetStockQuote, RefreshStockKlines } from './api'
@@ -257,6 +258,17 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
   const [maConfig, setMAConfig] = useState<MAConfig>(loadMAConfig)
   const [showSettings, setShowSettings] = useState(false)
 
+  // 用 ref 稳定 onClose，避免 chart 创建 useEffect 因 prop 变化而重建
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+
+  // 标记当前是否在等待"刷新触发的 setOption"完成绘制。
+  // setOption(option, true) 内部会异步分批重绘 series / 重新计算 dataZoom / axisPointer，
+  // React 18 自动 batching 会让 setRefreshing(false) 与 setRawData() 同帧 commit，
+  // 那一瞬间遮罩消失但 zrender 还没画完，残留的旧 axisPointer / 部分 series 露出来变成"两条长条"。
+  // 改成等 chart 'finished' 事件（echarts 完整绘制结束）触发后再解除 refreshing。
+  const refreshPendingRef = useRef(false)
+
   // 如果 propQuote 变化，同步更新 localQuote
   useEffect(() => {
     setLocalQuote(propQuote)
@@ -312,12 +324,10 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     }))
   }, [rawData, localQuote, period])
 
+  // chart 实例创建/销毁：只在 mount/unmount 时执行。
+  // 数据/配置变化只通过 setOption 更新内容，避免 dispose→init 之间露出深色背景 + 蓝色 axisPointer 占位帧。
   useEffect(() => {
-    if (!chartRef.current || data.length === 0) return
-
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.dispose()
-    }
+    if (!chartRef.current) return
 
     const chart = echarts.init(chartRef.current, 'dark', { renderer: 'canvas' })
     chartInstanceRef.current = chart
@@ -325,10 +335,33 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     chart.getZr().on('dblclick', () => {
       setIsExpanded(prev => {
         const next = !prev
-        if (!next && onClose) onClose()
+        if (!next) onCloseRef.current?.()
         return next
       })
     })
+
+    // 等 echarts 完整绘制结束后，才解除"刷新中"遮罩
+    chart.on('finished', () => {
+      if (refreshPendingRef.current) {
+        refreshPendingRef.current = false
+        setRefreshing(false)
+      }
+    })
+
+    const handleResize = () => chart.resize()
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      chart.dispose()
+      chartInstanceRef.current = null
+    }
+  }, [])
+
+  // 数据/配置变化时只更新 option（notMerge 完整替换 series/grid 结构）
+  useEffect(() => {
+    const chart = chartInstanceRef.current
+    if (!chart || data.length === 0) return
 
     // 默认可见窗口大小:常态 120 条 / 全屏 250 条;
     // 但 xAxis.data 给的是**全量**,通过 dataZoom 控制可见范围,这样用户能左右拖动浏览历史。
@@ -542,16 +575,9 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
       ],
     }
 
-    chart.setOption(option)
-
-    const handleResize = () => chart.resize()
-    window.addEventListener('resize', handleResize)
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      chart.dispose()
-      chartInstanceRef.current = null
-    }
+    chart.setOption(option, true)
+    // isExpanded 切换时容器尺寸变化（fixed 全屏 vs flex item），需要 resize 触发 echarts 重测画布
+    chart.resize()
   }, [data, isExpanded, maConfig])
 
   const [isLightTheme, setIsLightTheme] = useState(false)
@@ -586,10 +612,25 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     setRefreshing(true)
     try {
       const list = await RefreshStockKlines(code, 'daily')
-      setRawData(list || [])
+      // 与 GetStockKlines 路径保持一致：统一日期格式，否则刷新后切到周线会因
+      // aggregateToWeekly 严格要求 'YYYY-MM-DD' 而把腾讯 'YYYYMMDD' / 网易 'YYYY/MM/DD' 全部跳过。
+      const normalized = (list || []).map((d) => ({
+        ...d,
+        time: normalizeTime(d.time),
+      }))
+      // 标记等待 chart 'finished' 事件再解除遮罩，避免 zrender 还没画完就露出残留
+      refreshPendingRef.current = true
+      setRawData(normalized)
+      // 兜底：5s 后强制解除，防止 finished 事件因某种原因未触发导致按钮永久卡住
+      setTimeout(() => {
+        if (refreshPendingRef.current) {
+          refreshPendingRef.current = false
+          setRefreshing(false)
+        }
+      }, 5000)
     } catch (e) {
       console.error('刷新K线失败:', e)
-    } finally {
+      refreshPendingRef.current = false
       setRefreshing(false)
     }
   }
@@ -813,7 +854,7 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
           </div>
         )}
 
-        {/* 状态覆盖层：加载中或无数据时显示，避免 DOM 结构切换导致闪烁 */}
+        {/* 状态覆盖层：加载中 / 无数据时显示（局部覆盖，z=100 够用） */}
         {(loading || data.length === 0) && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 100,
@@ -827,9 +868,23 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
 
         <div ref={chartRef} className="unified-chart-container" style={{
           width: '100%', height: '100%',
-          visibility: loading || data.length === 0 ? 'hidden' : 'visible',
+          visibility: loading || refreshing || data.length === 0 ? 'hidden' : 'visible',
         }} />
       </div>
+
+      {/* 刷新遮罩：通过 Portal 挂到 document.body，z=99999 高于所有元素（包括 echarts 自带的 tooltip/zr 辅助 DOM 与可能的 Wails/macOS 系统级覆盖）。
+          由 chart 'finished' 事件触发解除，确保完整盖住整个 setOption 重绘过程。 */}
+      {refreshing && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          backgroundColor: isLightTheme ? '#f8fafc' : '#0f172a',
+          color: '#64748b', fontSize: 14,
+        }}>
+          刷新中…
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

@@ -1,5 +1,32 @@
 # Changelog
 
+## [v1.5.0] - 2026-05-24
+
+### 新增 (Features)
+- **K线图周期切换** (`frontend/src/UnifiedChart.tsx`)
+  - 主图周期一键切换：**日线 / 周线 / 月线**，右上角下拉选择
+  - 始终拉取日线数据，前端按自然周（周一~周日）/ 自然月聚合 OHLC、成交量、成交额；切换周期无需重新请求后端
+  - 周线聚合用 `split('-')` 安全解析 `YYYY-MM-DD`，避开 `toISOString()` 时区偏移与 `Invalid Date` 风险
+- **K线均线自定义** (`frontend/src/UnifiedChart.tsx`)
+  - 1~6 条均线全自由配置，每条周期范围 1~250 日
+  - 右上角齿轮按钮打开设置弹窗：选择条数 + 逐条调周期 + 一键恢复默认（MA5/10/30/60）
+  - 配置写入 `localStorage.unifiedChart_maConfig`，跨会话保留
+
+### 优化 (Improvements)
+- **K 线刷新流程**（消除"两条长条"闪烁）
+  - chart 实例改为**只在 mount/unmount 创建一次**，数据/配置变化只走 `chart.setOption(option, true)` 热更新，避免每次 dispose+init 之间露出深色背景 + 默认 axisPointer 占位帧
+  - 刷新期间用 React Portal 提到 `document.body` 层、`zIndex: 99999` 的不透明遮罩盖住整个重绘过程；解除时机由 echarts `finished` 事件触发（含 5s 兜底超时），避免 React 18 自动 batching 让 `setRefreshing(false)` 与 `setRawData()` 同帧 commit、`setOption` 中间帧外露
+  - 用 `onCloseRef` 稳定回调，防止 mount-effect 因 prop 变化重建
+- **K 线 UI 微调**
+  - legend 与右上角控件留出间距、控件尺寸统一
+  - 状态覆盖层文案区分加载中 / 暂无数据
+
+### 修复 (Fixes)
+- **刷新后切到周线显示"暂无K线数据"** (`frontend/src/UnifiedChart.tsx` `handleRefresh`)
+  - `RefreshStockKlines` 返回的列表此前未走 `normalizeTime`，腾讯 `YYYYMMDD` / 网易 `YYYY/MM/DD` 格式不符合 `aggregateToWeekly` 的 `YYYY-MM-DD` 严格解析（`parts.length !== 3` 直接跳过），导致刷新后周线全部样本被丢弃。现在与 `GetStockKlines` 初次加载路径保持一致：刷新返回的 `time` 字段统一归一化为 `YYYY-MM-DD`。
+- **跨数据源日期格式不一致** (`frontend/src/UnifiedChart.tsx` `normalizeTime`)
+  - 统一处理腾讯 `YYYYMMDD` / 东财 `YYYY-MM-DD` / 网易 `YYYY/MM/DD`，下游聚合/标签/坐标轴一律按 `YYYY-MM-DD` 走
+
 ## [v1.4.0] - 2026-05-24
 
 ### 新增 (Features)
