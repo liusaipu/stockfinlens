@@ -52,6 +52,7 @@ _session_a = None
 _session_b = None
 _scaler_b = None
 _model_d = None
+_feature_stats_d = None
 
 
 def get_model_d():
@@ -68,6 +69,22 @@ def get_model_d():
                 print(json.dumps({"warning": f"Engine-D 模型加载失败，将使用规则评估: {e}"}), file=sys.stderr)
                 _model_d = None
     return _model_d
+
+
+def get_feature_stats_d():
+    """加载 Engine-D 特征统计量（健康/风险均值、方向、importance），用于 per-sample 归因"""
+    global _feature_stats_d
+    if _feature_stats_d is None:
+        stats_path = os.path.join(SCRIPT_DIR, "engine_d_risk", "model", "feature_stats.json")
+        if os.path.exists(stats_path):
+            try:
+                with open(stats_path, "r", encoding="utf-8") as f:
+                    _feature_stats_d = json.load(f)
+            except Exception:
+                _feature_stats_d = {}
+        else:
+            _feature_stats_d = {}
+    return _feature_stats_d
 
 
 def get_session_a():
@@ -250,7 +267,9 @@ def infer_engine_d(payload):
     else:
         risk_level = "低风险"
     
-    # 获取特征重要性作为风险因子
+    # Per-sample 风险因子归因
+    # 旧逻辑取 model.feature_importances_ 的 top3——对每只股票都是同一个结果，无意义。
+    # 新逻辑：(value - healthy_mean) / healthy_std × importance，根据方向打符号，取 top3。
     importances = model.feature_importances_
     feature_names = [
         'mscore', 'zscore', 'cash_deviation', 'ar_risk', 'gm_risk', 'ascore',
@@ -258,13 +277,38 @@ def infer_engine_d(payload):
         'goodwill_to_equity', 'inventory_turnover', 'receivable_turnover',
         'pe_ttm', 'pb', 'market_cap', 'turnover_20d', 'volatility_60d', 'max_drawdown_1y',
         'pledge_ratio', 'regulatory_inquiry_count_1y', 'major_shareholder_reduction_1y',
-        'auditor_switch_count_2y', 'cfo_change'
+        'auditor_switch_count_2y', 'cfo_change_count_2y'
     ]
-    
-    # 找出最重要的3个特征
-    top_indices = np.argsort(importances)[-3:][::-1]
-    top_factors = [feature_names[i] for i in top_indices]
-    
+
+    stats = get_feature_stats_d()
+    feat_vec = features[0]
+    contributions = []
+    for i, name in enumerate(feature_names):
+        st = stats.get(name)
+        if not st:
+            continue
+        h_mean = st.get('healthy_mean', 0.0)
+        h_std = st.get('healthy_std', 1.0) or 1e-6
+        direction = st.get('direction', 'higher_is_risk')
+        imp = float(importances[i]) if i < len(importances) else 0.0
+        z = (float(feat_vec[i]) - h_mean) / h_std
+        # higher_is_risk: z 越大越危险；lower_is_risk: z 越小越危险，取负
+        signed_z = z if direction == 'higher_is_risk' else -z
+        contribution = signed_z * imp
+        # 仅保留对风险有正贡献的项
+        if contribution > 0:
+            label = '偏高' if direction == 'higher_is_risk' else '偏低'
+            contributions.append((contribution, name, label, float(feat_vec[i])))
+
+    contributions.sort(key=lambda x: x[0], reverse=True)
+    top = contributions[:3]
+    top_factors = [f"{name}({label})" for _, name, label, _ in top]
+
+    # 若没有任何正向贡献（极低风险情况），退化为全局重要性 top3 + 标注无显著偏离
+    if not top_factors:
+        top_indices = np.argsort(importances)[-3:][::-1]
+        top_factors = [f"{feature_names[i]}(无显著偏离)" for i in top_indices]
+
     return {
         "risk_label": int(risk_label),
         "risk_prob": round(risk_prob, 4),

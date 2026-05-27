@@ -202,6 +202,10 @@ func zscore(values []float64) []float64 {
 // BuildMLEngineDInput 构建 Engine-D 25维风险特征向量
 // 特征顺序：财务14维 + 市场6维 + 非财务5维
 // quote 为实时行情数据，用于填充市场指标；为 nil 时使用默认值
+//
+// 注意：mscore / ascore 由 step8RiskAnalysis 计算并复用真实 Beneish M-Score 与综合 A-Score，
+// gm_risk 改为单边（仅在毛利率 YoY 下滑时为正，单位百分点小数）。
+// 这些都与 ml_models/engine_d_risk/train.py 的特征语义保持一致。
 func BuildMLEngineDInput(data *FinancialData, quote *QuoteData) []float64 {
 	if data == nil || len(data.Years) == 0 {
 		return nil
@@ -209,6 +213,25 @@ func BuildMLEngineDInput(data *FinancialData, quote *QuoteData) []float64 {
 
 	// 使用最新年份数据
 	year := data.Years[0]
+
+	// 复用 step8 的真实 A-Score / M-Score / 现金流偏离度 / GMRisk / ARRisk
+	step8 := step8RiskAnalysis(data)
+	var realAScore, realMScore, realCashDev float64
+	var step8GMRiskPctDecline float64 // step8 的 0-100 GMRisk，需要换算回百分点跌幅
+	if yd, ok := step8.YearlyData[year]; ok {
+		if v, ok := yd["AScore"].(float64); ok {
+			realAScore = v
+		}
+		if v, ok := yd["MScore"].(float64); ok {
+			realMScore = v
+		}
+		if v, ok := yd["CashDev"].(float64); ok {
+			realCashDev = v
+		}
+		if v, ok := yd["GMRisk"].(float64); ok {
+			step8GMRiskPctDecline = v
+		}
+	}
 
 	// 基础数据提取（使用 GetValueOrZero 正确访问 {科目: {年份: 值}} 结构）
 	revenue := data.GetValueOrZero(data.IncomeStatement, "营业收入", year)
@@ -230,9 +253,13 @@ func BuildMLEngineDInput(data *FinancialData, quote *QuoteData) []float64 {
 	goodwill := data.GetValueOrZero(data.BalanceSheet, "商誉", year)
 
 	// 财务指标 (14维)
-	// 1. M-Score 代理（应计项目/总资产）
-	accruals := netProfit - opCash
-	mscore := -safeDivide(accruals, totalAssets) * 5
+	// 1. M-Score：直接用 step8 的真实 Beneish M-Score（缺数据时 fallback 到代理）
+	mscore := realMScore
+	if mscore == 0 {
+		// fallback：step8 因年份不足等原因没算出来时，使用应计项目代理
+		accruals := netProfit - opCash
+		mscore = -safeDivide(accruals, totalAssets)*5 - 2.5 // 平移到 Beneish 区间
+	}
 
 	// 2. Z-Score 简化版
 	workingCapital := data.GetValueOrZero(data.BalanceSheet, "流动资产合计", year) -
@@ -250,37 +277,26 @@ func BuildMLEngineDInput(data *FinancialData, quote *QuoteData) []float64 {
 	x5 := safeDivide(revenue, totalAssets)
 	zscore := 1.2*x1 + 1.4*x2 + 3.3*x3 + 0.6*x4 + 1.0*x5
 
-	// 3. 现金流偏离度
-	cashDeviation := safeDivide(math.Abs(accruals), totalAssets)
+	// 3. 现金流偏离度：优先复用 step8；缺失时用 |accruals|/totalAssets
+	cashDeviation := realCashDev
+	if cashDeviation == 0 {
+		accruals := netProfit - opCash
+		cashDeviation = safeDivide(math.Abs(accruals), totalAssets)
+	}
 
-	// 4. 应收账款异常度
+	// 4. 应收账款异常度（应收/营收，0-1 区间，匹配训练侧分布）
 	arRisk := safeDivide(receivables, revenue)
 
-	// 5. 毛利率异常
+	// 5. 毛利率风险（单边）：仅在 YoY 毛利率下滑时为正，否则为 0
+	// 单位为小数跌幅（如 0.05 = 5 个百分点）。step8.GMRisk = 跌幅小数 × 2000，反推即可。
 	grossMargin := safeDivide(revenue-cost, revenue)
-	gmRisk := math.Abs(grossMargin - 0.30)
+	gmRisk := step8GMRiskPctDecline / 2000.0
+	if gmRisk < 0 {
+		gmRisk = 0
+	}
 
-	// 6. A-Score 综合风险
-	ascore := 0.0
-	if mscore > -2.22 {
-		ascore += 20
-	}
-	if zscore < 1.81 {
-		ascore += 25
-	}
-	if cashDeviation > 0.2 {
-		ascore += 15
-	}
-	if arRisk > 0.3 {
-		ascore += 15
-	}
-	if safeDivide(totalLiabilities, totalAssets) > 0.7 {
-		ascore += 15
-	}
-	if goodwill > equity*0.5 {
-		ascore += 10
-	}
-	ascore = math.Min(ascore, 100)
+	// 6. A-Score：直接用 step8 的真实综合评分（0-100，与训练数据 ascore 同尺度）
+	ascore := realAScore
 
 	// 7. ROE
 	roe := safeDivide(netProfit, equity)

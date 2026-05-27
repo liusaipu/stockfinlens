@@ -96,13 +96,12 @@ def extract_financial_features(fin_data: Dict[str, Any], year: str) -> Dict[str,
     # 4. 应收账款异常度 = 应收账款 / 营收
     ar_risk = safe_div(total_receivables, revenue, 0)
     
-    # 5. 毛利率异常波动（需要历史数据，这里用当前毛利率与行业比较简化）
+    # 5. 毛利率风险（单边）：离线特征提取拿不到上一年数据，置 0
+    #    运行时由 Go 端 BuildMLEngineDInput 基于 step8 给出真实跌幅
     gross_margin = safe_div(revenue - cost, revenue, 0)
-    # 假设正常毛利率 30%，偏离度
-    gm_risk = abs(gross_margin - 0.30)
-    
-    # 6. A-Score 综合风险（使用已有计算或简化）
-    # 基于多维度风险因子的综合得分 (0-100)
+    gm_risk = 0.0
+
+    # 6. A-Score 综合风险：离线提取使用简化代理；运行时由 Go 端覆盖为真实 A-Score
     ascore = 0
     if mscore > -2.22:
         ascore += 20

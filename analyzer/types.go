@@ -156,9 +156,10 @@ type RiskAlertFlag struct {
 	Name    string   `json:"name"`    // 人类可读名称，如 "A-Score 偏高"
 	Value   float64  `json:"value"`   // 具体数值
 	Format  string   `json:"format"`  // 格式化模板，如 "A-Score %.0f"
-	Level   string   `json:"level"`   // high / medium
+	Level   string   `json:"level"`   // high / medium / info
 	Source  string   `json:"source"`  // 数据来源，如 "step8" / "crawler"
 	Details []string `json:"details"` // 原始详情列表（如公告标题）
+	Note    string   `json:"note"`    // 提示说明（用于 hover tooltip，如正常审计轮换的原因解释）
 }
 
 // RiskAlertSummary 风险警示摘要
@@ -182,6 +183,7 @@ type AuditorChangeDetail struct {
 	IsPolicyCompliance   bool   `json:"is_policy_compliance"` // 是否为政策合规更换（如国企8年强制轮换）
 	IsAbnormal           bool   `json:"is_abnormal"`          // 是否为异常更换（需警惕）
 	IsPassiveChange      bool   `json:"is_passive_change"`    // 是否为被动更换（原事务所被处罚/禁入等，非公司自身问题）
+	IsNormalRotation     bool   `json:"is_normal_rotation"`   // 是否为正常轮换（看似异常实则正常，如招标选聘、连续服务多年后更换）
 }
 
 // ExternalRiskData 外部风险数据（审计机构、高管变动、诉讼等）

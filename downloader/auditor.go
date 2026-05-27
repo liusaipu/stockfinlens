@@ -21,6 +21,7 @@ type AuditorChangeDetail struct {
 	IsPolicyCompliance   bool   `json:"is_policy_compliance"` // 是否为政策合规更换（如国企8年强制轮换）
 	IsAbnormal           bool   `json:"is_abnormal"`          // 是否为异常更换（需警惕）
 	IsPassiveChange      bool   `json:"is_passive_change"`    // 是否为被动更换（原事务所被处罚/禁入等，非公司自身问题）
+	IsNormalRotation     bool   `json:"is_normal_rotation"`   // 是否为正常轮换（看似异常实则正常，如招标选聘、连续服务多年后更换）
 }
 
 // AuditOpinion 单年度审计意见

@@ -30,6 +30,7 @@ export namespace analyzer {
 	    level: string;
 	    source: string;
 	    details: string[];
+	    note: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new RiskAlertFlag(source);
@@ -44,6 +45,7 @@ export namespace analyzer {
 	        this.level = source["level"];
 	        this.source = source["source"];
 	        this.details = source["details"];
+	        this.note = source["note"];
 	    }
 	}
 	export class AnalysisDiff {

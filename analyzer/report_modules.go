@@ -7,13 +7,13 @@ import (
 	"strings"
 )
 
-func writeModule1(b *strings.Builder, symbol string, steps []StepResult, latest, prev string, score *YearScore, quote *QuoteData, technical *TechnicalData, activity *ActivityData, ml *MLPredictionData) {
+func writeModule1(b *strings.Builder, symbol string, steps []StepResult, latest, prev string, score *YearScore, quote *QuoteData, technical *TechnicalData, activity *ActivityData, ml *MLPredictionData, riskAlert *RiskAlertSummary) {
 	b.WriteString("# 模块1: 执行摘要\n\n")
 
 	writeEightIndicatorsHighlight(b, steps, latest)
 
 	// 1.0 审计意见
-	writeAuditOpinion(b, steps, latest)
+	writeAuditOpinion(b, steps, latest, riskAlert)
 
 	b.WriteString("## 1.1 多维度评分汇总\n\n")
 	b.WriteString("| 评估维度 | 评级 | 得分 | 关键结论 |\n")
@@ -1417,7 +1417,7 @@ func writeModuleDiff(b *strings.Builder, diff *AnalysisDiff) {
 	b.WriteString("---\n\n")
 }
 
-func writeAuditOpinion(b *strings.Builder, steps []StepResult, latest string) {
+func writeAuditOpinion(b *strings.Builder, steps []StepResult, latest string, riskAlert *RiskAlertSummary) {
 	step1 := findStepResult(steps, 1)
 	if step1 == nil || step1.YearlyData == nil {
 		return
@@ -1455,6 +1455,21 @@ func writeAuditOpinion(b *strings.Builder, steps []StepResult, latest string) {
 		}
 	}
 	b.WriteString("\n")
+
+	// 审计机构正常轮换提示
+	if riskAlert != nil {
+		for _, f := range riskAlert.Flags {
+			if f.Code == "auditor_rotation" && f.Level == "info" {
+				b.WriteString("> ℹ️ **审计机构正常轮换提示**：")
+				if f.Note != "" {
+					b.WriteString(f.Note)
+				} else {
+					b.WriteString("该审计机构更换看似异常，实则属于正常轮换，不属于公司自身风险信号。")
+				}
+				b.WriteString("\n\n")
+			}
+		}
+	}
 }
 
 // findStepResult 从 steps 中按 stepNum 查找

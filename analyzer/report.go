@@ -44,7 +44,7 @@ func GenerateMarkdown(symbol string, years []string, steps []StepResult, scores 
 	}
 
 	// ==================== 模块1: 执行摘要 ====================
-	writeModule1(&b, symbol, steps, latest, prev, latestScore, quote, technical, activity, ml)
+	writeModule1(&b, symbol, steps, latest, prev, latestScore, quote, technical, activity, ml, riskAlert)
 
 	// ==================== 模块1.3: 与上次分析对比 ====================
 	if diff != nil && diff.HasPrevious {
@@ -143,6 +143,9 @@ func writeRiskAlertBanner(b *strings.Builder, alert *RiskAlertSummary) {
 			if f.Level == "high" {
 				flagIcon = "🔴"
 				flagLevel = "高风险"
+			} else if f.Level == "info" {
+				flagIcon = "ℹ️"
+				flagLevel = "信息"
 			}
 				b.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", flagIcon, f.Name, f.FormatFlagValue(), flagLevel))
 		}

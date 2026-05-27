@@ -508,6 +508,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 					IsPolicyCompliance:   cd.IsPolicyCompliance,
 					IsAbnormal:           cd.IsAbnormal,
 					IsPassiveChange:      cd.IsPassiveChange,
+					IsNormalRotation:     cd.IsNormalRotation,
 				})
 			}
 			// 将审计意见回填到 finData（供 step1Audit 使用）

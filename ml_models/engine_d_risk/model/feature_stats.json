@@ -1,0 +1,177 @@
+{
+  "mscore": {
+    "healthy_mean": -2.78249415221557,
+    "healthy_std": 0.39432299677548754,
+    "risk_mean": -1.756181454607633,
+    "direction": "higher_is_risk",
+    "importance": 0.0026397666291373347
+  },
+  "zscore": {
+    "healthy_mean": 3.4835460927012103,
+    "healthy_std": 0.9637618134604036,
+    "risk_mean": 1.2289831908757178,
+    "direction": "lower_is_risk",
+    "importance": 0.05220317448775995
+  },
+  "cash_deviation": {
+    "healthy_mean": 0.04886779116326851,
+    "healthy_std": 0.07515057859648316,
+    "risk_mean": 0.2943389871861147,
+    "direction": "higher_is_risk",
+    "importance": 0.05531532066400914
+  },
+  "ar_risk": {
+    "healthy_mean": 0.15424233338726,
+    "healthy_std": 0.09988192851970525,
+    "risk_mean": 0.5015738807221282,
+    "direction": "higher_is_risk",
+    "importance": 0.16880612169256468
+  },
+  "gm_risk": {
+    "healthy_mean": 0.007869860421977057,
+    "healthy_std": 0.01205819694075191,
+    "risk_mean": 0.08343111145590858,
+    "direction": "higher_is_risk",
+    "importance": 0.049355071089033614
+  },
+  "ascore": {
+    "healthy_mean": 34.257231720081066,
+    "healthy_std": 11.943178345429551,
+    "risk_mean": 70.18479350036412,
+    "direction": "higher_is_risk",
+    "importance": 0.63251704725297
+  },
+  "roe": {
+    "healthy_mean": 0.12163418531618429,
+    "healthy_std": 0.05836755690771994,
+    "risk_mean": 0.06897988897032101,
+    "direction": "lower_is_risk",
+    "importance": 5.487866478988845e-06
+  },
+  "gross_margin": {
+    "healthy_mean": 0.35182017194943105,
+    "healthy_std": 0.14850891713139558,
+    "risk_mean": 0.260678486387391,
+    "direction": "lower_is_risk",
+    "importance": 2.5359098775268962e-05
+  },
+  "revenue_growth": {
+    "healthy_mean": 0.15114321502538425,
+    "healthy_std": 0.10254576321492699,
+    "risk_mean": -0.05878569593858136,
+    "direction": "lower_is_risk",
+    "importance": 0.0014142170392875933
+  },
+  "debt_ratio": {
+    "healthy_mean": 0.44767664437311644,
+    "healthy_std": 0.15229205994594017,
+    "risk_mean": 0.7527804506751992,
+    "direction": "higher_is_risk",
+    "importance": 0.007259257184957126
+  },
+  "ncf_to_profit": {
+    "healthy_mean": 1.1227396749315517,
+    "healthy_std": 0.3066237105408351,
+    "risk_mean": 0.39164517361448253,
+    "direction": "lower_is_risk",
+    "importance": 0.003100195633795956
+  },
+  "goodwill_to_equity": {
+    "healthy_mean": 0.09900237479207863,
+    "healthy_std": 0.08021228006389018,
+    "risk_mean": 0.2517152077450663,
+    "direction": "higher_is_risk",
+    "importance": 0.013104537592062883
+  },
+  "inventory_turnover": {
+    "healthy_mean": 5.973843278681768,
+    "healthy_std": 3.110653753938515,
+    "risk_mean": 3.010299691748342,
+    "direction": "lower_is_risk",
+    "importance": 0.000644766450990322
+  },
+  "receivable_turnover": {
+    "healthy_mean": 8.173266247075523,
+    "healthy_std": 3.9065128555678914,
+    "risk_mean": 4.0467170703104,
+    "direction": "lower_is_risk",
+    "importance": 2.7396234472429096e-05
+  },
+  "pe_ttm": {
+    "healthy_mean": 24.935088372029178,
+    "healthy_std": 14.930945876065127,
+    "risk_mean": 55.99600067266671,
+    "direction": "higher_is_risk",
+    "importance": 0.0008809978022343035
+  },
+  "pb": {
+    "healthy_mean": 2.475045051784787,
+    "healthy_std": 1.5151833444267764,
+    "risk_mean": 3.8884468055344934,
+    "direction": "higher_is_risk",
+    "importance": 0.0001921297232345286
+  },
+  "market_cap": {
+    "healthy_mean": 245.20041850948516,
+    "healthy_std": 329.35626551711886,
+    "risk_mean": 250.32631156649748,
+    "direction": "higher_is_risk",
+    "importance": 1.5383063474073743e-05
+  },
+  "turnover_20d": {
+    "healthy_mean": 0.029829549180754106,
+    "healthy_std": 0.02076431039367295,
+    "risk_mean": 0.02963890216149803,
+    "direction": "lower_is_risk",
+    "importance": 0.00011774168350066984
+  },
+  "volatility_60d": {
+    "healthy_mean": 0.29944026608819574,
+    "healthy_std": 0.1032088362483118,
+    "risk_mean": 0.5060184759795058,
+    "direction": "higher_is_risk",
+    "importance": 0.0001251302775228662
+  },
+  "max_drawdown_1y": {
+    "healthy_mean": -0.14721211078608404,
+    "healthy_std": 0.07863973218899377,
+    "risk_mean": -0.34750401636385786,
+    "direction": "lower_is_risk",
+    "importance": 0.0026441171771081516
+  },
+  "pledge_ratio": {
+    "healthy_mean": 0.1478866617890187,
+    "healthy_std": 0.0985309118890812,
+    "risk_mean": 0.4035375888574203,
+    "direction": "higher_is_risk",
+    "importance": 0.0033504768306836076
+  },
+  "regulatory_inquiry_count_1y": {
+    "healthy_mean": 0.20557156580211336,
+    "healthy_std": 0.4450666381807203,
+    "risk_mean": 1.9855907780979827,
+    "direction": "higher_is_risk",
+    "importance": 0.00011865935049516501
+  },
+  "major_shareholder_reduction_1y": {
+    "healthy_mean": 0.5139289145052833,
+    "healthy_std": 0.7506715139560516,
+    "risk_mean": 3.0547550432276656,
+    "direction": "higher_is_risk",
+    "importance": 0.005927832039972978
+  },
+  "auditor_switch_count_2y": {
+    "healthy_mean": 0.10758885686839577,
+    "healthy_std": 0.3280918727317614,
+    "risk_mean": 0.968299711815562,
+    "direction": "higher_is_risk",
+    "importance": 2.731953457582241e-07
+  },
+  "cfo_change_count_2y": {
+    "healthy_mean": 0.2084534101825168,
+    "healthy_std": 0.4491076729625539,
+    "risk_mean": 1.4438040345821326,
+    "direction": "higher_is_risk",
+    "importance": 0.000209539940132602
+  }
+}

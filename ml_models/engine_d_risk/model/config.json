@@ -28,79 +28,79 @@
   ],
   "feature_importance": [
     {
-      "ascore": 0.5603883651269437
+      "ascore": 0.63251704725297
     },
     {
-      "gm_risk": 0.14811227380639203
+      "ar_risk": 0.16880612169256468
     },
     {
-      "ar_risk": 0.1441074040792079
+      "cash_deviation": 0.05531532066400914
     },
     {
-      "cash_deviation": 0.05637719376327253
+      "zscore": 0.05220317448775995
     },
     {
-      "zscore": 0.04764976392137585
+      "gm_risk": 0.049355071089033614
     },
     {
-      "debt_ratio": 0.01356284072879847
+      "goodwill_to_equity": 0.013104537592062883
     },
     {
-      "goodwill_to_equity": 0.009956778501289799
+      "debt_ratio": 0.007259257184957126
     },
     {
-      "major_shareholder_reduction_1y": 0.007653007913516786
+      "major_shareholder_reduction_1y": 0.005927832039972978
     },
     {
-      "ncf_to_profit": 0.0033448671859528027
+      "pledge_ratio": 0.0033504768306836076
     },
     {
-      "regulatory_inquiry_count_1y": 0.003145710107752904
+      "ncf_to_profit": 0.003100195633795956
     },
     {
-      "roe": 0.001998290441120072
+      "max_drawdown_1y": 0.0026441171771081516
     },
     {
-      "revenue_growth": 0.0011787492506796908
+      "mscore": 0.0026397666291373347
     },
     {
-      "inventory_turnover": 0.0008075571544850838
+      "revenue_growth": 0.0014142170392875933
     },
     {
-      "volatility_60d": 0.0006982718055561327
+      "pe_ttm": 0.0008809978022343035
     },
     {
-      "max_drawdown_1y": 0.00042759764277696435
+      "inventory_turnover": 0.000644766450990322
     },
     {
-      "pledge_ratio": 0.00019551085881447882
+      "cfo_change_count_2y": 0.000209539940132602
     },
     {
-      "cfo_change_count_2y": 0.0001789643583743693
+      "pb": 0.0001921297232345286
     },
     {
-      "pb": 0.00011686131067960261
+      "volatility_60d": 0.0001251302775228662
     },
     {
-      "gross_margin": 2.3312585249573135e-05
+      "regulatory_inquiry_count_1y": 0.00011865935049516501
     },
     {
-      "market_cap": 2.0971156290506486e-05
+      "turnover_20d": 0.00011774168350066984
     },
     {
-      "pe_ttm": 1.7206115115955103e-05
+      "receivable_turnover": 2.7396234472429096e-05
     },
     {
-      "mscore": 1.6261742068398614e-05
+      "gross_margin": 2.5359098775268962e-05
     },
     {
-      "turnover_20d": 1.3478722233371311e-05
+      "market_cap": 1.5383063474073743e-05
     },
     {
-      "receivable_turnover": 8.24847804216694e-06
+      "roe": 5.487866478988845e-06
     },
     {
-      "auditor_switch_count_2y": 5.13244010847504e-07
+      "auditor_switch_count_2y": 2.731953457582241e-07
     }
   ],
   "model_params": {
@@ -109,7 +109,7 @@
     "learning_rate": 0.1
   },
   "train_info": {
-    "train_time": "2026-04-11T14:09:05.787193",
+    "train_time": "2026-05-26T23:04:53.582441",
     "n_samples": 1388,
     "n_features": 25
   }

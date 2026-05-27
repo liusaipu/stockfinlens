@@ -83,6 +83,17 @@ Managed by `storage.go` (root-level `Storage` struct).
 - **Frontend**: `npm run build` must pass with zero TypeScript errors. ECharts data should avoid `null`; use `'-'` or `undefined` instead.
 - **ML models**: After exporting ONNX, verify inference results match between Python and Go.
 
+## K-line / Chart Conventions
+
+These are project invariants. Same bugs (date format, z-index/stacking) have surfaced in 3+ fix cycles; document them once, stop hitting them.
+
+- **Date format is `YYYY-MM-DD` across the frontend, no exceptions.** Backend sources return inconsistent formats: 东财 = `YYYY-MM-DD`, 腾讯 = `YYYYMMDD`, 网易 = `YYYY/MM/DD`. Every code path that calls a Kline-returning API (`GetStockKlines`, `RefreshStockKlines`, anything new) **must** run results through `normalizeTime()` in `UnifiedChart.tsx` before storing or aggregating. `aggregateToWeekly` strict-parses `split('-').length === 3` and silently drops mismatched rows → "暂无K线数据" — that's the symptom to recognize.
+- **Never parse dates with `new Date(str).toISOString()` for daily-bar timestamps.** Use `split('-')` + `new Date(y, m, day)` instead. `toISOString()` shifts by local timezone offset and returns `Invalid Date` for some inputs; both have caused regressions in weekly aggregation.
+- **Full-screen / global overlays go through React Portal at `z-index: 99999`.** ECharts creates DOM outside the chart container (tooltip, zr helpers) with its own z-index; React 18 auto-batching can also expose mid-`setOption` frames. Two patterns to follow when adding modals or chart loading overlays:
+  - `createPortal(<div style={{ zIndex: 99999 }}>...</div>, document.body)` — see `UnifiedChart.tsx` refresh mask and `UpdateModal.tsx`.
+  - For chart redraws, reuse the echarts instance (mount-once `useEffect`) + `chart.setOption(option, true)` and trigger overlay dismissal from the `'finished'` event, not from the `setState` that started the refresh (auto-batching collapses them into the same commit).
+- **When refactoring a component with multiple return paths (loading / empty / main), update ALL branches.** Loading and empty states share container styling that's easy to miss during a "fix the main render" pass.
+
 ## Release Checklist
 
 1. Version bump: update only `wails.json` `info.productVersion`. The frontend picks it up automatically via Vite.

@@ -2,7 +2,9 @@ package analyzer
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 )
 
 // BuildRiskAlertSummary 从财报分析结果中构建风险警示摘要
@@ -96,26 +98,34 @@ func BuildRiskAlertSummary(steps []StepResult, extras map[string]float64, years 
 	}
 
 	// 2. 审计机构变更（外部数据）
-	// 三层判断：
-	// - 政策合规更换（如国企8年强制轮换）+ 非年报前 → 信息提示，不触发风险
-	// - 被动更换（原事务所被处罚/禁入等）+ 非年报前 → 信息提示，不触发风险
+	// 四层判断：
+	// - 正常轮换（招标选聘/连续服务多年/无分歧等）+ 非年报前 → info 提示，不触发风险
+	// - 政策合规更换（如国企8年强制轮换）+ 非年报前 → info 提示，不触发风险
+	// - 被动更换（原事务所被处罚/禁入等）+ 非年报前 → info 提示，不触发风险
 	// - 年报披露期内更换 或 明确异常（辞任/解聘/意见分歧）→ 高风险 + 一票否决
+	// - 正常轮换但发生在年报期内 → 中风险（提示注意时机，但不一票否决）
 	// - 其他情况（原因模糊、未说明具体原因）→ 中风险，不触发一票否决
 	if external != nil && external.AuditorChanged {
 		var highRiskChanges []AuditorChangeDetail
 		var mediumRiskChanges []AuditorChangeDetail
-		var policyCompliantChanges []AuditorChangeDetail
+		var infoChanges []AuditorChangeDetail
 
 		for _, cd := range external.AuditorChangeDetails {
-			if cd.IsPolicyCompliance && !cd.IsBeforeAnnualReport {
+			if cd.IsNormalRotation && !cd.IsBeforeAnnualReport {
+				// 正常轮换 + 非年报前 = 看似异常实则正常
+				infoChanges = append(infoChanges, cd)
+			} else if cd.IsPolicyCompliance && !cd.IsBeforeAnnualReport {
 				// 政策合规 + 非年报前 = 合规轮换
-				policyCompliantChanges = append(policyCompliantChanges, cd)
+				infoChanges = append(infoChanges, cd)
 			} else if cd.IsPassiveChange && !cd.IsBeforeAnnualReport {
 				// 被动更换（原事务所被处罚/禁入等）+ 非年报前 = 非公司自身问题
-				policyCompliantChanges = append(policyCompliantChanges, cd)
+				infoChanges = append(infoChanges, cd)
 			} else if cd.IsBeforeAnnualReport || cd.IsAbnormal {
 				// 年报披露期内更换 或 明确异常信号（辞任/解聘/意见分歧等）
 				highRiskChanges = append(highRiskChanges, cd)
+			} else if cd.IsNormalRotation && cd.IsBeforeAnnualReport {
+				// 正常轮换但发生在年报披露期内，时机敏感，降为中风险提示
+				mediumRiskChanges = append(mediumRiskChanges, cd)
 			} else {
 				// 其他情况：原因模糊、未说明具体原因，属可疑但不确定
 				mediumRiskChanges = append(mediumRiskChanges, cd)
@@ -147,8 +157,8 @@ func BuildRiskAlertSummary(steps []StepResult, extras map[string]float64, years 
 					details = append(details, "  ⚠️ 该变更属于异常信号（辞任/解聘/意见分歧等）")
 				}
 			}
-			if len(policyCompliantChanges) > 0 {
-				details = append(details, fmt.Sprintf("（另有 %d 次正常轮换/被动更换已排除）", len(policyCompliantChanges)))
+			if len(infoChanges) > 0 {
+				details = append(details, fmt.Sprintf("（另有 %d 次正常轮换/被动更换已排除）", len(infoChanges)))
 			}
 			details = append(details, "⚠️ 年报披露期内更换审计机构或异常辞任，通常是掩盖财务问题的强烈信号")
 			summary.Flags = append(summary.Flags, RiskAlertFlag{
@@ -180,8 +190,8 @@ func BuildRiskAlertSummary(steps []StepResult, extras map[string]float64, years 
 				details = append(details, fmt.Sprintf("  对应年报截止日: %s", cd.AnnualReportDeadline))
 				details = append(details, fmt.Sprintf("  变更原因: %s", cd.Reason))
 			}
-			if len(policyCompliantChanges) > 0 {
-				details = append(details, fmt.Sprintf("（另有 %d 次正常轮换/被动更换已排除）", len(policyCompliantChanges)))
+			if len(infoChanges) > 0 {
+				details = append(details, fmt.Sprintf("（另有 %d 次正常轮换/被动更换已排除）", len(infoChanges)))
 			}
 			details = append(details, "⚠️ 该审计机构更换未说明明确原因，建议关注后续年报审计意见及更换细节")
 			summary.Flags = append(summary.Flags, RiskAlertFlag{
@@ -194,20 +204,68 @@ func BuildRiskAlertSummary(steps []StepResult, extras map[string]float64, years 
 			})
 		}
 
-		// 处理政策合规/被动更换（信息提示，不触发风险）
-		if len(policyCompliantChanges) > 0 && len(highRiskChanges) == 0 && len(mediumRiskChanges) == 0 {
-			details := []string{}
-			for _, cd := range policyCompliantChanges {
-				details = append(details, fmt.Sprintf("%s: %s → %s（%s）", cd.Date, cd.OldAuditor, cd.NewAuditor, cd.Reason))
+		// 检测频繁更换：半年内（180天）多次更换审计机构，即使单次看似正常也需重点关注
+		if len(external.AuditorChangeDetails) >= 2 {
+			sortedChanges := make([]AuditorChangeDetail, len(external.AuditorChangeDetails))
+			copy(sortedChanges, external.AuditorChangeDetails)
+			sort.Slice(sortedChanges, func(i, j int) bool {
+				return sortedChanges[i].Date < sortedChanges[j].Date
+			})
+			for i := 1; i < len(sortedChanges); i++ {
+				days := daysBetween(sortedChanges[i-1].Date, sortedChanges[i].Date)
+				if days >= 0 && days <= 180 {
+					details := []string{}
+					details = append(details, fmt.Sprintf("近3年内共发生 %d 次审计机构变更", len(external.AuditorChangeDetails)))
+					details = append(details, fmt.Sprintf("%s 与 %s 两次变更间隔仅 %d 天（≤180天）", sortedChanges[i-1].Date, sortedChanges[i].Date, days))
+					if sortedChanges[i-1].OldAuditor != "" || sortedChanges[i-1].NewAuditor != "" {
+						details = append(details, fmt.Sprintf("  前次: %s → %s", sortedChanges[i-1].OldAuditor, sortedChanges[i-1].NewAuditor))
+					}
+					if sortedChanges[i].OldAuditor != "" || sortedChanges[i].NewAuditor != "" {
+						details = append(details, fmt.Sprintf("  后次: %s → %s", sortedChanges[i].OldAuditor, sortedChanges[i].NewAuditor))
+					}
+					details = append(details, "⚠️ 半年内多次更换审计机构是极不寻常的信号，即使单次变更原因看似正常，频繁更换通常意味着公司与审计机构之间存在未披露的重大分歧或财务问题")
+					summary.Flags = append(summary.Flags, RiskAlertFlag{
+						Code:    "auditor_changed_frequent",
+						Name:    "审计机构频繁更换",
+						Level:   "high",
+						Source:  "external",
+						Format:  fmt.Sprintf("%d 天内更换 %d 次", days, len(external.AuditorChangeDetails)),
+						Details: details,
+					})
+					summary.OneVeto = true
+					break
+				}
 			}
-			details = append(details, "✓ 该变更为政策合规轮换或被动更换（原事务所被处罚等），不属于公司自身风险信号")
+		}
+
+		// 处理正常轮换/政策合规/被动更换（信息提示，不触发风险，但展示在报告中）
+		if len(infoChanges) > 0 && len(highRiskChanges) == 0 {
+			details := []string{}
+			var noteParts []string
+			for _, cd := range infoChanges {
+				details = append(details, fmt.Sprintf("%s: %s → %s（%s）", cd.Date, cd.OldAuditor, cd.NewAuditor, cd.Reason))
+				if cd.IsNormalRotation {
+					noteParts = append(noteParts, fmt.Sprintf("%s 的更换公告标题中出现「招标/选聘/连续服务」等正常轮换关键词", cd.Date))
+				} else if cd.IsPolicyCompliance {
+					noteParts = append(noteParts, fmt.Sprintf("%s 为政策合规轮换（如服务年限届满）", cd.Date))
+				} else if cd.IsPassiveChange {
+					noteParts = append(noteParts, fmt.Sprintf("%s 为被动更换（原事务所被处罚等，非公司自身问题）", cd.Date))
+				}
+			}
+			note := "该审计机构更换看似异常，实则属于正常轮换。"
+			if len(noteParts) > 0 {
+				note += strings.Join(noteParts, "；") + "。"
+			}
+			note += " 更换不在年报披露期内，且未发现辞任、解聘、意见分歧等异常信号，因此不列入风险警示。"
+			details = append(details, "✓ 该变更为正常轮换/政策合规更换/被动更换，不属于公司自身风险信号")
 			summary.Flags = append(summary.Flags, RiskAlertFlag{
 				Code:    "auditor_rotation",
 				Name:    "审计机构正常轮换",
 				Level:   "info",
 				Source:  "external",
-				Format:  "政策合规轮换/被动更换",
+				Format:  "审计机构正常轮换",
 				Details: details,
+				Note:    note,
 			})
 		}
 	}
@@ -819,6 +877,16 @@ func (f *RiskAlertFlag) FormatFlagValue() string {
 		return f.Format
 	}
 	return f.Name
+}
+
+// daysBetween 计算两个日期之间的天数差（date1 在 date2 之前）
+func daysBetween(date1, date2 string) int {
+	d1, err1 := time.Parse("2006-01-02", date1)
+	d2, err2 := time.Parse("2006-01-02", date2)
+	if err1 != nil || err2 != nil {
+		return -1
+	}
+	return int(d2.Sub(d1).Hours() / 24)
 }
 
 // monthsBefore 计算两个日期之间的大约月数差（date1 在 date2 之前）

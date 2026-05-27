@@ -1,5 +1,36 @@
 # Changelog
 
+## [v1.5.1] - 2026-05-27
+
+### 新增 (Features)
+- **审计机构「正常轮换」识别**（`scripts/fetch_auditor_history.py`, `analyzer/risk_alert.go`, `analyzer/types.go`, `frontend/src/components/RiskAlertBanner.tsx`）
+  - 新增 `NORMAL_ROTATION_KEYWORDS`（招标/选聘/连续服务/不存在分歧/年限届满等），通过公告标题识别正常轮换。
+  - 风险判定升级为四层：正常轮换 / 政策合规 / 被动更换 → `info` 信息提示（不进入风险警示）；年报披露期内更换或异常辞任 → 高风险一票否决；其他模糊原因 → 中风险。
+  - 新增半年内（≤180 天）多次更换审计机构的频繁更换检测，触发一票否决。
+  - 前端 `RiskAlertBanner` 支持蓝色信息样式与 hover tooltip，详细解释「为什么这次更换看似异常实则正常」。
+  - 报告模块 1.0 审计意见段落追加正常轮换提示引用块。
+- **模块 9.x ML 模型标题信息图标**（`frontend/src/App.tsx`）
+  - 9.1 Engine-B / 9.2 Engine-A / 9.3 Engine-D 标题右侧添加 ℹ️ 图标，hover 弹出模型原理、如何理解结果、适用场景与局限。
+- **可比公司「全添加」按钮**（`frontend/src/App.tsx`）
+  - 推荐结果右侧新增「全添加 +」按钮，一键将所有推荐可比公司加入清单（受 7 个上限和已添加状态约束）。
+
+### 优化 (Improvements)
+- **Engine-D 风险预警模型修复**（`analyzer/ml_features.go`, `ml_models/inference.py`, `ml_models/engine_d_risk/train.py`）
+  - 用真实 Beneish M-Score 与综合 A-Score 替换原伪 mscore（`-accruals/totalAssets*5`，几乎永远触发 `>-2.22` 阈值）与 6 规则代理 ascore，复用 `step8RiskAnalysis` 输出。
+  - `gm_risk` 从对称的 `|gm-0.30|`（同时惩罚高/低毛利）改为单边的 YoY 跌幅小数，高毛利公司（军工/科技）不再被误判。
+  - 训练侧 `gm_risk` 合成分布同步调整（健康 `max(0, N(0, 0.02))`，风险 `max(0, N(0.08, 0.06))`），模型重训。
+  - `top_factors` 从「全局 `feature_importances_` top3」（对每只股票输出相同结果）改为 per-sample 归因：`(value-healthy_mean)/healthy_std × importance` 排序取 top3，附带 `(偏高)/(偏低)` 方向标签。
+  - 训练时新增 `model/feature_stats.json` sidecar 保存健康均值/方差/方向/importance，供推理时归因使用。
+  - 验证：振华科技-like 输入风险概率从 **88.9% 高风险** → **37.7% 低风险**；真造假股-like 输入仍为 **100% 高风险**。
+- **UpdateModal 改 Portal 渲染**（`frontend/src/UpdateModal.tsx`）
+  - 弹窗通过 `createPortal(..., document.body)` 挂到 body，`zIndex: 99999`，避免被 ECharts 等高层级 DOM 遮挡。
+- **资金流向说明位置调整**（`frontend/src/App.tsx`）
+  - 「主力 = 超大单 + 大单」从表格底部小字改为标题旁 ⓘ hover 提示，节省纵向空间。
+
+### 文档 (Docs)
+- **K-line / Chart Conventions**（`CLAUDE.md`）
+  - 沉淀三类高频复发约定：日期格式统一 `YYYY-MM-DD` + 必须经 `normalizeTime`；禁用 `toISOString()` 解析日 K 时间戳；全屏覆盖层走 React Portal + `z-index: 99999`；多分支组件（loading/empty/main）必须统一更新。
+
 ## [v1.5.0] - 2026-05-24
 
 ### 新增 (Features)

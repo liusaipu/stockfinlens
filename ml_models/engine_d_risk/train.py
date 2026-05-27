@@ -72,8 +72,8 @@ def generate_synthetic_features(samples, seed=42):
             cash_dev = np.random.normal(0.28, 0.14)
             # 应收账款异常
             ar_risk = np.random.normal(0.5, 0.2)
-            # 毛利率异常波动
-            gm_risk = np.random.normal(0.4, 0.2)
+            # 毛利率风险（单边：YoY 跌幅小数，约 0-15pp）
+            gm_risk = max(0.0, np.random.normal(0.08, 0.06))
             # A-Score 偏高
             ascore = np.random.normal(70, 15)
             # ROE 可能虚高或偏低
@@ -92,7 +92,8 @@ def generate_synthetic_features(samples, seed=42):
             zscore = np.random.normal(3.5, 1.0)   # 健康 > 2.99
             cash_dev = np.random.normal(0.05, 0.08)
             ar_risk = np.random.normal(0.15, 0.1)
-            gm_risk = np.random.normal(0.1, 0.08)
+            # 毛利率风险（单边）：健康公司毛利稳定/上升，gm_risk ~ 0
+            gm_risk = max(0.0, np.random.normal(0.0, 0.02))
             ascore = np.random.normal(35, 12)
             roe = np.random.normal(0.12, 0.06)
             debt_ratio = np.random.normal(0.45, 0.15)
@@ -285,6 +286,28 @@ def train_model(data_dir: str, output_dir: str):
     config_path = os.path.join(output_dir, 'config.json')
     save_json(config_path, feature_config)
     print(f"✓ 配置已保存: {config_path}")
+
+    # 保存每个特征在「健康类」上的均值/标准差，供推理时做 per-sample 风险归因
+    # 用法：z = (value - healthy_mean) / healthy_std，z 越大表示该特征越偏离健康水平
+    healthy_df = df[df['label'] == 0]
+    risk_df = df[df['label'] == 1]
+    feature_stats = {}
+    for col in feature_cols:
+        h_mean = float(healthy_df[col].mean())
+        h_std = float(healthy_df[col].std()) or 1e-6
+        r_mean = float(risk_df[col].mean())
+        # 方向：风险均值在健康均值之上 → "偏高"加重风险；反之 "偏低"加重风险
+        direction = 'higher_is_risk' if r_mean > h_mean else 'lower_is_risk'
+        feature_stats[col] = {
+            'healthy_mean': h_mean,
+            'healthy_std': h_std,
+            'risk_mean': r_mean,
+            'direction': direction,
+            'importance': float(dict(feature_importance)[col]),
+        }
+    stats_path = os.path.join(output_dir, 'feature_stats.json')
+    save_json(stats_path, feature_stats)
+    print(f"✓ 特征统计已保存: {stats_path}")
     
     # 保存测试集预测示例
     sample_predictions = []

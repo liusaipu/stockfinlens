@@ -3051,6 +3051,34 @@ body.light .risk-alert-veto {
   color: #fdba74;
 }
 
+.risk-alert-flag-info {
+  color: #93c5fd;
+}
+
+/* 信息提示横幅 */
+.risk-alert-info {
+  border-left: 4px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.risk-alert-info .risk-alert-header {
+  color: #bfdbfe;
+}
+
+/* 浅色主题 */
+body.light .risk-alert-info {
+  border-left: 4px solid #2563eb;
+  background: #eff6ff;
+}
+
+body.light .risk-alert-info .risk-alert-header {
+  color: #1e40af;
+}
+
+body.light .risk-alert-flag-info {
+  color: #2563eb;
+}
+
 /* 浅色主题 */
 body.light .risk-alert-high .risk-alert-header {
   color: #991b1b;

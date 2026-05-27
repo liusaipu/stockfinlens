@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import './App.css'
 import {
   DownloadUpdate,
@@ -106,10 +107,8 @@ export function UpdateModal({ isOpen, info, onClose }: UpdateModalProps) {
     }
   }
 
-  return (
-    <div className="modal-overlay" onClick={e => {
-      if (e.target === e.currentTarget && !downloading && !applying) onClose()
-    }}>
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex: 99999 }}>
       <div className="modal-content" style={{ maxWidth: 520, width: '90%' }}>
         <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>🚀</span>
@@ -252,6 +251,7 @@ export function UpdateModal({ isOpen, info, onClose }: UpdateModalProps) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

@@ -1738,6 +1738,26 @@ function App() {
     setCompRecommendations((prev) => prev.filter((r) => r.symbol !== symbol))
   }
 
+  const handleAddAllRecommendations = async () => {
+    if (!selectedStock) return
+    const toAdd = compRecommendations.filter(r => !comparables.includes(r.symbol))
+    if (toAdd.length === 0) return
+    try {
+      for (const r of toAdd) {
+        if (comparables.length >= 7) break
+        await AddComparable(selectedStock.code, r.symbol)
+      }
+      const list = await GetComparables(selectedStock.code)
+      setComparables(list || [])
+      setAppliedComparables(list || [])
+      // 清空推荐结果
+      setCompRecommendations([])
+    } catch (err: any) {
+      console.error('批量添加推荐可比公司失败:', err)
+      alert('批量添加失败: ' + String(err))
+    }
+  }
+
   const handleAnalyzeWithComparables = async () => {
     if (!selectedStock || comparables.length === 0) return
     setAnalyzing(true)
@@ -2050,6 +2070,43 @@ function App() {
         </h1>
       )
     },
+    // 9.1 / 9.2 / 9.3 ML 模型小节标题旁添加信息图标
+    h2({ children, ...props }: any) {
+      const titleText = children?.toString() || ''
+      let tip: { title: string; body: string } | null = null
+      if (/^9\.1\s+Engine-B/.test(titleText)) {
+        tip = {
+          title: '9.1 Engine-B 财务趋势预测',
+          body:
+            '【模型】BiLSTM + Self-Attention，输入是过去 5 年的财务指标序列（营收、利润、现金流、资产负债、毛利等），输出未来 1–3 年的预测趋势分。\n\n' +
+            '【如何理解】关注趋势方向和置信度，不要把绝对预测值当成精准估值。模型擅长捕捉「持续向好/持续恶化」的中长期信号，对突发事件无感。\n\n' +
+            '【适用场景】判断公司基本面是处在改善通道还是下行通道，作为长期视角的辅助参考。'
+        }
+      } else if (/^9\.2\s+Engine-A/.test(titleText)) {
+        tip = {
+          title: '9.2 Engine-A 市场情绪与价格融合预测',
+          body:
+            '【模型】Cross-Attention 融合 K 线序列（价格/成交量）与舆情文本（公告、研报、新闻情感），输出未来短期（数日到数周）的方向倾向。\n\n' +
+            '【如何理解】这是短期情绪/技术面信号，不代表基本面观点。舆情数据稀缺时（如冷门股）置信度会显著下降，应忽略其结论。\n\n' +
+            '【适用场景】辅助择时，不作为持仓决策的主要依据。与 9.1（长期趋势）结合使用更稳妥。'
+        }
+      } else if (/^9\.3\s+Engine-D/.test(titleText)) {
+        tip = {
+          title: '9.3 Engine-D 风险预警模型',
+          body:
+            '【模型】GradientBoosting 二分类，使用 25 维特征（财务14+市场6+非财务5）预测「财务造假/退市」概率。\n\n' +
+            '【如何理解】概率 < 40% 低风险，40%–70% 中风险（建议核查），≥ 70% 高风险（建议回避）。\n\n' +
+            '【主要风险因子】带「(偏高)/(偏低)」的标签是针对当前这只股票相对健康公司均值的偏离方向，不是模型的全局通用偏好。比如 ar_risk(偏高) 表示该股的应收/营收比明显高于健康基准。\n\n' +
+            '【局限】训练数据为 A 股历史造假/退市样本 + 健康对照，对军工、券商、银行等结构性特征异常的行业可能误报，需结合 9.1 / A-Score / 风险警示综合判断。'
+        }
+      }
+      return (
+        <h2 {...props} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {children}
+          {tip && <InlineTooltip title={tip.title} body={tip.body} />}
+        </h2>
+      )
+    },
     // 风险警示标题旁添加信息图标（hover 弹出说明）
     h3({ children, ...props }: any) {
       const titleText = children?.toString() || ''
@@ -2060,7 +2117,7 @@ function App() {
           {isRiskAlert && (
             <InlineTooltip
               title="风险警示功能说明"
-              body={'本模块从三大维度检测股票风险。\n\n1. 一票否决（单项即高风险）：审计意见非标、审计机构异常更换、核心财务负责人频繁更换、资金占用/违规担保/诉讼、经营现金流连续2年为负、资产负债率>85%、营收同比<-30%、大股东质押>70%、一年内监管问询≥3次、毛利率为负。\n\n注：国企8年强制轮换期届满等政策合规更换不属于风险信号，系统会自动排除。\n\n2. 二级指标（3项及以上中风险）：A-Score 60–69分、M-Score>-1.78、毛利率下降>10百分点、ROE<5%、净利润现金含量<80%、应收+存货占比>40%、营收同比<0%、负债率70%–85%、商誉占比>50%、DEPI>1.1。\n\n3. 外部数据：审计机构变更、高管变动、诉讼担保、大股东减持、股权质押、监管问询等。'}
+              body={'本模块从三大维度检测股票风险。\n\n1. 一票否决（单项即高风险）：审计意见非标、审计机构异常更换、核心财务负责人频繁更换、资金占用/违规担保/诉讼、经营现金流连续2年为负、资产负债率>85%、营收同比<-30%、大股东质押>70%、一年内监管问询≥3次、毛利率为负。\n\n注：国企8年强制轮换期届满等政策合规更换，以及通过招标/选聘方式、连续服务多年后正常轮换的审计机构更换，系统会自动识别为正常轮换，以信息提示展示，不列入风险警示。\n\n2. 二级指标（3项及以上中风险）：A-Score 60–69分、M-Score>-1.78、毛利率下降>10百分点、ROE<5%、净利润现金含量<80%、应收+存货占比>40%、营收同比<0%、负债率70%–85%、商誉占比>50%、DEPI>1.1。\n\n3. 外部数据：审计机构变更、高管变动、诉讼担保、大股东减持、股权质押、监管问询等。'}
             />
           )}
         </h3>
@@ -2707,7 +2764,13 @@ function App() {
               {/* 近3日资金流向 */}
               {moneyflow?.has_data && moneyflow.items && moneyflow.items.length > 0 ? (
                 <div style={{ padding: '8px 0px', borderTop: '1px solid rgba(148,163,184,0.1)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>近{moneyflow.days || sflConfig?.moneyflow_days || 3}个交易日资金流向（亿元）</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    近{moneyflow.days || sflConfig?.moneyflow_days || 3}个交易日资金流向（亿元）
+                    <span
+                      title="主力 = 超大单（>100万）+ 大单（20~100万），按单笔成交金额分档统计，机构可通过拆单规避"
+                      style={{ cursor: 'pointer', fontSize: 12, opacity: 0.5 }}
+                    >ⓘ</span>
+                  </div>
                   {/* 表头 */}
                   <div style={{
                     display: 'grid',
@@ -2774,9 +2837,7 @@ function App() {
                       {moneyflow.summary}
                     </div>
                   )}
-                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.4 }}>
-                    主力 = 超大单（&gt;100万）+ 大单（20~100万），按单笔成交金额分档统计，机构可通过拆单规避
-                  </div>
+
                   {/* 当日流向（展开/收起） */}
                   <div style={{ marginTop: 6, borderTop: '1px solid rgba(148,163,184,0.06)', paddingTop: 6 }}>
                     <div
@@ -3317,7 +3378,21 @@ function App() {
 
                 {compRecommendations.length > 0 && (
                   <div className="cp-recommendations" style={{ marginTop: 4, marginBottom: 8 }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>推荐结果（点击添加）：</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>推荐结果（点击添加）：</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 2, marginRight: 6 }}>
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}>全添加</span>
+                        <span
+                          onClick={handleAddAllRecommendations}
+                          style={{
+                            color: (comparables.length >= 7 || compRecommendations.every(r => comparables.includes(r.symbol))) ? '#4b5563' : '#60a5fa',
+                            fontSize: 16,
+                            cursor: (comparables.length >= 7 || compRecommendations.every(r => comparables.includes(r.symbol))) ? 'default' : 'pointer',
+                            flexShrink: 0,
+                          }}
+                        >+</span>
+                      </span>
+                    </div>
                     {compRecommendations.map((r) => {
                       const info = STOCKS.find((s) => s.code === r.symbol)
                       return (

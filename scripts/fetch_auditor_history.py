@@ -101,9 +101,18 @@ PASSIVE_CHANGE_KEYWORDS = [
     "资格暂停", "签字会计师", "恒大", "普华永道",
 ]
 
+# 正常轮换关键词（看似异常实则正常）
+NORMAL_ROTATION_KEYWORDS = [
+    "招标", "选聘", "竞聘", "评标",
+    "不存在分歧", "无分歧", "双方协商",
+    "连续服务", "服务期满", "连续审计",
+    "保独立性", "保客观性", "客观性",
+    "年限届满", "轮换期",
+]
+
 # 异常更换关键词（需警惕）
 ABNORMAL_KEYWORDS = [
-    "无法达成一致", "审计范围受限", "审计意见分歧", "独立性",
+    "无法达成一致", "审计范围受限", "审计意见分歧",
     "辞任", "辞聘", "主动辞任", "被解聘",
 ]
 
@@ -133,6 +142,11 @@ def is_policy_compliance_change(title: str) -> bool:
 def is_passive_change(title: str) -> bool:
     """判断是否为被动更换（原事务所被处罚/禁入等，非公司自身问题）"""
     return any(kw in title for kw in PASSIVE_CHANGE_KEYWORDS)
+
+
+def is_normal_rotation_change(title: str) -> bool:
+    """判断是否为正常轮换更换（看似异常实则正常）"""
+    return any(kw in title for kw in NORMAL_ROTATION_KEYWORDS)
 
 
 def is_abnormal_change(title: str) -> bool:
@@ -190,6 +204,13 @@ def build_change_details(announcements: list) -> list:
         
         is_before, deadline = is_before_annual_report(date)
         
+        is_abnormal_flag = is_abnormal_change(title)
+        is_normal_flag = is_normal_rotation_change(title)
+        # 如果一个标题同时匹配正常和异常关键词，优先异常（异常信号更严重）
+        # 但如果只有正常关键词（如"招标"、"选聘"），则判定为正常轮换
+        if is_normal_flag and is_abnormal_flag:
+            is_normal_flag = False
+
         change_details.append({
             "date": date,
             "old_auditor": old_auditor,
@@ -199,8 +220,9 @@ def build_change_details(announcements: list) -> list:
             "annual_report_deadline": deadline,
             "raw_title": title,
             "is_policy_compliance": is_policy_compliance_change(title),
-            "is_abnormal": is_abnormal_change(title),
+            "is_abnormal": is_abnormal_flag,
             "is_passive_change": is_passive_change(title),
+            "is_normal_rotation": is_normal_flag,
         })
     
     return change_details
