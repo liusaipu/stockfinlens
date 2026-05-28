@@ -278,13 +278,10 @@ func readWailsVersion() string {
 }
 
 // checkUpdateOnStartup 启动时自动检查更新（非阻塞）
+// 每次启动检查一次：本函数仅在 startup() 中被调用一次，自然实现"每进程一次"语义。
+// 之前用 LastCheckDate == today 做持久化节流，会导致发布日已启动过的用户当天收不到新版本提示。
 func (a *App) checkUpdateOnStartup() {
 	if a.appConfig == nil || !a.appConfig.AutoCheckUpdate {
-		return
-	}
-	// 避免每次启动都请求：一天最多检查一次
-	today := time.Now().Format("2006-01-02")
-	if a.appConfig.LastCheckDate == today {
 		return
 	}
 	// 延迟 5 秒再检查，避免影响启动速度
@@ -295,8 +292,8 @@ func (a *App) checkUpdateOnStartup() {
 		fmt.Printf("[AutoUpdate] 检查更新失败: %v\n", err)
 		return
 	}
-	// 记录检查日期（无论是否发现更新）
-	a.appConfig.LastCheckDate = today
+	// 记录最后检查日期（仅用于调试/展示，不再作为节流条件）
+	a.appConfig.LastCheckDate = time.Now().Format("2006-01-02")
 	_ = a.storage.SaveAppConfig(a.appConfig)
 
 	if info.HasUpdate && info.LatestVer != a.appConfig.SkipVersion {
