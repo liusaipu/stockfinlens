@@ -902,6 +902,65 @@ export namespace downloader {
 	        this.error = source["error"];
 	    }
 	}
+	export class IntradayPoint {
+	    time: string;
+	    price: number;
+	    avgPx: number;
+	    volume: number;
+	    amount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new IntradayPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.time = source["time"];
+	        this.price = source["price"];
+	        this.avgPx = source["avgPx"];
+	        this.volume = source["volume"];
+	        this.amount = source["amount"];
+	    }
+	}
+	export class IntradayData {
+	    date: string;
+	    prevClose: number;
+	    points: IntradayPoint[];
+	    isRealtime: boolean;
+	    lastUpdated: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new IntradayData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.date = source["date"];
+	        this.prevClose = source["prevClose"];
+	        this.points = this.convertValues(source["points"], IntradayPoint);
+	        this.isRealtime = source["isRealtime"];
+	        this.lastUpdated = source["lastUpdated"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class KlineData {
 	    time: string;
 	    open: number;

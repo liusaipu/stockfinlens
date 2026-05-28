@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import * as echarts from 'echarts'
 import type { downloader } from '../wailsjs/go/models'
 import { GetStockKlines, GetStockQuote, RefreshStockKlines } from './api'
+import { IntradayChart } from './IntradayChart'
 
 type KlineData = downloader.KlineData
 type StockQuote = downloader.StockQuote
@@ -254,7 +255,7 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(!!initialExpanded)
-  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [period, setPeriod] = useState<'intraday' | 'daily' | 'weekly' | 'monthly'>('daily')
   const [maConfig, setMAConfig] = useState<MAConfig>(loadMAConfig)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -701,7 +702,7 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
           {/* 周期选择器 */}
           <select
             value={period}
-            onChange={(e) => setPeriod(e.target.value as 'daily' | 'weekly' | 'monthly')}
+            onChange={(e) => setPeriod(e.target.value as 'intraday' | 'daily' | 'weekly' | 'monthly')}
             style={{
               padding: '3px 6px',
               borderRadius: 4,
@@ -713,6 +714,7 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
               outline: 'none',
             }}
           >
+            <option value="intraday">分时</option>
             <option value="daily">日线</option>
             <option value="weekly">周线</option>
             <option value="monthly">月线</option>
@@ -854,8 +856,15 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
           </div>
         )}
 
-        {/* 状态覆盖层：加载中 / 无数据时显示（局部覆盖，z=100 够用） */}
-        {(loading || data.length === 0) && (
+        {/* K 线容器：始终挂载，避免分时切换时 dispose/init 导致 echarts 实例脱离 DOM；
+            切到分时时用 visibility 隐藏（visibility 不影响布局也不触发回流，比 display:none 安全）。 */}
+        <div ref={chartRef} className="unified-chart-container" style={{
+          width: '100%', height: '100%',
+          visibility: period === 'intraday' || loading || refreshing || data.length === 0 ? 'hidden' : 'visible',
+        }} />
+
+        {/* K 线模式下的状态覆盖层（加载中 / 无数据） */}
+        {period !== 'intraday' && (loading || data.length === 0) && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 100,
             display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -866,10 +875,25 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
           </div>
         )}
 
-        <div ref={chartRef} className="unified-chart-container" style={{
-          width: '100%', height: '100%',
-          visibility: loading || refreshing || data.length === 0 ? 'hidden' : 'visible',
-        }} />
+        {/* 分时图：绝对定位覆盖在 K 线之上；切回 K 线时整个卸载，IntradayChart 自己的 echarts 实例随 unmount 自动 dispose。 */}
+        {period === 'intraday' && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 50, paddingTop: 40,
+            background: isLightTheme ? '#f8fafc' : '#0f172a',
+          }}>
+            <IntradayChart
+              code={code}
+              isLightTheme={isLightTheme}
+              onDoubleClick={() => {
+                setIsExpanded(prev => {
+                  const next = !prev
+                  if (!next) onCloseRef.current?.()
+                  return next
+                })
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* 刷新遮罩：通过 Portal 挂到 document.body，z=99999 高于所有元素（包括 echarts 自带的 tooltip/zr 辅助 DOM 与可能的 Wails/macOS 系统级覆盖）。

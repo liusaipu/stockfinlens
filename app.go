@@ -76,6 +76,10 @@ type App struct {
 
 	// 全市场缓存管理器（后台更新，用于可比公司推荐等场景）
 	marketCache *downloader.MarketCacheManager
+
+	// 分时数据缓存 + 并发请求去重
+	intradayCache *downloader.IntradayCache
+	intradayFlight singleflight.Group
 }
 
 // trayQuoteItem tray 滚动显示用的股票数据
@@ -203,6 +207,9 @@ func (a *App) startup(ctx context.Context) {
 	if err := a.marketCache.Load(); err != nil {
 		fmt.Printf("[MarketCache] 加载缓存失败: %v\n", err)
 	}
+
+	// 初始化分时数据缓存（内存，重启清空）
+	a.intradayCache = downloader.NewIntradayCache()
 	if a.marketCache.IsEmpty() || a.marketCache.IsExpired() {
 		fmt.Printf("[MarketCache] 缓存为空或已过期，启动后台更新...\n")
 		go a.startBackgroundMarketCacheUpdate()
@@ -1759,6 +1766,51 @@ func (a *App) GetStockKlines(symbol string, period string) ([]downloader.KlineDa
 		debugLog("[GetStockKlines] %s period=%s fetched %d klines, last={Time:%s Open:%.2f Close:%.2f High:%.2f Low:%.2f}", symbol, period, len(klist), last.Time, last.Open, last.Close, last.High, last.Low)
 	}
 	return klist, nil
+}
+
+// GetIntradayMinutes 获取股票分时数据
+// - 交易时段：返回当日盘中实时数据（缓存 60s）
+// - 非交易时段：返回最近一个交易日的完整分时（缓存到下一次盘前 9:25）
+func (a *App) GetIntradayMinutes(symbol string) (*downloader.IntradayData, error) {
+	if a.intradayCache == nil {
+		return nil, fmt.Errorf("分时缓存未初始化")
+	}
+	parts := strings.Split(symbol, ".")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("无效的股票代码格式: %s", symbol)
+	}
+	code := parts[0]
+	market := strings.ToUpper(parts[1])
+
+	// 命中缓存直接返回
+	if cached := a.intradayCache.Get(symbol); cached != nil {
+		return cached, nil
+	}
+
+	// singleflight 去重：用户连点刷新只跑一次
+	v, err, _ := a.intradayFlight.Do("intraday:"+symbol, func() (any, error) {
+		// 二次检查（singleflight 等候中可能有人已经写入缓存）
+		if cached := a.intradayCache.Get(symbol); cached != nil {
+			return cached, nil
+		}
+		// 东方财富作为首选数据源（与本项目其它 K 线接口同源）
+		data, err := downloader.FetchIntradayFromEastMoney(a.ctx, market, code)
+		if err != nil {
+			// 东财 trends2 存在 path-specific 反爬（K 线 OK、trends2 EOF），立即退腾讯财经
+			// 腾讯 minute/query 是国内股票项目最稳定的分时数据源
+			fmt.Printf("[Intraday] 东财数据源失败 (%v)，退回腾讯财经\n", err)
+			data, err = downloader.FetchIntradayFromTencent(a.ctx, market, code)
+			if err != nil {
+				return nil, fmt.Errorf("所有分时数据源均不可用: %w", err)
+			}
+		}
+		a.intradayCache.Put(symbol, data)
+		return data, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*downloader.IntradayData), nil
 }
 
 // RefreshStockKlines 强制从远程重新拉取K线（绕过本地缓存）并写回缓存文件。

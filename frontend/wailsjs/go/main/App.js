@@ -122,6 +122,10 @@ export function GetIndustryTaskStatus() {
   return window['go']['main']['App']['GetIndustryTaskStatus']();
 }
 
+export function GetIntradayMinutes(arg1) {
+  return window['go']['main']['App']['GetIntradayMinutes'](arg1);
+}
+
 export function GetMarketCacheStatus() {
   return window['go']['main']['App']['GetMarketCacheStatus']();
 }

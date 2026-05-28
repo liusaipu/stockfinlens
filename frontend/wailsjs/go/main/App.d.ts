@@ -65,6 +65,8 @@ export function GetIndustryMetrics(arg1:string):Promise<analyzer.IndustryMetrics
 
 export function GetIndustryTaskStatus():Promise<Record<string, any>>;
 
+export function GetIntradayMinutes(arg1:string):Promise<downloader.IntradayData>;
+
 export function GetMarketCacheStatus():Promise<Record<string, any>>;
 
 export function GetModule4Status(arg1:string):Promise<boolean>;
