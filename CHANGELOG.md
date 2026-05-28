@@ -1,5 +1,30 @@
 # Changelog
 
+## [v1.6.0] - 2026-05-28
+
+### 新增 (Features)
+- **K 线新增「分时」周期**（`frontend/src/IntradayChart.tsx`, `frontend/src/UnifiedChart.tsx`）
+  - K 线周期下拉新增「分时」选项，与日线/周线/月线并列；展示当日（或最近交易日）分时走势 + 均价线 + 成交量柱。
+  - 完整 240 个时间 slot（09:30-11:30 + 13:00-15:00），午休断点用虚线分隔；价格轴以昨收为中心对称，右轴显示涨跌幅 %。
+  - 成交量柱按「该分钟价 vs 上一根有数据的分钟价」着色（涨红跌绿），与雪球/同花顺一致。
+  - 盘中自动每 60s 刷新（仅当数据为实时、页面可见、本地处于交易时段），切回前台立即刷一次。
+- **分时数据后端双数据源**（`app.go`, `downloader/eastmoney_intraday.go`, `downloader/tencent_intraday.go`）
+  - 首选东方财富 trends2，失败退回腾讯 minute/query；`GetIntradayMinutes` 经 `singleflight` 去重并发请求。
+  - 内存缓存（`downloader/intraday_cache.go`）：盘中 60s TTL，盘后缓存到下一交易日盘前 9:25，避免重复请求。
+  - 交易时段判断（`downloader/market_session.go`）：上海时区 + 周末跳过。
+
+### 优化 (Improvements)
+- **分时切换提速：东财 trends2 改为快速失败**（`downloader/eastmoney_intraday.go`）
+  - trends2 的 EOF 是 path-specific 反爬（同 IP 下 K 线接口正常、trends2 被单方面 close），重试无意义。
+  - 由默认 3 次指数退避（1s→2s→4s）改为 1 次尝试，失败立即退回腾讯。东财失败时的切换耗时从最坏 ~9s 降到 ~0.6s。
+- **K 线 / 分时容器共存**（`frontend/src/UnifiedChart.tsx`）
+  - K 线容器始终挂载、切到分时时用 `visibility: hidden` 隐藏（不 dispose echarts 实例，避免脱离 DOM）；分时图绝对定位覆盖，切回 K 线时整体 unmount 自动 dispose。
+
+### 修复 (Fixes)
+- **启动更新检查移除每日节流**（`app.go` `checkUpdateOnStartup`）
+  - 此前用 `LastCheckDate == today` 做持久化节流，导致发布日已启动过的用户当天收不到新版本提示。
+  - `checkUpdateOnStartup` 仅在 `startup()` 中调用一次，进程级「每启动一次」已足够避免过度请求；`LastCheckDate` 字段保留仅作展示/调试，不再参与节流判断。
+
 ## [v1.5.1] - 2026-05-27
 
 ### 新增 (Features)
