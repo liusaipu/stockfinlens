@@ -238,6 +238,10 @@ export function RefreshIndustryBaselines() {
   return window['go']['main']['App']['RefreshIndustryBaselines']();
 }
 
+export function RefreshInteractQA(arg1) {
+  return window['go']['main']['App']['RefreshInteractQA'](arg1);
+}
+
 export function RefreshMarketCache() {
   return window['go']['main']['App']['RefreshMarketCache']();
 }

@@ -146,6 +146,9 @@ func RunAnalysis(baseDir, symbol string, opts AnalysisOptions) (*AnalysisReport,
 		QuarterlyAlert:  quarterlyAlert,
 		TTMMetrics:      ttmMetrics,
 	}
+	if opts.Sentiment != nil {
+		report.InteractQAs = opts.Sentiment.InteractQAs
+	}
 	return report, nil
 }
 

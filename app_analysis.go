@@ -149,54 +149,50 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 			}
 			wgNet.Done()
 		}()
+		var s *downloader.SentimentData
 		if cachedSentiment, err := a.storage.LoadStockSentiment(symbol); err == nil && cachedSentiment != nil {
 			path := filepath.Join(a.storage.DataDir(), "data", symbol, "sentiment.json")
 			if info, err := os.Stat(path); err == nil && time.Since(info.ModTime()) < 60*time.Minute {
-				sentimentData = &analyzer.SentimentData{
-					Score:         cachedSentiment.Score,
-					HeatIndex:     cachedSentiment.HeatIndex,
-					PositiveWords: cachedSentiment.PositiveWords,
-					NegativeWords: cachedSentiment.NegativeWords,
-					Summaries:     make([]analyzer.SentimentSummary, len(cachedSentiment.Summaries)),
-					HasData:       cachedSentiment.HasData,
-				}
-				for i, s := range cachedSentiment.Summaries {
-					sentimentData.Summaries[i] = analyzer.SentimentSummary{
-						Title:     s.Title,
-						Source:    s.Source,
-						Date:      s.Date,
-						Sentiment: s.Sentiment,
-					}
-				}
+				s = cachedSentiment
 			}
 		}
-		if sentimentData == nil {
-			parts := strings.Split(symbol, ".")
-			if len(parts) == 2 {
-				code := parts[0]
-				market := strings.ToUpper(parts[1])
+		parts := strings.Split(symbol, ".")
+		if len(parts) == 2 {
+			code := parts[0]
+			market := strings.ToUpper(parts[1])
+			if s == nil {
 				debugLog("[Sentiment] fetching for %s %s", market, code)
-				if s, err := downloader.FetchStockSentiment(a.ctx, market, code); err == nil && s != nil {
-					debugLog("[Sentiment] fetched ok for %s, summaries=%d", symbol, len(s.Summaries))
-					sentimentData = &analyzer.SentimentData{
-						Score:         s.Score,
-						HeatIndex:     s.HeatIndex,
-						PositiveWords: s.PositiveWords,
-						NegativeWords: s.NegativeWords,
-						Summaries:     make([]analyzer.SentimentSummary, len(s.Summaries)),
-						HasData:       s.HasData,
-					}
-					for i, summary := range s.Summaries {
-						sentimentData.Summaries[i] = analyzer.SentimentSummary{
-							Title:     summary.Title,
-							Source:    summary.Source,
-							Date:      summary.Date,
-							Sentiment: summary.Sentiment,
-						}
-					}
-					_ = a.storage.SaveStockSentiment(symbol, s)
-				} else {
+				var err error
+				s, err = downloader.FetchStockSentiment(a.ctx, market, code)
+				if err != nil || s == nil {
 					debugLog("[Sentiment] fetch failed for %s: %v", symbol, err)
+					return
+				}
+				debugLog("[Sentiment] fetched ok for %s, summaries=%d", symbol, len(s.Summaries))
+				_ = a.storage.SaveStockSentiment(symbol, s)
+			}
+			// 互动平台问答每次分析都重新获取，不走 sentiment 缓存
+			if qas, err := downloader.FetchStockInteractQA(a.ctx, market, code); err == nil && len(qas) > 0 {
+				debugLog("[InteractQA] fetched %d items for %s", len(qas), symbol)
+				s.InteractQAs = qas
+			} else if err != nil {
+				debugLog("[InteractQA] fetch failed for %s: %v", symbol, err)
+			}
+			sentimentData = &analyzer.SentimentData{
+				Score:         s.Score,
+				HeatIndex:     s.HeatIndex,
+				PositiveWords: s.PositiveWords,
+				NegativeWords: s.NegativeWords,
+				Summaries:     make([]analyzer.SentimentSummary, len(s.Summaries)),
+				HasData:       s.HasData,
+				InteractQAs:   convertDownloaderQAs(s.InteractQAs),
+			}
+			for i, summary := range s.Summaries {
+				sentimentData.Summaries[i] = analyzer.SentimentSummary{
+					Title:     summary.Title,
+					Source:    summary.Source,
+					Date:      summary.Date,
+					Sentiment: summary.Sentiment,
 				}
 			}
 		}
@@ -900,3 +896,22 @@ func computeMLConfidence(finData *analyzer.FinancialData, klines []downloader.Kl
 
 
 // RecommendComparables 自动推荐可比公司（Wails 绑定）
+
+// convertDownloaderQAs 将 downloader.InteractQA 转换为 analyzer.InteractQA
+func convertDownloaderQAs(in []downloader.InteractQA) []analyzer.InteractQA {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]analyzer.InteractQA, len(in))
+	for i, qa := range in {
+		out[i] = analyzer.InteractQA{
+			Question:   qa.Question,
+			Answer:     qa.Answer,
+			Questioner: qa.Questioner,
+			Date:       qa.Date,
+			AnswerDate: qa.AnswerDate,
+			Source:     qa.Source,
+		}
+	}
+	return out
+}

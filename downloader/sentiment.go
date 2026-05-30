@@ -26,6 +26,7 @@ type SentimentData struct {
 	NegativeWords []string           `json:"negativeWords"`
 	Summaries     []SentimentSummary `json:"summaries"`
 	HasData       bool               `json:"hasData"`
+	InteractQAs   []InteractQA       `json:"interactQAs,omitempty"`
 }
 
 // 预置中文情感词典

@@ -54,6 +54,7 @@ type AnalysisReport struct {
 	Diff            *AnalysisDiff         `json:"diff,omitempty"` // 与上次分析的差异
 	QuarterlyAlert  *QuarterlyAlert      `json:"quarterlyAlert,omitempty"`
 	TTMMetrics      *TTMMetrics          `json:"ttmMetrics,omitempty"`
+	InteractQAs     []InteractQA          `json:"interactQAs,omitempty"`
 }
 
 // PassItem 单一年度的达标项
@@ -91,6 +92,16 @@ type SentimentSummary struct {
 	Sentiment float64 `json:"sentiment"` // [-1, 1]
 }
 
+// InteractQA 单条互动平台问答
+type InteractQA struct {
+	Question   string `json:"question"`
+	Answer     string `json:"answer"`
+	Questioner string `json:"questioner"`
+	Date       string `json:"date"`
+	AnswerDate string `json:"answerDate"`
+	Source     string `json:"source"` // 数据来源：irm / guba
+}
+
 // SentimentData 社交媒体/舆情情绪数据
 type SentimentData struct {
 	Score         float64            `json:"score"`
@@ -99,6 +110,7 @@ type SentimentData struct {
 	NegativeWords []string           `json:"negativeWords"`
 	Summaries     []SentimentSummary `json:"summaries"`
 	HasData       bool               `json:"hasData"`
+	InteractQAs   []InteractQA       `json:"interactQAs,omitempty"`
 }
 
 // MLSummary 基于双引擎融合的2-4周综合预测摘要

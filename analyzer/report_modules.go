@@ -1185,6 +1185,22 @@ func writeModule12(b *strings.Builder, sentiment *SentimentData) {
 		b.WriteString("\n")
 	}
 
+	// 13.4 互动平台近期问答
+	b.WriteString("## 13.4 互动平台近期问答\n\n")
+	if len(sentiment.InteractQAs) > 0 {
+		sourceName := "巨潮互动易"
+		switch sentiment.InteractQAs[0].Source {
+		case "guba":
+			sourceName = "东方财富股吧"
+		case "sse":
+			sourceName = "上证e互动"
+		}
+		b.WriteString(fmt.Sprintf("> 已获取 **%d** 条互动平台问答（来源：%s），最近更新时间：%s\n\n", len(sentiment.InteractQAs), sourceName, sentiment.InteractQAs[0].Date))
+		b.WriteString("`INTERACT_QA_PANEL`\n\n")
+	} else {
+		b.WriteString("> 当前暂无互动平台问答数据。\n\n")
+	}
+
 	b.WriteString("---\n\n")
 }
 

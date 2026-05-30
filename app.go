@@ -3558,3 +3558,19 @@ func (a *App) batchFetchCandidateProfiles(allSymbols []string, maxFetch int) {
 	}
 	wg.Wait()
 }
+
+// RefreshInteractQA 重新获取指定股票的互动平台问答（不走缓存）
+func (a *App) RefreshInteractQA(symbol string) ([]analyzer.InteractQA, error) {
+	parts := strings.Split(symbol, ".")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("股票代码格式错误: %s", symbol)
+	}
+	code := parts[0]
+	market := strings.ToUpper(parts[1])
+
+	qas, err := downloader.FetchStockInteractQA(a.ctx, market, code)
+	if err != nil {
+		return nil, err
+	}
+	return convertDownloaderQAs(qas), nil
+}

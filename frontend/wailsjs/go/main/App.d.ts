@@ -123,6 +123,8 @@ export function RecommendComparables(arg1:string):Promise<Array<analyzer.Compara
 
 export function RefreshIndustryBaselines():Promise<Record<string, analyzer.IndustryBaseline>>;
 
+export function RefreshInteractQA(arg1:string):Promise<Array<analyzer.InteractQA>>;
+
 export function RefreshMarketCache():Promise<string>;
 
 export function RefreshStockKlines(arg1:string,arg2:string):Promise<Array<downloader.KlineData>>;

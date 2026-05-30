@@ -12,4 +12,5 @@ export const {
   GetModule4Status,
   RecommendComparables,
   GetSnapshotHistory,
+  RefreshInteractQA,
 } = Go_

@@ -98,6 +98,28 @@ export namespace analyzer {
 		    return a;
 		}
 	}
+	export class InteractQA {
+	    question: string;
+	    answer: string;
+	    questioner: string;
+	    date: string;
+	    answerDate: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new InteractQA(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.question = source["question"];
+	        this.answer = source["answer"];
+	        this.questioner = source["questioner"];
+	        this.date = source["date"];
+	        this.answerDate = source["answerDate"];
+	        this.source = source["source"];
+	    }
+	}
 	export class TTMMetrics {
 	    hasData: boolean;
 	    revenue: number;
@@ -606,6 +628,7 @@ export namespace analyzer {
 	    diff?: AnalysisDiff;
 	    quarterlyAlert?: QuarterlyAlert;
 	    ttmMetrics?: TTMMetrics;
+	    interactQAs?: InteractQA[];
 	
 	    static createFrom(source: any = {}) {
 	        return new AnalysisReport(source);
@@ -630,6 +653,7 @@ export namespace analyzer {
 	        this.diff = this.convertValues(source["diff"], AnalysisDiff);
 	        this.quarterlyAlert = this.convertValues(source["quarterlyAlert"], QuarterlyAlert);
 	        this.ttmMetrics = this.convertValues(source["ttmMetrics"], TTMMetrics);
+	        this.interactQAs = this.convertValues(source["interactQAs"], InteractQA);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -707,6 +731,7 @@ export namespace analyzer {
 	        this.updated_at = source["updated_at"];
 	    }
 	}
+	
 	
 	
 	export class PassItem {

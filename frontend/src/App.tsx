@@ -8,7 +8,7 @@ import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
 import { UpdateModal, UpdateInfo } from './UpdateModal'
-import { EventsOn } from '../wailsjs/runtime'
+import { EventsOn, WindowGetSize } from '../wailsjs/runtime'
 import { RiskBadge } from './components/RiskBadge'
 import { RiskAlertBanner } from './components/RiskAlertBanner'
 import ReactMarkdown from 'react-markdown'
@@ -122,6 +122,61 @@ function Collapsible({ title, children, defaultExpanded = false }: { title: Reac
     </div>
   )
 }
+
+function InteractQAPanel({ qas, visibleCount, setVisibleCount }: { qas: any[], visibleCount: number, setVisibleCount: (count: number | ((prev: number) => number)) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  if (!qas || qas.length === 0) {
+    return <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>暂无互动平台问答数据。</div>
+  }
+  const visible = qas.slice(0, visibleCount)
+  const hasMore = visibleCount < qas.length
+  const canCollapse = visibleCount > 5
+
+  const handleCollapse = () => {
+    setVisibleCount(5)
+  }
+
+  return (
+    <div ref={containerRef} style={{ marginTop: 8, marginBottom: 8 }}>
+      {visible.map((qa, idx) => (
+        <div key={idx} style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(148,163,184,0.06)', borderRadius: 6, borderLeft: '3px solid #3b82f6' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+            <span>{qa.questioner || '投资者'}</span>
+            <span>{qa.date || ''}{qa.answerDate && qa.answerDate !== qa.date ? ` → ${qa.answerDate}` : ''}</span>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6, fontWeight: 500, lineHeight: 1.5 }}>Q: {qa.question}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6 }}>A: {qa.answer}</div>
+        </div>
+      ))}
+      {(hasMore || canCollapse) && (
+        <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          {hasMore && (
+            <button
+              onClick={() => setVisibleCount(c => c + 5)}
+              style={{ padding: '6px 12px', fontSize: 12, color: '#3b82f6', background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 4, cursor: 'pointer' }}
+            >
+              查看更多...（还剩 {qas.length - visibleCount} 条）
+            </button>
+          )}
+          {canCollapse && (
+            <button
+              onClick={handleCollapse}
+              style={{ padding: '6px 12px', fontSize: 12, color: '#64748b', background: 'transparent', border: '1px solid rgba(100,116,139,0.3)', borderRadius: 4, cursor: 'pointer', marginLeft: hasMore ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
+              title="收起到前5条"
+            >
+              <span>收起</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style={{ opacity: 0.7 }}>
+                <path d="M6 2 L10 6 L8.5 6 L6 3.5 L3.5 6 L2 6 Z" />
+                <path d="M6 5 L10 9 L8.5 9 L6 6.5 L3.5 9 L2 9 Z" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 import { toPng } from 'html-to-image'
 import html2pdf from 'html2pdf.js'
 import {
@@ -170,6 +225,7 @@ import {
   HasPythonDepsChecked,
   GetSFLConfig,
   RecommendComparables,
+  RefreshInteractQA,
 } from './api'
 import type { main, analyzer, downloader } from '../wailsjs/go/models'
 
@@ -265,6 +321,8 @@ function App() {
   const [compRecommendations, setCompRecommendations] = useState<analyzer.ComparableRecommendation[]>([])
   const [compRecommending, setCompRecommending] = useState(false)
   const [compDownloading, setCompDownloading] = useState(false)
+  const [refreshingInteractQA, setRefreshingInteractQA] = useState(false)
+  const [interactQAVisibleCount, setInteractQAVisibleCount] = useState(5)
   const [compReportsDownloaded, setCompReportsDownloaded] = useState(false)
   const [compDownloadStatus, setCompDownloadStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
   const [fetchingActivity, setFetchingActivity] = useState(false)
@@ -676,6 +734,38 @@ function App() {
     }
   }, [settings.theme])
 
+
+
+  // 通过 Wails runtime 轮询窗口尺寸，检测到变化后强制触发 report-tabs-right 的浏览器重绘
+  useEffect(() => {
+    let prevWidth = 0
+    let prevHeight = 0
+    const tick = async () => {
+      try {
+        const size = await WindowGetSize()
+        if ((size.w !== prevWidth || size.h !== prevHeight) && prevWidth !== 0) {
+          const el = document.querySelector('.report-tabs-right') as HTMLElement | null
+          if (el) {
+            // 通过读取 offsetHeight 强制浏览器重排，触发 WebKit 重新绘制被隐藏的 flex 子项
+            void el.offsetHeight
+            el.style.transform = 'translateZ(0)'
+            requestAnimationFrame(() => {
+              el.style.transform = ''
+            })
+          }
+        }
+        prevWidth = size.w
+        prevHeight = size.h
+      } catch {
+        // ignore
+      }
+    }
+    const interval = window.setInterval(tick, 300)
+    // 立即执行一次初始化
+    tick()
+    return () => clearInterval(interval)
+  }, [])
+
   // 市场热点开关关闭时自动收起热点面板
   useEffect(() => {
     if (!settings.enableHotConcepts && hotPanelOpen) {
@@ -854,6 +944,46 @@ function App() {
       setProfile(p || null)
     } catch (err: any) {
       alert('刷新基本信息失败: ' + String(err))
+    }
+  }
+
+  const handleRefreshInteractQA = async () => {
+    if (!selectedStock || refreshingInteractQA) return
+    setRefreshingInteractQA(true)
+    try {
+      const qas = await RefreshInteractQA(selectedStock.code)
+      if (qas && qas.length > 0) {
+        setSnapshots((prev) => {
+          const snap = prev[selectedStock.code]
+          if (!snap) return prev
+          return {
+            ...prev,
+            [selectedStock.code]: {
+              ...(snap as any),
+              interactQAs: qas,
+            } as any,
+          }
+        })
+        // 同时更新当前报告中的 markdown，替换 13.4 的更新时间
+        setReport((prev) => {
+          if (!prev) return prev
+          const updated = prev.markdownContent.replace(
+            /> 已获取 \*\*\d+\*\* 条互动平台问答（来源：[^）]+），最近更新时间：\d{4}-\d{2}-\d{2}/,
+            `> 已获取 **${qas.length}** 条互动平台问答（来源：${qas[0]?.source === 'sse' ? '上证e互动' : qas[0]?.source === 'guba' ? '东方财富股吧' : '巨潮互动易'}），最近更新时间：${qas[0]?.answerDate || qas[0]?.date || ''}`
+          )
+          return { ...(prev as any), markdownContent: updated } as any
+        })
+        // 刷新后重置显示数量为5条
+        setInteractQAVisibleCount(5)
+        SendNotification('success', `已刷新互动问答，获取 ${qas.length} 条最新数据`)
+      } else {
+        SendNotification('info', '暂无新的互动问答数据')
+      }
+    } catch (err: any) {
+      const errMsg = String(err)
+      SendNotification('error', '刷新互动问答失败: ' + errMsg)
+    } finally {
+      setRefreshingInteractQA(false)
     }
   }
 
@@ -1139,6 +1269,7 @@ function App() {
       setCompRecommendations([])
       setDataHistory([])
       setDataMissing(false)
+      setInteractQAVisibleCount(5) // 切换股票时重置互动问答显示数量
       await loadReportHistory(stock.code, true)
       await loadDataHistory(stock.code)
       const p = await loadProfile(stock.code)
@@ -1980,6 +2111,11 @@ function App() {
       if (lang === 'chart-financial-trend' && stockCode) {
         return <FinancialTrendChart code={stockCode} name={stockName} />
       }
+      // 互动平台问答交互面板占位
+      if (!className && text.trim() === 'INTERACT_QA_PANEL') {
+        const qas = currentSnapshot?.interactQAs || []
+        return <InteractQAPanel qas={qas} visibleCount={interactQAVisibleCount} setVisibleCount={setInteractQAVisibleCount} />
+      }
       // 政策信号强度 inline code: signal:3（inline code 没有 className）
       if (!className && text.startsWith('signal:')) {
         const level = parseInt(text.replace('signal:', ''), 10)
@@ -2100,10 +2236,35 @@ function App() {
             '【局限】训练数据为 A 股历史造假/退市样本 + 健康对照，对军工、券商、银行等结构性特征异常的行业可能误报，需结合 9.1 / A-Score / 风险警示综合判断。'
         }
       }
+      const isInteractQA = /^13\.4\s+互动平台近期问答/.test(titleText)
       return (
         <h2 {...props} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
           {children}
           {tip && <InlineTooltip title={tip.title} body={tip.body} />}
+          {isInteractQA && (
+            <button
+              onClick={handleRefreshInteractQA}
+              disabled={refreshingInteractQA}
+              title={refreshingInteractQA ? '正在刷新...' : '刷新互动问答'}
+              style={{
+                marginLeft: 'auto',
+                padding: '2px 8px',
+                fontSize: 12,
+                color: refreshingInteractQA ? '#94a3b8' : '#3b82f6',
+                background: 'transparent',
+                border: `1px solid ${refreshingInteractQA ? 'rgba(148,163,184,0.3)' : 'rgba(59,130,246,0.3)'}`,
+                borderRadius: 4,
+                cursor: refreshingInteractQA ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                opacity: refreshingInteractQA ? 0.6 : 1,
+              }}
+            >
+              <span style={{ display: 'inline-block', animation: refreshingInteractQA ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
+              {refreshingInteractQA ? '刷新中...' : '刷新'}
+            </button>
+          )}
         </h2>
       )
     },
@@ -2123,7 +2284,7 @@ function App() {
         </h3>
       )
     },
-  }), [report, selectedStock])
+  }), [report, selectedStock, currentSnapshot, handleRefreshInteractQA])
 
   return (
     <div className="app">
