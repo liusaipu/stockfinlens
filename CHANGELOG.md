@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.6.2] - 2026-06-01
+
+### 优化 (Improvements)
+- **macOS 静默自更新**（`updater/updater_darwin.go`, `frontend/src/UpdateModal.tsx`）
+  - 升级体验向 Windows 端对齐：点击「立即重启并安装」后，应用自动下载 → 退出 → 挂载 DMG → 替换 `.app` → 重启，全程 ~7s，无需手动拖拽到 Applications。
+  - 替换流程：`hdiutil attach -nobrowse` 挂载 → `ditto` 拷贝到旁路 `.new` → 原子三步 `mv`（旧 → `.old` / `.new` → 正式 / 删 `.old`）→ `xattr -dr com.apple.quarantine` 清隔离 → `hdiutil detach` 卸载 → `open` 重启。失败时把 `.old` 回滚到原位，保证应用不会损坏。
+  - helper 脚本通过 `setsid` 脱离主进程独立运行，等待主进程 PID 退出后再开始替换；日志写入 `~/.config/stock-analyzer/update/apply_update.log`，便于排错。
+  - 防御：若应用运行自 `/Volumes/*`（DMG 内未拖入 Applications），拒绝替换并报错退出。
+- **更新弹窗 UI 收敛**（`frontend/src/UpdateModal.tsx`）
+  - 移除 macOS 专属的「已打开 DMG，请拖拽到 Applications」分支，按钮文案统一为「立即重启并安装」。
+  - 安装中显示蓝色提示「正在安装新版本，应用即将自动重启…」。
+
 ## [v1.6.1] - 2026-05-30
 
 ### 新增 (Features)
