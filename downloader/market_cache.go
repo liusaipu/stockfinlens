@@ -369,6 +369,27 @@ func (m *MarketCacheManager) UpdateAll(ctx context.Context, sflClient *SFLClient
 		}
 	}
 
+	// ========== 阶段 4: 二级行业回填（来自东财行业板块反查表）==========
+	// 反查表由 startBackgroundConceptMembershipUpdate 在后台异步构建。
+	// 若文件已存在（非首次启动），合并 SubIndustry 字段进入缓存；首次启动时反查表可能尚未生成，
+	// 此处会静默跳过 —— recommend 侧亦会通过 lookupSubIndustry 直接读反查表兜底。
+	if membership := LoadConceptMembership(m.dataDir); membership != nil && len(membership.SubIndustry) > 0 {
+		filled := 0
+		for sym, subInd := range membership.SubIndustry {
+			if item, ok := items[sym]; ok {
+				if item.SubIndustry == "" || item.SubIndustry != subInd {
+					item.SubIndustry = subInd
+					item.UpdatedAt = now
+					items[sym] = item
+					filled++
+				}
+			}
+		}
+		if progressFn != nil {
+			progressFn(UpdateProgress{Stage: "sub_industry", Current: filled, Total: len(items), Message: fmt.Sprintf("回填 %d 只股票二级行业", filled)})
+		}
+	}
+
 	// 写入缓存并保存
 	m.Upsert(items)
 	if err := m.Save(); err != nil {

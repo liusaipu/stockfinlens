@@ -1,14 +1,98 @@
 package analyzer
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
+
+// conceptMembership 概念板块/行业板块反查表（analyzer 侧只读视图）
+// 数据来自 downloader 后台构建的 _concept_membership.json，避免 analyzer 反向依赖 downloader
+type conceptMembership struct {
+	Concepts    map[string][]string // symbol(带后缀) → 概念板块名列表
+	SubIndustry map[string]string   // symbol → 二级行业（东财行业板块名）
+}
+
+var (
+	membershipMu    sync.RWMutex
+	membershipData  *conceptMembership
+	membershipMtime time.Time
+	membershipPath  string // 缓存的路径，用于检测 dataDir 变化
+)
+
+// membershipFilePath 反查表文件路径：与 dataRoot(.../data) 同级
+func membershipFilePath(dataRoot string) string {
+	return filepath.Join(filepath.Dir(dataRoot), "_concept_membership.json")
+}
+
+// loadConceptMembership 加载反查表，带 mtime 缓存
+// 文件不存在或解析失败时返回 nil（调用方按"反查表暂不可用"处理）
+func loadConceptMembership(dataRoot string) *conceptMembership {
+	path := membershipFilePath(dataRoot)
+	info, err := os.Stat(path)
+	if err != nil {
+		// 文件不存在：但若旧路径还缓存着上次成功的数据，仍返回（避免文件被误删导致功能突然失效）
+		membershipMu.RLock()
+		defer membershipMu.RUnlock()
+		if membershipPath == path {
+			return membershipData
+		}
+		return nil
+	}
+
+	// 先用读锁快速判断是否命中缓存
+	membershipMu.RLock()
+	if membershipPath == path && membershipData != nil && membershipMtime.Equal(info.ModTime()) {
+		d := membershipData
+		membershipMu.RUnlock()
+		return d
+	}
+	membershipMu.RUnlock()
+
+	// 需要重新加载
+	membershipMu.Lock()
+	defer membershipMu.Unlock()
+	// 写锁内再次确认（避免重复 IO）
+	if membershipPath == path && membershipData != nil && membershipMtime.Equal(info.ModTime()) {
+		return membershipData
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return membershipData
+	}
+	var raw struct {
+		Concepts    map[string][]string `json:"concepts"`
+		SubIndustry map[string]string   `json:"sub_industry"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return membershipData
+	}
+	if raw.Concepts == nil {
+		raw.Concepts = make(map[string][]string)
+	}
+	if raw.SubIndustry == nil {
+		raw.SubIndustry = make(map[string]string)
+	}
+	membershipData = &conceptMembership{Concepts: raw.Concepts, SubIndustry: raw.SubIndustry}
+	membershipMtime = info.ModTime()
+	membershipPath = path
+	return membershipData
+}
+
+// lookupSubIndustry 查询 symbol 的二级行业；无数据返回空串
+func lookupSubIndustry(dataRoot, symbol string) string {
+	m := loadConceptMembership(dataRoot)
+	if m == nil {
+		return ""
+	}
+	return m.SubIndustry[symbol]
+}
 
 // ComparableRecommendation 可比公司推荐项
 type ComparableRecommendation struct {
@@ -22,13 +106,14 @@ type ComparableRecommendation struct {
 // MarketCacheItem 市场缓存条目（由 app 层从 downloader.MarketCache 转换而来）
 // analyzer 包独立定义，避免循环导入 downloader
 type MarketCacheItem struct {
-	Symbol    string
-	Name      string
-	Industry  string
-	MarketCap float64
-	ROE       float64
-	GM        float64
-	Concepts  []string
+	Symbol      string
+	Name        string
+	Industry    string
+	SubIndustry string // 二级行业（东财行业板块名），如 "医疗研发外包"
+	MarketCap   float64
+	ROE         float64
+	GM          float64
+	Concepts    []string
 }
 
 // RecommendComparables 基于多维度相似度自动推荐可比公司
@@ -80,7 +165,9 @@ func RecommendComparables(targetSymbol string, targetProfile *StockProfile, targ
 
 	// 读取目标股票的概念标签
 	targetConcepts := loadConcepts(filepath.Join(dataDir, "data"), targetSymbol)
-	fmt.Printf("[RecommendComparables] target concepts=%d\n", len(targetConcepts))
+	// 读取目标股票二级行业（来自东财行业板块反查表）
+	targetSubIndustry := lookupSubIndustry(filepath.Join(dataDir, "data"), targetSymbol)
+	fmt.Printf("[RecommendComparables] target concepts=%d subIndustry=%s\n", len(targetConcepts), targetSubIndustry)
 
 	// 扫描候选股票（优先从全市场缓存读取，避免推荐结果局限于自选股）
 	candidates := scanCandidates(dataDir, targetSymbol, allSymbols, cacheItems)
@@ -91,7 +178,7 @@ func RecommendComparables(targetSymbol string, targetProfile *StockProfile, targ
 	startCompute := time.Now()
 	for i, c := range candidates {
 		score, reasons, dataQuality := computeSimilarity(
-			targetIndustry, targetMarketCap, targetROE, targetGM, targetActivity, targetConcepts,
+			targetIndustry, targetSubIndustry, targetMarketCap, targetROE, targetGM, targetActivity, targetConcepts,
 			c,
 		)
 		// 设置最低得分门槛：目标有行业信息时至少15分，否则至少8分
@@ -136,15 +223,16 @@ func RecommendComparables(targetSymbol string, targetProfile *StockProfile, targ
 
 // candidateInfo 候选股票内部信息
 type candidateInfo struct {
-	Symbol       string
-	Name         string
-	Industry     string
-	MarketCap    float64
-	ROE          float64
-	GM           float64
+	Symbol        string
+	Name          string
+	Industry      string
+	SubIndustry   string // 二级行业（东财行业板块名）
+	MarketCap     float64
+	ROE           float64
+	GM            float64
 	ActivityScore float64  // 活跃度分数 (0-100)
-	HasData      bool     // 是否有本地财报数据
-	Concepts     []string // 概念/风口标签
+	HasData       bool     // 是否有本地财报数据
+	Concepts      []string // 概念/风口标签
 }
 
 // StockProfile 推荐算法使用的股票资料子集（避免循环导入）
@@ -187,10 +275,16 @@ func scanCandidates(dataDir, excludeSymbol string, allSymbols []string, cacheIte
 			if len(concepts) == 0 {
 				concepts = item.Concepts
 			}
+			// 二级行业：优先取 cache 字段；cache 为空时直接查反查表（覆盖 cache 比反查表早构建的情况）
+			subInd := item.SubIndustry
+			if subInd == "" {
+				subInd = lookupSubIndustry(dataRoot, symbol)
+			}
 			candidates = append(candidates, candidateInfo{
 				Symbol:        item.Symbol,
 				Name:          item.Name,
 				Industry:      industry,
+				SubIndustry:   subInd,
 				MarketCap:     item.MarketCap,
 				ROE:           item.ROE,
 				GM:            item.GM,
@@ -247,6 +341,7 @@ func scanLocalCandidates(dataDir, excludeSymbol string, allSymbols []string) []c
 
 			// 尝试读取概念标签
 			info.Concepts = loadConcepts(dataRoot, symbol)
+			info.SubIndustry = lookupSubIndustry(dataRoot, symbol)
 
 			// 读取活跃度（loadActivityScore 在 comparable.go 中定义，baseDir 为 dataDir）
 			act := loadActivityScore(dataDir, symbol)
@@ -280,6 +375,7 @@ func scanLocalCandidates(dataDir, excludeSymbol string, allSymbols []string) []c
 			}
 			// 补充概念标签
 			info.Concepts = loadConcepts(dataRoot, symbol)
+			info.SubIndustry = lookupSubIndustry(dataRoot, symbol)
 			// 读取活跃度（loadActivityScore 在 comparable.go 中定义，baseDir 为 dataDir）
 			act := loadActivityScore(dataDir, symbol)
 			if act < 0 {
@@ -357,21 +453,30 @@ var equivalentIndustries = map[string][]string{
 }
 
 // computeSimilarity 计算候选股票与目标股票的相似度
-// 赛道匹配（行业/概念取最高）65% + 市值5% + ROE10% + 毛利率15% + 活跃度10% + 数据2%
-func computeSimilarity(targetIndustry string, targetMarketCap, targetROE, targetGM, targetActivity float64, targetConcepts []string, c candidateInfo) (float64, []string, string) {
+// 赛道匹配 = max(二级行业 75, 一级行业 35, 概念 overlap 70) + 市值5% + ROE10% + 毛利率15% + 活跃度10% + 数据2%
+// 二级行业升级为主信号：药明康德这类公司一级行业"医疗行业"过宽，二级"医疗研发外包"才区分CXO
+func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap, targetROE, targetGM, targetActivity float64, targetConcepts []string, c candidateInfo) (float64, []string, string) {
 	score := 0.0
 	var reasons []string
 
-	// ===== 1. 赛道匹配 (65%) = max(行业匹配, 概念匹配) =====
-	// 1a. 行业匹配
+	// ===== 1. 赛道匹配 = max(二级行业, 一级行业, 概念匹配) =====
+	// 1a. 二级行业精确匹配（最高权重 75）
+	subIndustryScore := 0.0
+	var subIndustryReasons []string
+	if targetSubIndustry != "" && c.SubIndustry != "" && targetSubIndustry == c.SubIndustry {
+		subIndustryScore = 75
+		subIndustryReasons = append(subIndustryReasons, "同属"+targetSubIndustry)
+	}
+
+	// 1b. 一级行业匹配（降权：65→35, 45→25, 25→15）
 	industryScore := 0.0
 	var industryReasons []string
 	if targetIndustry != "" && c.Industry != "" {
 		if targetIndustry == c.Industry {
-			industryScore = 65
+			industryScore = 35
 			industryReasons = append(industryReasons, "同属"+targetIndustry)
 		} else if isEquivalentIndustry(targetIndustry, c.Industry) {
-			industryScore = 45
+			industryScore = 25
 			industryReasons = append(industryReasons, "同属"+targetIndustry)
 		} else {
 			targetKeys := extractIndustryKeywords(targetIndustry)
@@ -385,22 +490,22 @@ func computeSimilarity(targetIndustry string, targetMarketCap, targetROE, target
 				}
 			}
 			if matchCount > 0 {
-				partialScore := 65.0 * float64(matchCount) / float64(len(targetKeys))
-				if partialScore > 65 {
-					partialScore = 65
+				partialScore := 35.0 * float64(matchCount) / float64(len(targetKeys))
+				if partialScore > 35 {
+					partialScore = 35
 				}
 				industryScore = partialScore
 				industryReasons = append(industryReasons, "行业相近")
 			} else {
 				if isSynonymIndustry(targetIndustry, c.Industry) {
-					industryScore = 25
+					industryScore = 15
 					industryReasons = append(industryReasons, "产业链相关")
 				}
 			}
 		}
 	}
 
-	// 1b. 概念匹配
+	// 1c. 概念匹配（小幅上调：scaled 65→70）
 	conceptScore := 0.0
 	var conceptReasons []string
 	if len(targetConcepts) > 0 && len(c.Concepts) > 0 {
@@ -413,17 +518,21 @@ func computeSimilarity(targetIndustry string, targetMarketCap, targetROE, target
 			}
 		}
 		if overlap > 0 {
-			conceptScore = 65.0 * float64(overlap) / float64(len(targetConcepts))
-			if conceptScore > 65 {
-				conceptScore = 65
+			conceptScore = 70.0 * float64(overlap) / float64(len(targetConcepts))
+			if conceptScore > 70 {
+				conceptScore = 70
 			}
 			conceptReasons = append(conceptReasons, fmt.Sprintf("共享%d个概念", overlap))
 		}
 	}
 
-	// 1c. 取赛道匹配最高分
-	trackScore := industryScore
-	reasons = industryReasons
+	// 1d. 取赛道匹配最高分（subIndustry > industry > concept 的优先级仅影响 reasons 展示）
+	trackScore := subIndustryScore
+	reasons = subIndustryReasons
+	if industryScore > trackScore {
+		trackScore = industryScore
+		reasons = industryReasons
+	}
 	if conceptScore > trackScore {
 		trackScore = conceptScore
 		reasons = conceptReasons
@@ -691,56 +800,53 @@ var industryConceptBoost = map[string][]string{
 	"物流":      {"快递", "供应链", "冷链", "跨境物流"},
 }
 
-// loadConcepts 从本地 concepts.json 读取股票的概念/风口标签，并根据行业补充硬业务概念
+// loadConcepts 读取股票的概念/风口标签，按优先级合并多源
+//  1. 全局反查表 _concept_membership.json：东财概念板块成分股反向索引，最权威
+//  2. 本地 concepts.json：数据源 API 返回，覆盖目标股票自身
+//  3. industryConceptBoost：行业到硬业务概念的规则映射兜底
+//
+// 反查表/本地文件不存在时，分别静默退化为只用其余来源；规则映射始终生效。
 func loadConcepts(dataRoot, symbol string) []string {
-	path := filepath.Join(dataRoot, symbol, "concepts.json")
-	data, err := os.ReadFile(path)
-
 	var result []string
 	seen := make(map[string]struct{})
+	add := func(c string) {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			return
+		}
+		if _, ok := seen[c]; ok {
+			return
+		}
+		seen[c] = struct{}{}
+		result = append(result, c)
+	}
 
-	// 1. 解析本地 concepts.json（如果存在）
-	if err == nil {
-		concepts := extractJSONStringArray(data, "concepts")
-		for _, c := range concepts {
-			c = strings.TrimSpace(c)
-			if c == "" {
-				continue
-			}
-			// 如果概念包含 '、'，拆分为多个子概念
+	// 1. 全局反查表（如已构建）
+	if m := loadConceptMembership(dataRoot); m != nil {
+		for _, c := range m.Concepts[symbol] {
+			add(c)
+		}
+	}
+
+	// 2. 本地 concepts.json
+	if data, err := os.ReadFile(filepath.Join(dataRoot, symbol, "concepts.json")); err == nil {
+		for _, c := range extractJSONStringArray(data, "concepts") {
 			if strings.Contains(c, "、") {
 				for _, part := range strings.Split(c, "、") {
-					part = strings.TrimSpace(part)
-					if part != "" {
-						if _, ok := seen[part]; !ok {
-							seen[part] = struct{}{}
-							result = append(result, part)
-						}
-					}
+					add(part)
 				}
 			} else {
-				if _, ok := seen[c]; !ok {
-					seen[c] = struct{}{}
-					result = append(result, c)
-				}
+				add(c)
 			}
 		}
 	}
 
-	// 2. 根据本地 profile.json 的行业，补充硬业务概念
-	// 数据源概念标签往往过于宽泛（如"大金融""房地产"），无法反映业务实质
-	// 即使 concepts.json 不存在，也要通过行业推断硬概念
-	profilePath := filepath.Join(dataRoot, symbol, "profile.json")
-	if pdata, err := os.ReadFile(profilePath); err == nil {
+	// 3. industryConceptBoost：基于本地 profile.json 的行业，补充硬业务概念
+	if pdata, err := os.ReadFile(filepath.Join(dataRoot, symbol, "profile.json")); err == nil {
 		industry := extractJSONString(pdata, "industry")
 		if industry != "" {
-			if boost, ok := industryConceptBoost[industry]; ok {
-				for _, c := range boost {
-					if _, ok := seen[c]; !ok {
-						seen[c] = struct{}{}
-						result = append(result, c)
-					}
-				}
+			for _, c := range industryConceptBoost[industry] {
+				add(c)
 			}
 		}
 	}

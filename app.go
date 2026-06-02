@@ -217,6 +217,9 @@ func (a *App) startup(ctx context.Context) {
 		fmt.Printf("[MarketCache] 缓存加载成功，共 %d 只股票，最后更新: %s\n", a.marketCache.Len(), a.marketCache.GetAll()[a.stocks[0].Code].UpdatedAt)
 	}
 
+	// 启动后台概念板块成分反查表更新（推荐算法用，过期 7 天才刷新）
+	go a.startBackgroundConceptMembershipUpdate()
+
 	// 加载应用配置
 	appCfg, err := a.storage.LoadAppConfig()
 	if err != nil {
@@ -519,6 +522,40 @@ func (a *App) startBackgroundMarketCacheUpdate() {
 	if err != nil {
 		fmt.Printf("[MarketCache] 后台更新失败: %v\n", err)
 	}
+}
+
+// startBackgroundConceptMembershipUpdate 后台刷新东财概念板块/行业板块反查表
+// 推荐算法用此表替代规则映射，提供精确的"股票→概念"与"股票→二级行业"映射。
+// 仅当本地文件不存在或超过 7 天时触发，整个过程异步、不阻塞前端。
+func (a *App) startBackgroundConceptMembershipUpdate() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[ConceptMembership] panic recovered: %v\n", r)
+		}
+	}()
+	if a.storage == nil {
+		return
+	}
+	dataDir := a.storage.DataDir()
+	existing := downloader.LoadConceptMembership(dataDir)
+	if existing != nil && !existing.IsExpired() {
+		fmt.Printf("[ConceptMembership] 反查表新鲜（%d 板块概念 + %d 行业，覆盖 %d 只股票），跳过刷新\n",
+			existing.ConceptCount, existing.IndustryCount, existing.SymbolCount)
+		return
+	}
+	if existing == nil {
+		fmt.Println("[ConceptMembership] 反查表不存在，开始首次构建...")
+	} else {
+		fmt.Println("[ConceptMembership] 反查表已过期，开始后台刷新...")
+	}
+	start := time.Now()
+	m, err := downloader.RefreshConceptMembership(a.ctx, dataDir)
+	if err != nil {
+		fmt.Printf("[ConceptMembership] 刷新失败: %v\n", err)
+		return
+	}
+	fmt.Printf("[ConceptMembership] 刷新完成: 概念 %d + 行业 %d 板块, 覆盖 %d 只股票, 耗时 %.1fs\n",
+		m.ConceptCount, m.IndustryCount, m.SymbolCount, time.Since(start).Seconds())
 }
 
 // GetMarketCacheStatus 获取全市场缓存状态（Wails 绑定）
@@ -3481,13 +3518,14 @@ func (a *App) RecommendComparables(symbol string) ([]analyzer.ComparableRecommen
 			if item, ok := a.marketCache.Get(s); ok {
 				// 使用带市场后缀的代码（如 000001.SZ）作为 Symbol，保持与前端一致
 				cacheItems[s] = analyzer.MarketCacheItem{
-					Symbol:    s,
-					Name:      item.Name,
-					Industry:  item.Industry,
-					MarketCap: item.MarketCap,
-					ROE:       item.ROE,
-					GM:        item.GrossprofitMargin,
-					Concepts:  item.Concepts,
+					Symbol:      s,
+					Name:        item.Name,
+					Industry:    item.Industry,
+					SubIndustry: item.SubIndustry,
+					MarketCap:   item.MarketCap,
+					ROE:         item.ROE,
+					GM:          item.GrossprofitMargin,
+					Concepts:    item.Concepts,
 				}
 			}
 		}
