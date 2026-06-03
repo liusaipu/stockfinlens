@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.6.3] - 2026-06-03
+
+### 修复 (Fixes)
+- **Python 子进程添加超时防止分析流程永久挂死**（`analyzer/ml_inference.go`, `downloader/rim_data.go`, `downloader/risk_crawler.go`, `downloader/auditor.go`, `downloader/exec_changes.go`, `downloader/litigation.go`）
+  - 6 个 Python 子进程调用点全部改用 `exec.CommandContext` + `context.WithTimeout`：ML 推理 60s、RIM 数据 60s、风险爬虫 90s、审计/高管/诉讼各 60s。
+  - 此前 akshare 底层 requests 无默认超时，网络异常时 `cmd.Output()` 永久阻塞，导致分析流程卡在 92%（生成报告中）永不返回。
+- **可比公司综合得分改用固定档位法**（`analyzer/report_helpers.go`）
+  - 各指标按 A 股通用固定档位映射到 0-100 分（ROE≥15%、毛利率≥40%、营收增长≥10%、负债率≤40% 视为优秀），替代原来的 Min-Max 池内标准化，避免加减可比公司导致相对排名翻转。
+
 ## [v1.6.2] - 2026-06-01
 
 ### 优化 (Improvements)
