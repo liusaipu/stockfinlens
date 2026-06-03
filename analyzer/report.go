@@ -147,7 +147,7 @@ func writeRiskAlertBanner(b *strings.Builder, alert *RiskAlertSummary) {
 				flagIcon = "ℹ️"
 				flagLevel = "信息"
 			}
-				b.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", flagIcon, f.Name, f.FormatFlagValue(), flagLevel))
+			b.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", flagIcon, f.Name, f.FormatFlagValue(), flagLevel))
 		}
 		b.WriteString("\n")
 	}

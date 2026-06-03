@@ -47,23 +47,25 @@ type HotConceptHistoryItem struct {
 
 // ConceptConstituent 概念板块成分股
 type ConceptConstituent struct {
-	Code             string  `json:"code"`               // 股票代码
-	Name             string  `json:"name"`               // 股票名称
-	Market           string  `json:"market"`             // 市场: SH / SZ / BJ
-	ChangePct        float64 `json:"change_pct"`         // 涨跌幅%
-	Price            float64 `json:"price"`              // 最新价
-	MainInflow       float64 `json:"main_inflow"`        // 主力净流入
-	MarketCap        float64 `json:"market_cap"`         // 总市值
+	Code              string  `json:"code"`                 // 股票代码
+	Name              string  `json:"name"`                 // 股票名称
+	Market            string  `json:"market"`               // 市场: SH / SZ / BJ
+	ChangePct         float64 `json:"change_pct"`           // 涨跌幅%
+	Price             float64 `json:"price"`                // 最新价
+	MainInflow        float64 `json:"main_inflow"`          // 主力净流入
+	MarketCap         float64 `json:"market_cap"`           // 总市值
 	HalfYearChangePct float64 `json:"half_year_change_pct"` // 近半年涨跌幅%
 }
 
 // ========== 常量 ==========
 
 const (
-	emHotConceptFields    = "f12,f14,f2,f3,f4,f5,f6,f10,f15,f62,f184,f204,f205"
-	emFSConcept           = "m:90+t:3" // 概念板块（东财 API：t:3=概念，t:1=行业，t:2=其他）
-	emFSIndustry          = "m:90+t:1" // 行业板块
-	hotConceptCacheVer    = 6          // 缓存版本号，字段映射/去重逻辑变更时递增使旧缓存失效
+	emHotConceptFields = "f12,f14,f2,f3,f4,f5,f6,f10,f15,f62,f184,f204,f205"
+	// 东财板块市场 m:90 下的 t 分类（经验证）：t:1=地域板块（河南/青海等省份）、t:2=行业板块（医疗研发外包/化学制药等 ≈500 个二级行业）、t:3=概念板块。
+	// 历史踩坑：曾把 emFSIndustry 设为 t:1，结果 _concept_membership.json 里 sub_industry 全是省份板块（药明康德误判成"青海板块"）。
+	emFSConcept        = "m:90+t:3"
+	emFSIndustry       = "m:90+t:2"
+	hotConceptCacheVer = 6 // 缓存版本号，字段映射/去重逻辑变更时递增使旧缓存失效
 )
 
 // sflHotConceptClient 用于热点概念降级的数据源客户端（由 app.go 设置）
@@ -154,14 +156,14 @@ func fetchHotConceptsFromSFL(ctx context.Context, client *SFLClient) ([]HotConce
 		// 同概念保留热度最高的记录
 		if existing, ok := seen[item.Name]; !ok || item.Hot > existing.MainInflow {
 			seen[item.Name] = &HotConcept{
-				Code:       item.TsCode,
-				Name:       item.Name,
-				ChangePct:  item.PctChange,
-				ChangeAmt:  0,
-				Volume:     0,
-				Turnover:   0,
-				MainInflow: item.Hot, // 用热度值近似主力净流入
-				MainInRatio: 0,
+				Code:         item.TsCode,
+				Name:         item.Name,
+				ChangePct:    item.PctChange,
+				ChangeAmt:    0,
+				Volume:       0,
+				Turnover:     0,
+				MainInflow:   item.Hot, // 用热度值近似主力净流入
+				MainInRatio:  0,
 				TopStock:     "",
 				TopStockCode: "",
 				Score:        0,
@@ -266,16 +268,43 @@ func FetchHotConceptHistory(dataDir string, days int) ([]HotConceptHistoryItem, 
 	return result, nil
 }
 
-// FetchConceptConstituents 获取某概念板块的成分股列表
+// FetchConceptConstituents 获取某概念板块的成分股列表（按涨跌幅截 top 50，用于热点概念展示）
 func FetchConceptConstituents(ctx context.Context, conceptCode string) ([]ConceptConstituent, error) {
+	result, err := fetchConceptConstituentsRaw(ctx, conceptCode, 200)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ChangePct > result[j].ChangePct
+	})
+	if len(result) > 50 {
+		result = result[:50]
+	}
+	return result, nil
+}
+
+// FetchAllConceptConstituents 获取某板块的全量成分股（不排序、不截断，用于反查表构建）
+// 与 FetchConceptConstituents 的差异：pz=500 + 不做 top-50 截断。
+// 反查表必须用全量，否则只剩"当日 top 50 涨幅榜"，药明康德这类大市值在小行业里也容易漏。
+func FetchAllConceptConstituents(ctx context.Context, conceptCode string) ([]ConceptConstituent, error) {
+	return fetchConceptConstituentsRaw(ctx, conceptCode, 500)
+}
+
+// fetchConceptConstituentsRaw 内部公共实现：拉取成分股原始列表，不排序、不截断。
+func fetchConceptConstituentsRaw(ctx context.Context, conceptCode string, pageSize int) ([]ConceptConstituent, error) {
 	// 演示数据优先：当概念列表使用演示数据时，成分股也用演示数据，
 	// 避免用演示数据的假代码去查东财真API（代码映射不匹配会导致成分股完全错误）
 	if mock := getMockConstituents(conceptCode); len(mock) > 0 {
 		return mock, nil
 	}
 
+	if pageSize <= 0 {
+		pageSize = 200
+	}
+
 	url := fmt.Sprintf(
-		"http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=200&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&_=%d",
+		"http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&_=%d",
+		pageSize,
 		conceptCode,
 		time.Now().UnixMilli(),
 	)
@@ -343,14 +372,6 @@ func FetchConceptConstituents(ctx context.Context, conceptCode string) ([]Concep
 		}
 		result = append(result, c)
 	}
-
-	// 按涨跌幅降序
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].ChangePct > result[j].ChangePct
-	})
-	if len(result) > 50 {
-		result = result[:50]
-	}
 	return result, nil
 }
 
@@ -383,12 +404,10 @@ func getMockConstituents(conceptCode string) []ConceptConstituent {
 	if list, ok := mocks[conceptCode]; ok {
 		return list
 	}
-	// 默认返回一些通用股票
-	return []ConceptConstituent{
-		{Code: "000001", Name: "平安银行", Market: "SZ", Price: 10.50, ChangePct: 0.50, MarketCap: 10500000000, HalfYearChangePct: 6.0, MainInflow: 10000000},
-		{Code: "000002", Name: "万科A", Market: "SZ", Price: 8.20, ChangePct: -0.30, MainInflow: -5000000},
-		{Code: "600519", Name: "贵州茅台", Market: "SH", Price: 1680.00, ChangePct: 0.80, MarketCap: 1680000000000, HalfYearChangePct: 6.6, MainInflow: 25000000},
-	}
+	// 未知代码必须返回 nil，让上层走真 API。
+	// 原本这里返回 {平安银行, 万科A, 茅台} 默认三只兜底——结果反查表里所有 500+ 板块的
+	// "成分股"都被替换成这三只，药明康德的二级行业全错。
+	return nil
 }
 
 // stripJSONP 去除 JSONP callback 包装，如 jQuery123({...}) -> {...}

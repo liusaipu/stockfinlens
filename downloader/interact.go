@@ -27,6 +27,7 @@ type InteractQA struct {
 // 策略：
 //   - 沪市(SH)：东财问董秘 + 上证e互动，合并去重
 //   - 深市(SZ)：东财问董秘 + 深市互动易，合并去重
+//
 // 仅保留最近3个月（90天）内有回答的问答。
 // 港股返回空列表。
 func FetchStockInteractQA(ctx context.Context, market, code string) ([]InteractQA, error) {

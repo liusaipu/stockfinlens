@@ -12,11 +12,11 @@ import (
 
 // eastMoneyMoneyflowResp 东财资金流向接口响应结构
 type eastMoneyMoneyflowResp struct {
-	Rc   int    `json:"rc"`
-	Rt   int    `json:"rt"`
-	Svr  int64  `json:"svr"`
-	Lt   int    `json:"lt"`
-	Full int    `json:"full"`
+	Rc   int   `json:"rc"`
+	Rt   int   `json:"rt"`
+	Svr  int64 `json:"svr"`
+	Lt   int   `json:"lt"`
+	Full int   `json:"full"`
 	Data struct {
 		Code   string   `json:"code"`
 		Market int      `json:"market"`
@@ -67,11 +67,11 @@ func fetchMoneyflowFromEastMoney(ctx context.Context, market, code, startDate, e
 
 		// 东财返回的字段: 日期,主力净流入,小单净流入,中单净流入,大单净流入,超大单净流入
 		// 注意东财的"主力"=超大+大，"散户"=中+小
-		netMain := parseFloatSafe(parts[1])   // 主力净流入 (超大+大)
-		netSm := parseFloatSafe(parts[2])     // 小单净流入
-		netMd := parseFloatSafe(parts[3])     // 中单净流入
-		netLg := parseFloatSafe(parts[4])     // 大单净流入
-		netElg := parseFloatSafe(parts[5])    // 超大单净流入
+		netMain := parseFloatSafe(parts[1]) // 主力净流入 (超大+大)
+		netSm := parseFloatSafe(parts[2])   // 小单净流入
+		netMd := parseFloatSafe(parts[3])   // 中单净流入
+		netLg := parseFloatSafe(parts[4])   // 大单净流入
+		netElg := parseFloatSafe(parts[5])  // 超大单净流入
 
 		// 主力净流入 = 超大单净流入 + 大单净流入，做一下校验
 		if netMain == 0 && (netLg != 0 || netElg != 0) {

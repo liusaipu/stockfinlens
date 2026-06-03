@@ -20,8 +20,8 @@ type IntradayPoint struct {
 
 // IntradayData 单只股票的当日/上一交易日分时数据
 type IntradayData struct {
-	Date        string          `json:"date"`        // 该数据所属交易日 "YYYY-MM-DD"
-	PrevClose   float64         `json:"prevClose"`   // 昨收，画水平参考线 + 算涨跌幅
+	Date        string          `json:"date"`      // 该数据所属交易日 "YYYY-MM-DD"
+	PrevClose   float64         `json:"prevClose"` // 昨收，画水平参考线 + 算涨跌幅
 	Points      []IntradayPoint `json:"points"`
 	IsRealtime  bool            `json:"isRealtime"`  // true=当日盘中实时，false=历史/盘后
 	LastUpdated string          `json:"lastUpdated"` // RFC3339，最后一个数据点的 wall time
@@ -60,10 +60,10 @@ func FetchIntradayFromEastMoney(ctx context.Context, market, code string) (*Intr
 	var resp struct {
 		RC   int `json:"rc"`
 		Data *struct {
-			Code      string   `json:"code"`
-			Name      string   `json:"name"`
-			PreClose  float64  `json:"preClose"`
-			Trends    []string `json:"trends"`
+			Code     string   `json:"code"`
+			Name     string   `json:"name"`
+			PreClose float64  `json:"preClose"`
+			Trends   []string `json:"trends"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {

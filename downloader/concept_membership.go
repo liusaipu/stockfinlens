@@ -15,11 +15,11 @@ import (
 // 用于可比公司推荐：替代规则映射 industryConceptMap，提供精确的"股票→概念板块"映射，
 // 并填充二级行业（SubIndustry）作为推荐的强匹配信号。
 type ConceptMembership struct {
-	Version      int                 `json:"version"`        // 缓存格式版本
-	UpdatedAt    string              `json:"updated_at"`     // ISO8601
-	ConceptCount int                 `json:"concept_count"`  // 概念板块总数
-	IndustryCount int                `json:"industry_count"` // 行业板块总数
-	SymbolCount  int                 `json:"symbol_count"`   // 覆盖股票总数
+	Version       int    `json:"version"`        // 缓存格式版本
+	UpdatedAt     string `json:"updated_at"`     // ISO8601
+	ConceptCount  int    `json:"concept_count"`  // 概念板块总数
+	IndustryCount int    `json:"industry_count"` // 行业板块总数
+	SymbolCount   int    `json:"symbol_count"`   // 覆盖股票总数
 	// Concepts: symbol(带后缀如 600519.SH) → 概念板块名列表
 	Concepts map[string][]string `json:"concepts"`
 	// SubIndustry: symbol → 二级行业（东财行业板块名，如 "医疗研发外包"）
@@ -27,8 +27,9 @@ type ConceptMembership struct {
 }
 
 const (
-	conceptMembershipFile    = "_concept_membership.json"
-	conceptMembershipVersion = 1
+	conceptMembershipFile = "_concept_membership.json"
+	// v2: 修复 emFSIndustry 用了 t:1（地域板块）+ 改用 FetchAllConceptConstituents 取全量成分股
+	conceptMembershipVersion = 2
 	conceptMembershipMaxAge  = 7 * 24 * time.Hour
 	// 并发拉取成分股的 goroutine 上限。东财对 push2 域名节流较松，
 	// 但同时多 CDN 节点轮询会放大请求量，5 是经验值。
@@ -119,58 +120,87 @@ func saveConceptMembership(dataDir string, m *ConceptMembership) error {
 	return os.Rename(tmp, path)
 }
 
-// fetchIndustryBoardsFromEastMoney 拉取东财全部行业板块（m:90+t:1）
-// 字段映射与 fetchConceptBoardFromEastMoney 一致，但仅取代码/名称（行业板块不需要打分）
+// fetchAllBoardsByFS 分页拉取东财某 fs 类别下的全部板块（仅取代码/名称）
+// EM clist API 单页实测被 clamp 到 100 条，所以必须 pn=1,2,3... 翻页直到累计满足 total。
+// 历史踩坑：原来单次 pz=500 只拿到 100 个行业，BK1600 医疗研发外包恰好在第 2 页，于是药明康德的二级行业一直为空。
+func fetchAllBoardsByFS(ctx context.Context, fs, label string) ([]HotConcept, error) {
+	const pageSize = 100
+	const maxPages = 20 // 防御性上限：t:2 总数 ~500，5 页即可覆盖；保留余量。
+	var all []HotConcept
+	seen := make(map[string]struct{})
+	total := -1
+	for pn := 1; pn <= maxPages; pn++ {
+		url := fmt.Sprintf(
+			"http://push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=%s&fields=%s&_=%d",
+			pn, pageSize, fs, emHotConceptFields, time.Now().UnixMilli(),
+		)
+		body, err := httpGetEastMoney(ctx, url)
+		if err != nil {
+			if pn == 1 {
+				return nil, fmt.Errorf("请求%s板块失败: %w", label, err)
+			}
+			break // 中途失败：返回已拿到的部分，不整体失败
+		}
+		body = stripJSONP(body)
+		var resp struct {
+			RC   int `json:"rc"`
+			Data struct {
+				Total int                      `json:"total"`
+				Diff  []map[string]interface{} `json:"diff"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			if pn == 1 {
+				return nil, fmt.Errorf("解析%s板块响应失败: %w", label, err)
+			}
+			break
+		}
+		if resp.RC != 0 && resp.RC != 200 {
+			if pn == 1 {
+				return nil, fmt.Errorf("%s板块 API rc=%d", label, resp.RC)
+			}
+			break
+		}
+		if total < 0 {
+			total = resp.Data.Total
+		}
+		if len(resp.Data.Diff) == 0 {
+			break
+		}
+		for _, item := range resp.Data.Diff {
+			code := parseString(item["f12"])
+			name := parseString(item["f14"])
+			if code != "" && !strings.HasPrefix(code, "BK") {
+				code = "BK" + code
+			}
+			if code == "" || name == "" {
+				continue
+			}
+			if _, ok := seen[code]; ok {
+				continue
+			}
+			seen[code] = struct{}{}
+			all = append(all, HotConcept{Code: code, Name: name})
+		}
+		if len(all) >= total && total > 0 {
+			break
+		}
+		if len(resp.Data.Diff) < pageSize {
+			break
+		}
+	}
+	return all, nil
+}
+
+// fetchIndustryBoardsFromEastMoney 拉取东财全部行业板块（emFSIndustry = m:90+t:2，~496 个二级行业）
 func fetchIndustryBoardsFromEastMoney(ctx context.Context) ([]HotConcept, error) {
-	url := fmt.Sprintf(
-		"http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=500&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=%s&fields=%s&_=%d",
-		emFSIndustry,
-		emHotConceptFields,
-		time.Now().UnixMilli(),
-	)
-	body, err := httpGetEastMoney(ctx, url)
-	if err != nil {
-		return nil, fmt.Errorf("请求行业板块失败: %w", err)
-	}
-	body = stripJSONP(body)
-
-	var resp struct {
-		RC   int `json:"rc"`
-		Data struct {
-			Total int                      `json:"total"`
-			Diff  []map[string]interface{} `json:"diff"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("解析行业板块响应失败: %w", err)
-	}
-	if resp.RC != 0 && resp.RC != 200 {
-		return nil, fmt.Errorf("行业板块 API rc=%d", resp.RC)
-	}
-
-	boards := make([]HotConcept, 0, len(resp.Data.Diff))
-	for _, item := range resp.Data.Diff {
-		code := parseString(item["f12"])
-		name := parseString(item["f14"])
-		if code != "" && !strings.HasPrefix(code, "BK") {
-			code = "BK" + code
-		}
-		if code == "" || name == "" {
-			continue
-		}
-		boards = append(boards, HotConcept{Code: code, Name: name})
-	}
-	return boards, nil
+	return fetchAllBoardsByFS(ctx, emFSIndustry, "行业")
 }
 
 // fetchAllConceptBoards 拉取概念板块全集（不走 4 小时缓存，直接打 API）
-// 该函数与 FetchHotConceptBoard 的差异：不打分、不走缓存、不应用 topN，要的就是全集
+// 与 FetchHotConceptBoard 的差异：不打分、不走缓存、不应用 topN，要的就是全集
 func fetchAllConceptBoards(ctx context.Context) ([]HotConcept, error) {
-	concepts, err := fetchConceptBoardFromEastMoney(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return concepts, nil
+	return fetchAllBoardsByFS(ctx, emFSConcept, "概念")
 }
 
 // constituentToSymbol 将成分股的 (Code, Market) 转换为带后缀的 symbol
@@ -222,7 +252,7 @@ func BuildConceptMembership(ctx context.Context) (*ConceptMembership, error) {
 
 	// 2. 并发拉取成分股
 	type boardJob struct {
-		board     HotConcept
+		board      HotConcept
 		isIndustry bool
 	}
 	jobs := make([]boardJob, 0, len(filteredConcepts)+len(filteredIndustries))
@@ -255,7 +285,7 @@ func BuildConceptMembership(ctx context.Context) (*ConceptMembership, error) {
 			// 单板块超时控制（成分股 API 平均 < 1s，给足 8s）
 			rctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 			defer cancel()
-			stocks, err := FetchConceptConstituents(rctx, j.board.Code)
+			stocks, err := FetchAllConceptConstituents(rctx, j.board.Code)
 			if err != nil {
 				mu.Lock()
 				failCount++

@@ -13,7 +13,7 @@ type TTMMetrics struct {
 	OperatingCash float64  `json:"operatingCash"`
 	ROE           float64  `json:"roe"`
 	NetMargin     float64  `json:"netMargin"`
-	CashRatio     float64  `json:"cashRatio"` // 经营现金流/净利润
+	CashRatio     float64  `json:"cashRatio"`   // 经营现金流/净利润
 	PeriodCount   int      `json:"periodCount"` // 实际累加的季度数
 	Periods       []string `json:"periods"`     // 实际累加的报告期（用于校对，时间升序）
 }

@@ -16,7 +16,7 @@ func TestIsBoardBlacklisted(t *testing.T) {
 		{"CXO", false},
 		{"白酒", false},
 		{"沪深300指数", true}, // 含"指数"
-		{"医药ETF", true},    // 含"ETF"
+		{"医药ETF", true},   // 含"ETF"
 		{"江苏板块", true},
 		{"深圳本地", true},
 		{"概念股", true},

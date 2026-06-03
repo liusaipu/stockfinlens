@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // MLSentimentPrediction A 舆情+量价高频预警结果
@@ -257,7 +259,9 @@ func callMLInference(engine string, payload map[string]any) (map[string]any, err
 	}
 
 	fmt.Printf("[ML] Executing: %s %s\n", python, script)
-	cmd := exec.Command(python, script)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
 	cmd.Env = append(os.Environ(), "TQDM_DISABLE=1", "PYTHONUNBUFFERED=1")
 
 	// Windows: 隐藏 CMD 窗口

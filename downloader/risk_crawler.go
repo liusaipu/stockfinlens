@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // RiskCrawlerData 非财务风险爬虫结果
@@ -105,7 +107,9 @@ func FetchRiskCrawlerData(symbol string) (*RiskCrawlerData, error) {
 	}
 
 	python := resolveRiskCrawlerPython()
-	cmd := exec.Command(python, script)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
 	cmd.Env = append(os.Environ(), "TQDM_DISABLE=1", "PYTHONUNBUFFERED=1")
 
 	// Windows: 隐藏 CMD 窗口

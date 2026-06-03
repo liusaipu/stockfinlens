@@ -17,11 +17,11 @@ type MarketCacheItem struct {
 	// === 基础资料 (来自 stock_basic / profile) ===
 	Code        string  `json:"code"`
 	Name        string  `json:"name"`
-	Market      string  `json:"market"`       // SH / SZ / BJ / HK
-	Industry    string  `json:"industry"`     // 申万/东财一级行业
+	Market      string  `json:"market"`                 // SH / SZ / BJ / HK
+	Industry    string  `json:"industry"`               // 申万/东财一级行业
 	SubIndustry string  `json:"sub_industry,omitempty"` // 二级行业（预留扩展）
 	Area        string  `json:"area,omitempty"`         // 地区（预留扩展）
-	MarketCap   float64 `json:"market_cap"`   // 总市值（元）
+	MarketCap   float64 `json:"market_cap"`             // 总市值（元）
 	ListDate    string  `json:"list_date,omitempty"`    // 上市日期 YYYYMMDD
 
 	// === 财务指标 (来自 fina_indicator，最新一期) ===
@@ -47,17 +47,17 @@ type MarketCacheItem struct {
 	Concepts []string `json:"concepts,omitempty"`
 
 	// === 元数据 ===
-	UpdatedAt  string `json:"updated_at"`   // ISO8601
-	DataSource string `json:"data_source"`  // sfl / eastmoney / manual
+	UpdatedAt  string `json:"updated_at"`  // ISO8601
+	DataSource string `json:"data_source"` // sfl / eastmoney / manual
 }
 
 // MarketCache 全市场缓存根结构
 type MarketCache struct {
-	Version   string                    `json:"version"`    // 缓存格式版本，如 "1.0"
-	CreatedAt string                    `json:"created_at"` // 首次创建时间
-	UpdatedAt string                    `json:"updated_at"` // 最后更新时间
-	Count     int                       `json:"count"`      // 条目数
-	Items     map[string]MarketCacheItem `json:"items"`     // key: symbol (如 600460.SH)
+	Version   string                     `json:"version"`    // 缓存格式版本，如 "1.0"
+	CreatedAt string                     `json:"created_at"` // 首次创建时间
+	UpdatedAt string                     `json:"updated_at"` // 最后更新时间
+	Count     int                        `json:"count"`      // 条目数
+	Items     map[string]MarketCacheItem `json:"items"`      // key: symbol (如 600460.SH)
 }
 
 const (

@@ -1,21 +1,23 @@
 package downloader
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 // ExecChanges 高管变动信息
 type ExecChanges struct {
-	ExecChangeCount   int      `json:"exec_change_count"`
-	CFOChanged        bool     `json:"cfo_changed"`
-	AuditHeadChanged  bool     `json:"audit_head_changed"`
-	History           []string `json:"history"`
-	Error             string   `json:"error,omitempty"`
+	ExecChangeCount  int      `json:"exec_change_count"`
+	CFOChanged       bool     `json:"cfo_changed"`
+	AuditHeadChanged bool     `json:"audit_head_changed"`
+	History          []string `json:"history"`
+	Error            string   `json:"error,omitempty"`
 }
 
 // FetchExecChanges 获取股票高管变动信息
@@ -32,7 +34,9 @@ func FetchExecChanges(symbol string) (*ExecChanges, error) {
 	}
 
 	python := resolveExecChangesPython()
-	cmd := exec.Command(python, script)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	setHideWindow(cmd)

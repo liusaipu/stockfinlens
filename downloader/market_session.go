@@ -33,8 +33,8 @@ func IsTradingHours(now time.Time) bool {
 	}
 	mins := t.Hour()*60 + t.Minute()
 	const (
-		morningOpen  = 9*60 + 30
-		morningClose = 11*60 + 30
+		morningOpen    = 9*60 + 30
+		morningClose   = 11*60 + 30
 		afternoonOpen  = 13 * 60
 		afternoonClose = 15 * 60
 	)

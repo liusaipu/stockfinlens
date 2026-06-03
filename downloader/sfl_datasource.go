@@ -390,8 +390,8 @@ func (c *SFLClient) FetchDailyBasic(ctx context.Context, market, code, tradeDate
 		PE:                   getFloat(item, idx, "pe"),
 		PB:                   getFloat(item, idx, "pb"),
 		DividendYield:        getFloat(item, idx, "dv_ratio") / 100, // 接口返回百分比
-		CirculatingMarketCap: getFloat(item, idx, "circ_mv") * 1e4,   // circ_mv 单位：万元
-		MarketCap:            getFloat(item, idx, "total_mv") * 1e4,  // total_mv 单位：万元
+		CirculatingMarketCap: getFloat(item, idx, "circ_mv") * 1e4,  // circ_mv 单位：万元
+		MarketCap:            getFloat(item, idx, "total_mv") * 1e4, // total_mv 单位：万元
 		QuoteTime:            getStr(item, idx, "trade_date"),
 	}, nil
 }
@@ -400,21 +400,21 @@ func (c *SFLClient) FetchDailyBasic(ctx context.Context, market, code, tradeDate
 
 // SFLIncomeItem 利润表条目
 type SFLIncomeItem struct {
-	TsCode        string  `json:"ts_code"`
-	EndDate       string  `json:"end_date"`     // 报告期
-	AnnDate       string  `json:"ann_date"`     // 公告日期
-	Revenue       float64 `json:"revenue"`      // 营业收入
-	TotalProfit   float64 `json:"total_profit"` // 利润总额
-	NetIncome      float64 `json:"net_income"`      // 净利润
+	TsCode          string  `json:"ts_code"`
+	EndDate         string  `json:"end_date"`        // 报告期
+	AnnDate         string  `json:"ann_date"`        // 公告日期
+	Revenue         float64 `json:"revenue"`         // 营业收入
+	TotalProfit     float64 `json:"total_profit"`    // 利润总额
+	NetIncome       float64 `json:"net_income"`      // 净利润
 	ParentNetIncome float64 `json:"n_income_attr_p"` // 归母净利润
-	EPS            float64 `json:"eps"`             // 基本每股收益
-	OperateProfit float64 `json:"operate_profit"` // 营业利润
-	TotalCogs     float64 `json:"total_cogs"`   // 营业总成本
-	OperateCost   float64 `json:"operate_cost"` // 营业成本
-	SellExp       float64 `json:"sell_exp"`     // 销售费用
-	AdminExp      float64 `json:"admin_exp"`    // 管理费用
-	FinExp        float64 `json:"fin_exp"`      // 财务费用
-	RDExp         float64 `json:"rd_exp"`       // 研发费用
+	EPS             float64 `json:"eps"`             // 基本每股收益
+	OperateProfit   float64 `json:"operate_profit"`  // 营业利润
+	TotalCogs       float64 `json:"total_cogs"`      // 营业总成本
+	OperateCost     float64 `json:"operate_cost"`    // 营业成本
+	SellExp         float64 `json:"sell_exp"`        // 销售费用
+	AdminExp        float64 `json:"admin_exp"`       // 管理费用
+	FinExp          float64 `json:"fin_exp"`         // 财务费用
+	RDExp           float64 `json:"rd_exp"`          // 研发费用
 }
 
 // FetchIncome 获取利润表
@@ -437,21 +437,21 @@ func (c *SFLClient) FetchIncome(ctx context.Context, market, code, startDate, en
 	result := make([]SFLIncomeItem, 0, len(resp.Data.Items))
 	for _, item := range resp.Data.Items {
 		result = append(result, SFLIncomeItem{
-			TsCode:        getStr(item, idx, "ts_code"),
-			EndDate:       getStr(item, idx, "end_date"),
-			AnnDate:       getStr(item, idx, "ann_date"),
-			Revenue:       getFloat(item, idx, "revenue"),
-			TotalProfit:   getFloat(item, idx, "total_profit"),
+			TsCode:          getStr(item, idx, "ts_code"),
+			EndDate:         getStr(item, idx, "end_date"),
+			AnnDate:         getStr(item, idx, "ann_date"),
+			Revenue:         getFloat(item, idx, "revenue"),
+			TotalProfit:     getFloat(item, idx, "total_profit"),
 			NetIncome:       getFloat(item, idx, "n_income"),
 			ParentNetIncome: getFloat(item, idx, "n_income_attr_p"),
 			EPS:             getFloat(item, idx, "basic_eps"),
-			OperateProfit: getFloat(item, idx, "operate_profit"),
-			TotalCogs:     getFloat(item, idx, "total_cogs"),
-			OperateCost:   getFloat(item, idx, "oper_cost"),
-			SellExp:       getFloat(item, idx, "sell_exp"),
-			AdminExp:      getFloat(item, idx, "admin_exp"),
-			FinExp:        getFloat(item, idx, "fin_exp"),
-			RDExp:         getFloat(item, idx, "rd_exp"),
+			OperateProfit:   getFloat(item, idx, "operate_profit"),
+			TotalCogs:       getFloat(item, idx, "total_cogs"),
+			OperateCost:     getFloat(item, idx, "oper_cost"),
+			SellExp:         getFloat(item, idx, "sell_exp"),
+			AdminExp:        getFloat(item, idx, "admin_exp"),
+			FinExp:          getFloat(item, idx, "fin_exp"),
+			RDExp:           getFloat(item, idx, "rd_exp"),
 		})
 	}
 	return result, nil
@@ -463,42 +463,42 @@ type SFLBalanceItem struct {
 	EndDate        string  `json:"end_date"`
 	TotalAssets    float64 `json:"total_assets"`
 	TotalLiab      float64 `json:"total_liab"`
-	TotalHldrEqy   float64 `json:"total_hldr_eqy"` // 股东权益合计
-	MoneyCap       float64 `json:"money_cap"`      // 货币资金
-	TradAsset      float64 `json:"trad_asset"`     // 交易性金融资产
-	NotesReceiv    float64 `json:"notes_receiv"`   // 应收票据
-	AccountsReceiv float64 `json:"accounts_receiv"` // 应收账款
-	Prepayment     float64 `json:"prepayment"`     // 预付款项
-	ContractAsset  float64 `json:"contract_asset"` // 合同资产
-	Inventories    float64 `json:"inventories"`    // 存货
-	TotalCurAssets float64 `json:"total_cur_assets"` // 流动资产合计
-	FixAssets      float64 `json:"fix_assets"`     // 固定资产
-	CIP            float64 `json:"cip"`            // 在建工程
-	ConstMaterials float64 `json:"const_materials"` // 工程物资
-	IntanAssets    float64 `json:"intan_assets"`   // 无形资产
-	Goodwill       float64 `json:"goodwill"`       // 商誉
-	TotalNca       float64 `json:"total_nca"`      // 非流动资产合计
-	LtEqtInvest    float64 `json:"lt_eqt_invest"`  // 长期股权投资
-	OthEqtInvest   float64 `json:"oth_eqt_invest"` // 其他权益工具投资
-	OthNca         float64 `json:"oth_nca"`        // 其他非流动资产
-	ShortLoan      float64 `json:"short_loan"`     // 短期借款
-	LongLoan       float64 `json:"long_loan"`      // 长期借款
-	BondsPayable   float64 `json:"bonds_payable"`  // 应付债券
-	NotesPayable   float64 `json:"notes_payable"`  // 应付票据
-	AccountsPay    float64 `json:"acct_payable"`   // 应付账款
-	AdvReceipts    float64 `json:"adv_receipts"`   // 预收款项
-	ContractLiab   float64 `json:"contract_liab"`  // 合同负债
-	SalaryPayable  float64 `json:"payroll_payable"` // 应付职工薪酬
-	TaxPayable     float64 `json:"tax_payable"`    // 应交税费
-	TotalCurLiab   float64 `json:"total_cur_liab"` // 流动负债合计
-	TotalNcl       float64 `json:"total_ncl"`      // 非流动负债合计
-	DeferTaxAsset  float64 `json:"defer_tax_assets"` // 递延所得税资产
-	DeferTaxLiab   float64 `json:"defer_tax_liab"`   // 递延所得税负债
-	ShareCapital   float64 `json:"share_capital"`  // 实收资本（或股本）
-	CapRese        float64 `json:"cap_rese"`       // 资本公积
-	SurplusRese    float64 `json:"surplus_rese"`   // 盈余公积
+	TotalHldrEqy   float64 `json:"total_hldr_eqy"`       // 股东权益合计
+	MoneyCap       float64 `json:"money_cap"`            // 货币资金
+	TradAsset      float64 `json:"trad_asset"`           // 交易性金融资产
+	NotesReceiv    float64 `json:"notes_receiv"`         // 应收票据
+	AccountsReceiv float64 `json:"accounts_receiv"`      // 应收账款
+	Prepayment     float64 `json:"prepayment"`           // 预付款项
+	ContractAsset  float64 `json:"contract_asset"`       // 合同资产
+	Inventories    float64 `json:"inventories"`          // 存货
+	TotalCurAssets float64 `json:"total_cur_assets"`     // 流动资产合计
+	FixAssets      float64 `json:"fix_assets"`           // 固定资产
+	CIP            float64 `json:"cip"`                  // 在建工程
+	ConstMaterials float64 `json:"const_materials"`      // 工程物资
+	IntanAssets    float64 `json:"intan_assets"`         // 无形资产
+	Goodwill       float64 `json:"goodwill"`             // 商誉
+	TotalNca       float64 `json:"total_nca"`            // 非流动资产合计
+	LtEqtInvest    float64 `json:"lt_eqt_invest"`        // 长期股权投资
+	OthEqtInvest   float64 `json:"oth_eqt_invest"`       // 其他权益工具投资
+	OthNca         float64 `json:"oth_nca"`              // 其他非流动资产
+	ShortLoan      float64 `json:"short_loan"`           // 短期借款
+	LongLoan       float64 `json:"long_loan"`            // 长期借款
+	BondsPayable   float64 `json:"bonds_payable"`        // 应付债券
+	NotesPayable   float64 `json:"notes_payable"`        // 应付票据
+	AccountsPay    float64 `json:"acct_payable"`         // 应付账款
+	AdvReceipts    float64 `json:"adv_receipts"`         // 预收款项
+	ContractLiab   float64 `json:"contract_liab"`        // 合同负债
+	SalaryPayable  float64 `json:"payroll_payable"`      // 应付职工薪酬
+	TaxPayable     float64 `json:"tax_payable"`          // 应交税费
+	TotalCurLiab   float64 `json:"total_cur_liab"`       // 流动负债合计
+	TotalNcl       float64 `json:"total_ncl"`            // 非流动负债合计
+	DeferTaxAsset  float64 `json:"defer_tax_assets"`     // 递延所得税资产
+	DeferTaxLiab   float64 `json:"defer_tax_liab"`       // 递延所得税负债
+	ShareCapital   float64 `json:"share_capital"`        // 实收资本（或股本）
+	CapRese        float64 `json:"cap_rese"`             // 资本公积
+	SurplusRese    float64 `json:"surplus_rese"`         // 盈余公积
 	UndistProfit   float64 `json:"undistributed_profit"` // 未分配利润
-	MinorityInt    float64 `json:"minority_int"`   // 少数股东权益
+	MinorityInt    float64 `json:"minority_int"`         // 少数股东权益
 }
 
 // FetchBalanceSheet 获取资产负债表
@@ -574,19 +574,19 @@ func (c *SFLClient) FetchBalanceSheet(ctx context.Context, market, code, startDa
 
 // SFLCashflowItem 现金流量表条目
 type SFLCashflowItem struct {
-	TsCode        string  `json:"ts_code"`
-	EndDate       string  `json:"end_date"`
-	NCashflowAct  float64 `json:"n_cashflow_act"`  // 经营活动现金流净额
-	NCashflowInv  float64 `json:"n_cashflow_inv"`  // 投资活动现金流净额
-	NCashflowFin  float64 `json:"n_cashflow_fin"`  // 筹资活动现金流净额
-	FreeCashflow  float64 `json:"free_cashflow"`   // 企业自由现金流
-	SalesGoods    float64 `json:"c_sales_goods"` // 销售商品提供劳务收到的现金
-	PayStaff      float64 `json:"c_paid_to_for_empl"` // 支付给职工以及为职工支付的现金
-	PayTax        float64 `json:"c_paid_for_taxes"`   // 支付的各项税费
-	PayOtherOp    float64 `json:"c_pay_for_others"`   // 支付其他与经营活动有关的现金
-	AcqConstFoliot float64 `json:"c_pay_acq_const_foliot"` // 购建固定资产无形资产和其他长期资产支付的现金
-	DividendPay   float64 `json:"c_div_profits_or_int_oop"` // 分配股利利润或偿付利息支付的现金
-	FADepr        float64 `json:"fa_ir_depreciation"` // 固定资产折旧、油气资产折耗、生产性生物资产折旧
+	TsCode         string  `json:"ts_code"`
+	EndDate        string  `json:"end_date"`
+	NCashflowAct   float64 `json:"n_cashflow_act"`           // 经营活动现金流净额
+	NCashflowInv   float64 `json:"n_cashflow_inv"`           // 投资活动现金流净额
+	NCashflowFin   float64 `json:"n_cashflow_fin"`           // 筹资活动现金流净额
+	FreeCashflow   float64 `json:"free_cashflow"`            // 企业自由现金流
+	SalesGoods     float64 `json:"c_sales_goods"`            // 销售商品提供劳务收到的现金
+	PayStaff       float64 `json:"c_paid_to_for_empl"`       // 支付给职工以及为职工支付的现金
+	PayTax         float64 `json:"c_paid_for_taxes"`         // 支付的各项税费
+	PayOtherOp     float64 `json:"c_pay_for_others"`         // 支付其他与经营活动有关的现金
+	AcqConstFoliot float64 `json:"c_pay_acq_const_foliot"`   // 购建固定资产无形资产和其他长期资产支付的现金
+	DividendPay    float64 `json:"c_div_profits_or_int_oop"` // 分配股利利润或偿付利息支付的现金
+	FADepr         float64 `json:"fa_ir_depreciation"`       // 固定资产折旧、油气资产折耗、生产性生物资产折旧
 }
 
 // FetchCashflow 获取现金流量表
@@ -634,7 +634,7 @@ type SFLFinaIndicator struct {
 	EndDate           string  `json:"end_date"`
 	ROE               float64 `json:"roe"`
 	ROEDiluted        float64 `json:"roe_diluted"`
-	ROEAvg            float64 `json:"roe_avg"`           // 净资产收益率(平均)
+	ROEAvg            float64 `json:"roe_avg"`            // 净资产收益率(平均)
 	GrossprofitMargin float64 `json:"grossprofit_margin"` // 毛利率
 	NetprofitMargin   float64 `json:"netprofit_margin"`   // 净利率
 	OpOfGr            float64 `json:"op_of_gr"`           // 营业利润/总收入
@@ -825,11 +825,11 @@ func (c *SFLClient) FetchAllLatestFinaIndicator(ctx context.Context) ([]SFLFinaI
 		year--
 	}
 	periods := []string{
-		fmt.Sprintf("%d1231", year),     // 年报
-		fmt.Sprintf("%d0930", year),     // 三季报
-		fmt.Sprintf("%d0630", year),     // 半年报
-		fmt.Sprintf("%d0331", year),     // 一季报
-		fmt.Sprintf("%d1231", year-1),   // 上一年年报（兜底）
+		fmt.Sprintf("%d1231", year),   // 年报
+		fmt.Sprintf("%d0930", year),   // 三季报
+		fmt.Sprintf("%d0630", year),   // 半年报
+		fmt.Sprintf("%d0331", year),   // 一季报
+		fmt.Sprintf("%d1231", year-1), // 上一年年报（兜底）
 	}
 
 	// 合并多期结果，取每只股票的最新一期
@@ -938,13 +938,13 @@ func (c *SFLClient) FetchAllConceptMappings(ctx context.Context) (map[string][]s
 // SFLThsHotItem 同花顺热股/热概念数据
 type SFLThsHotItem struct {
 	TradeDate string  `json:"trade_date"`
-	DataType  string  `json:"data_type"`   // 概念板块/个股/行业/期货/美股/港股
+	DataType  string  `json:"data_type"` // 概念板块/个股/行业/期货/美股/港股
 	TsCode    string  `json:"ts_code"`
 	Name      string  `json:"ts_name"`
 	Rank      int     `json:"rank"`
 	PctChange float64 `json:"pct_change"`
 	Price     float64 `json:"current_price"`
-	Hot       float64 `json:"hot"`         // 热度值
+	Hot       float64 `json:"hot"` // 热度值
 	Concept   string  `json:"concept"`
 	RankTime  string  `json:"rank_time"`
 	Reason    string  `json:"rank_reason"`

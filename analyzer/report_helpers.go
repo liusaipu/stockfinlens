@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-
 	"fmt"
 	"math"
 	"strings"
@@ -934,14 +933,61 @@ func ascoreBadge(v float64) string {
 	return "🟢 安全（A-Score < 40）"
 }
 
-func normalizeScore(value, min, max float64, reverse bool) float64 {
-	if max == min {
+// scoreBandPoint 固定档位锚点：threshold 是指标原值（如 ROE=15 表示 15%），score 是 0-100 评分
+type scoreBandPoint struct {
+	threshold float64
+	score     float64
+}
+
+// scoreByBand 对单指标做分段线性插值打分。
+// points 须按 threshold 升序；value 落在两个相邻点之间时按线性插值，
+// 落在首/末点之外时返回首/末点的 score（即上下封顶）。
+func scoreByBand(value float64, points []scoreBandPoint) float64 {
+	if len(points) == 0 {
 		return 50
 	}
-	if reverse {
-		return (max - value) / (max - min) * 100
+	if value <= points[0].threshold {
+		return points[0].score
 	}
-	return (value - min) / (max - min) * 100
+	if value >= points[len(points)-1].threshold {
+		return points[len(points)-1].score
+	}
+	for i := 1; i < len(points); i++ {
+		if value <= points[i].threshold {
+			lo := points[i-1]
+			hi := points[i]
+			t := (value - lo.threshold) / (hi.threshold - lo.threshold)
+			return lo.score + t*(hi.score-lo.score)
+		}
+	}
+	return points[len(points)-1].score
+}
+
+// 各指标的固定档位锚点（A 股通用，不区分行业）。
+// 锚点取值与 ExtractHighlightsAndRisks / ascoreBadge 保持一致，让"得分"和"亮点/风险"语义对得上。
+var (
+	// ROE 正向（≥15% 优秀）
+	bandROE = []scoreBandPoint{{-100, 0}, {0, 20}, {5, 40}, {10, 60}, {15, 80}, {20, 95}, {30, 100}}
+	// 毛利率 正向（≥40% 高毛利）
+	bandGM = []scoreBandPoint{{0, 0}, {10, 30}, {20, 50}, {30, 70}, {40, 85}, {60, 100}}
+	// 营收增长 正向（≥10% 稳健，<0 承压）
+	bandGrowth = []scoreBandPoint{{-30, 0}, {-10, 20}, {0, 40}, {10, 65}, {20, 85}, {40, 100}}
+	// 负债率 反向（≤40% 稳健，>60% 偏大）
+	bandDebt = []scoreBandPoint{{0, 100}, {30, 95}, {40, 85}, {50, 70}, {60, 50}, {70, 30}, {80, 10}, {95, 0}}
+	// 现金含量（经营现金流/净利润，%）正向
+	bandCash = []scoreBandPoint{{-50, 0}, {0, 20}, {50, 40}, {100, 70}, {150, 90}, {200, 100}}
+	// A-Score 反向（<40 安全、<60 低风险、<70 中风险、≥70 高风险）
+	bandAScore = []scoreBandPoint{{0, 100}, {30, 90}, {40, 80}, {50, 65}, {60, 50}, {70, 30}, {80, 10}, {90, 0}}
+)
+
+func clampActivity(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 100 {
+		return 100
+	}
+	return v
 }
 
 func medianActivityScore(list []*ComparableMetrics) float64 {
@@ -968,92 +1014,28 @@ func medianActivityScore(list []*ComparableMetrics) float64 {
 	return (vals[mid-1] + vals[mid]) / 2
 }
 
+// calcComparableScore 综合得分（固定档位法）。
+// 每个指标按 bandXxx 锚点做分段线性映射到 0-100，再按权重加权求和：
+//
+//	ROE 25% / 毛利率 20% / 营收增长 15% / 负债率 10%(反向) / 现金含量 10% /
+//	A-Score 10%(反向) / 活跃度 10%
+//
+// 历史踩坑：原来用 Min-Max within-pool，加一两家可比公司就能把 A、B 的相对排名翻转
+// （违反 IIA）。固定档位让得分只依赖该公司自身指标，与可比池组成无关，跨池可比。
+// 入参 all 现在用不到，保留是为了调用方不用改签名。
 func calcComparableScore(m *ComparableMetrics, all []*ComparableMetrics, medianActivity float64) float64 {
-	var minROE, maxROE, minGM, maxGM, minGrowth, maxGrowth, minDebt, maxDebt, minCash, maxCash, minAScore, maxAScore, minAct, maxAct float64
-	first := true
-	for _, x := range all {
-		if first {
-			minROE, maxROE = x.ROE, x.ROE
-			minGM, maxGM = x.GrossMargin, x.GrossMargin
-			minGrowth, maxGrowth = x.RevenueGrowth, x.RevenueGrowth
-			minDebt, maxDebt = x.DebtRatio, x.DebtRatio
-			minCash, maxCash = x.CashRatio, x.CashRatio
-			minAScore, maxAScore = x.AScore, x.AScore
-			first = false
-			continue
-		}
-		if x.ROE < minROE {
-			minROE = x.ROE
-		}
-		if x.ROE > maxROE {
-			maxROE = x.ROE
-		}
-		if x.GrossMargin < minGM {
-			minGM = x.GrossMargin
-		}
-		if x.GrossMargin > maxGM {
-			maxGM = x.GrossMargin
-		}
-		if x.RevenueGrowth < minGrowth {
-			minGrowth = x.RevenueGrowth
-		}
-		if x.RevenueGrowth > maxGrowth {
-			maxGrowth = x.RevenueGrowth
-		}
-		if x.DebtRatio < minDebt {
-			minDebt = x.DebtRatio
-		}
-		if x.DebtRatio > maxDebt {
-			maxDebt = x.DebtRatio
-		}
-		if x.CashRatio < minCash {
-			minCash = x.CashRatio
-		}
-		if x.CashRatio > maxCash {
-			maxCash = x.CashRatio
-		}
-		if x.AScore < minAScore {
-			minAScore = x.AScore
-		}
-		if x.AScore > maxAScore {
-			maxAScore = x.AScore
-		}
-	}
-	firstAct := true
-	for _, x := range all {
-		act := x.ActivityScore
-		if act < 0 {
-			act = medianActivity
-		}
-		if firstAct {
-			minAct, maxAct = act, act
-			firstAct = false
-			continue
-		}
-		if act < minAct {
-			minAct = act
-		}
-		if act > maxAct {
-			maxAct = act
-		}
-	}
-	if firstAct {
-		minAct, maxAct = 0, 100
-	}
-
+	_ = all
 	act := m.ActivityScore
 	if act < 0 {
 		act = medianActivity
 	}
-
-	s := normalizeScore(m.ROE, minROE, maxROE, false)*0.25 +
-		normalizeScore(m.GrossMargin, minGM, maxGM, false)*0.20 +
-		normalizeScore(m.RevenueGrowth, minGrowth, maxGrowth, false)*0.15 +
-		normalizeScore(m.DebtRatio, minDebt, maxDebt, true)*0.10 +
-		normalizeScore(m.CashRatio, minCash, maxCash, false)*0.10 +
-		normalizeScore(m.AScore, minAScore, maxAScore, true)*0.10 +
-		normalizeScore(act, minAct, maxAct, false)*0.10
-	return s
+	return scoreByBand(m.ROE, bandROE)*0.25 +
+		scoreByBand(m.GrossMargin, bandGM)*0.20 +
+		scoreByBand(m.RevenueGrowth, bandGrowth)*0.15 +
+		scoreByBand(m.DebtRatio, bandDebt)*0.10 +
+		scoreByBand(m.CashRatio, bandCash)*0.10 +
+		scoreByBand(m.AScore, bandAScore)*0.10 +
+		clampActivity(act)*0.10
 }
 
 // HighlightRisk 亮点与风险摘要
@@ -1127,8 +1109,6 @@ func ExtractHighlightsAndRisks(steps []StepResult, years []string) HighlightRisk
 
 	return HighlightRisk{Highlights: highlights, Risks: risks}
 }
-
-
 
 // writeDataQualityWarnings 在报告中显示数据质量警告
 func riskEmoji(level string) string {

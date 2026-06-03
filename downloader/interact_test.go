@@ -65,8 +65,8 @@ func TestDedupAndFilterQAs(t *testing.T) {
 	qas := []InteractQA{
 		{Question: "问题1", Answer: "答案1", Date: recent.Format("2006-01-02"), AnswerDate: recent.Format("2006-01-02"), Source: "test"},
 		{Question: "问题1", Answer: "答案1重复", Date: recent.Format("2006-01-02"), AnswerDate: recent.Format("2006-01-02"), Source: "test"}, // 重复
-		{Question: "问题2", Answer: "答案2", Date: old.Format("2006-01-02"), AnswerDate: old.Format("2006-01-02"), Source: "test"},           // 过期
-		{Question: "问题3", Answer: "", Date: recent.Format("2006-01-02"), AnswerDate: recent.Format("2006-01-02"), Source: "test"},         // 无答案
+		{Question: "问题2", Answer: "答案2", Date: old.Format("2006-01-02"), AnswerDate: old.Format("2006-01-02"), Source: "test"},         // 过期
+		{Question: "问题3", Answer: "", Date: recent.Format("2006-01-02"), AnswerDate: recent.Format("2006-01-02"), Source: "test"},      // 无答案
 		{Question: "问题4", Answer: "答案4", Date: recent.Format("2006-01-02"), AnswerDate: recent.Format("2006-01-02"), Source: "test"},
 	}
 

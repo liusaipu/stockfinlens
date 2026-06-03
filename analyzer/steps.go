@@ -63,8 +63,6 @@ func step1Audit(data *FinancialData) StepResult {
 	return result
 }
 
-
-
 // ==================== Step 2: 资产规模 ====================
 func step2AssetScale(data *FinancialData) StepResult {
 	result := StepResult{StepNum: 2, StepName: "资产规模分析", YearlyData: make(map[string]map[string]any), Pass: make(map[string]bool)}

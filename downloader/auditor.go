@@ -1,12 +1,14 @@
 package downloader
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 // AuditorChangeDetail 审计机构变更详情
@@ -38,12 +40,12 @@ type AuditOpinion struct {
 
 // AuditorHistory 审计机构历史信息
 type AuditorHistory struct {
-	AuditorName     string                `json:"auditor_name"`
-	AuditorChanged  bool                  `json:"auditor_changed"`
-	History         []string              `json:"history"`
-	ChangeDetails   []AuditorChangeDetail `json:"change_details"`
-	AuditOpinions   []AuditOpinion        `json:"audit_opinions"`
-	Error           string                `json:"error,omitempty"`
+	AuditorName    string                `json:"auditor_name"`
+	AuditorChanged bool                  `json:"auditor_changed"`
+	History        []string              `json:"history"`
+	ChangeDetails  []AuditorChangeDetail `json:"change_details"`
+	AuditOpinions  []AuditOpinion        `json:"audit_opinions"`
+	Error          string                `json:"error,omitempty"`
 }
 
 // FetchAuditorHistory 获取股票历年审计机构信息
@@ -60,7 +62,9 @@ func FetchAuditorHistory(symbol string) (*AuditorHistory, error) {
 	}
 
 	python := resolveAuditorPython()
-	cmd := exec.Command(python, script)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	setHideWindow(cmd)

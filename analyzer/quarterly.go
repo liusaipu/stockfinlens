@@ -12,7 +12,7 @@ type QuarterlyAlertItem struct {
 	Current     float64 `json:"current"`
 	Previous    float64 `json:"previous"`
 	ChangePct   float64 `json:"changePct"`
-	Level       string  `json:"level"`       // "warning" / "danger"
+	Level       string  `json:"level"` // "warning" / "danger"
 	Description string  `json:"description"`
 	CompareType string  `json:"compareType"` // "环比" / "同比"
 }

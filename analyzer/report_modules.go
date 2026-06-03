@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-
 	"fmt"
 	"math"
 	"strings"
@@ -348,7 +347,7 @@ func writeModule4(b *strings.Builder, steps []StepResult, latest string, comp *C
 	}
 
 	b.WriteString("## 4.2 可比公司明细\n\n")
-	b.WriteString("> **综合得分计算方式**：在当前公司 + 可比公司池内，对每个指标做 Min-Max 标准化（0~100 分），再按以下权重加权求和：ROE 25%、毛利率 20%、营收增长 15%、现金含量 10%、负债率 10%（反向，越低越好）、A-Score 10%（反向，越低越好）、活跃度 10%。缺失活跃度时，使用可比池有效样本的中位数替代，标记为 *。\n\n")
+	b.WriteString("> **综合得分计算方式**：每个指标按 A 股通用固定档位映射到 0-100 分（ROE≥15%、毛利率≥40%、营收增长≥10%、负债率≤40%、A-Score<40 视为优秀），再按以下权重加权求和：ROE 25%、毛利率 20%、营收增长 15%、现金含量 10%、负债率 10%（反向，越低越好）、A-Score 10%（反向，越低越好）、活跃度 10%。**得分仅依赖该公司自身指标，与可比池组成无关，加减可比公司不会改变任何一家的得分。** 缺失活跃度时使用可比池有效样本的中位数替代，标记为 *。\n\n")
 	if hasMissingActivity {
 		b.WriteString("> 部分可比公司活跃度使用样本中位数替代，[获取真实活跃度](#fetch-activity)\n\n")
 	}

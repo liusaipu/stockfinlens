@@ -23,20 +23,20 @@ type Position struct {
 
 // Portfolio 投资组合
 type Portfolio struct {
-	Positions     []Position       `json:"positions"`
-	TotalCost     float64          `json:"totalCost"`
-	TotalValue    float64          `json:"totalValue"`
-	TotalProfit   float64          `json:"totalProfit"`
-	TotalProfitPct float64         `json:"totalProfitPct"`
+	Positions        []Position         `json:"positions"`
+	TotalCost        float64            `json:"totalCost"`
+	TotalValue       float64            `json:"totalValue"`
+	TotalProfit      float64            `json:"totalProfit"`
+	TotalProfitPct   float64            `json:"totalProfitPct"`
 	IndustryExposure map[string]float64 `json:"industryExposure"` // 行业暴露（行业 -> 权重和）
-	RiskAlerts    []PortfolioAlert `json:"riskAlerts"`
+	RiskAlerts       []PortfolioAlert   `json:"riskAlerts"`
 }
 
 // PortfolioAlert 组合层面的预警
 type PortfolioAlert struct {
-	Level       string `json:"level"`       // high / medium / low
-	Type        string `json:"type"`        // concentration / stop_loss / take_profit / rebalance
-	Message     string `json:"message"`
+	Level         string `json:"level"` // high / medium / low
+	Type          string `json:"type"`  // concentration / stop_loss / take_profit / rebalance
+	Message       string `json:"message"`
 	RelatedSymbol string `json:"relatedSymbol,omitempty"`
 }
 

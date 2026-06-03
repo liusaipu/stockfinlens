@@ -10,8 +10,8 @@ import (
 
 // DataRouter 数据源路由器，根据配置自动选择最优数据源
 type DataRouter struct {
-	sflClient *SFLClient
-	sflEnabled bool
+	sflClient       *SFLClient
+	sflEnabled      bool
 	useForFinancial bool
 	useForKline     bool
 	useForQuote     bool
@@ -21,7 +21,7 @@ type DataRouter struct {
 // NewDataRouter 创建数据源路由器
 func NewDataRouter(token string, enabled, useFin, useKline, useQuote, useMF bool) *DataRouter {
 	r := &DataRouter{
-		sflEnabled:  enabled && token != "",
+		sflEnabled:      enabled && token != "",
 		useForFinancial: useFin,
 		useForKline:     useKline,
 		useForQuote:     useQuote,

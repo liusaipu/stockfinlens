@@ -12,14 +12,14 @@ import (
 // FinancialData 包含标准化的三张财务报表数据
 type FinancialData struct {
 	Symbol          string
-	Years           []string                     // 年报期间（降序）
-	Quarters        []string                     // 所有期间含季报（降序）
+	Years           []string // 年报期间（降序）
+	Quarters        []string // 所有期间含季报（降序）
 	BalanceSheet    map[string]map[string]float64
 	IncomeStatement map[string]map[string]float64
 	CashFlow        map[string]map[string]float64
-	Extras          map[string]float64           // 非财务风险爬虫数据（股权质押、问询函、减持等）
-	QualityWarnings []string                     // 数据质量警告（供报告展示）
-	AuditOpinions   map[string]*AuditOpinion     // 年份 -> 审计意见
+	Extras          map[string]float64       // 非财务风险爬虫数据（股权质押、问询函、减持等）
+	QualityWarnings []string                 // 数据质量警告（供报告展示）
+	AuditOpinions   map[string]*AuditOpinion // 年份 -> 审计意见
 }
 
 // LoadFinancialData 从 StockFinLens 存储目录加载某股票的财务报表 JSON

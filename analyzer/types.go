@@ -52,8 +52,8 @@ type AnalysisReport struct {
 	RiskAlert       *RiskAlertSummary     `json:"riskAlert,omitempty"`
 	QualityWarnings []string              `json:"qualityWarnings,omitempty"`
 	Diff            *AnalysisDiff         `json:"diff,omitempty"` // 与上次分析的差异
-	QuarterlyAlert  *QuarterlyAlert      `json:"quarterlyAlert,omitempty"`
-	TTMMetrics      *TTMMetrics          `json:"ttmMetrics,omitempty"`
+	QuarterlyAlert  *QuarterlyAlert       `json:"quarterlyAlert,omitempty"`
+	TTMMetrics      *TTMMetrics           `json:"ttmMetrics,omitempty"`
 	InteractQAs     []InteractQA          `json:"interactQAs,omitempty"`
 }
 
@@ -148,10 +148,10 @@ type RIMData struct {
 // MoneyflowItem 单日资金流向数据
 type MoneyflowItem struct {
 	Date         string  `json:"date"`
-	MainInflow   float64 `json:"main_inflow"`   // 主力净流入（大单+特大单）
-	SmNetAmount  float64 `json:"sm_net_amount"` // 小单净流入
-	MdNetAmount  float64 `json:"md_net_amount"` // 中单净流入
-	LgNetAmount  float64 `json:"lg_net_amount"` // 大单净流入
+	MainInflow   float64 `json:"main_inflow"`    // 主力净流入（大单+特大单）
+	SmNetAmount  float64 `json:"sm_net_amount"`  // 小单净流入
+	MdNetAmount  float64 `json:"md_net_amount"`  // 中单净流入
+	LgNetAmount  float64 `json:"lg_net_amount"`  // 大单净流入
 	ElgNetAmount float64 `json:"elg_net_amount"` // 特大单净流入
 }
 
@@ -200,22 +200,22 @@ type AuditorChangeDetail struct {
 
 // ExternalRiskData 外部风险数据（审计机构、高管变动、诉讼等）
 type ExternalRiskData struct {
-	AuditorChanged      bool                  `json:"auditorChanged"`      // 近3年是否更换审计机构
-	AuditorName         string                `json:"auditorName"`         // 当前审计机构名称
+	AuditorChanged       bool                  `json:"auditorChanged"`       // 近3年是否更换审计机构
+	AuditorName          string                `json:"auditorName"`          // 当前审计机构名称
 	AuditorChangeDetails []AuditorChangeDetail `json:"auditorChangeDetails"` // 审计机构变更详情
-	ExecChanged         bool     `json:"execChanged"`         // 近1年财务负责人是否频繁更换
-	ExecChangeCount     int      `json:"execChangeCount"`     // 高管变动次数
-	ExecHistory         []string `json:"execHistory"`         // 高管变动原始公告列表
-	HasLitigation         bool     `json:"hasLitigation"`         // 是否存在诉讼/违规担保
-	LitigationCount       int      `json:"litigationCount"`       // 高风险诉讼/担保公告数量
-	LitigationHistory     []string `json:"litigationHistory"`     // 诉讼/担保原始公告列表
-	HasHighRiskGuarantee  bool     `json:"hasHighRiskGuarantee"`  // 是否存在高风险担保（违规/逾期/代偿）
-	HasGuarantee          bool     `json:"hasGuarantee"`          // 是否存在普通对外担保
-	HasFundOccupation     bool     `json:"hasFundOccupation"`     // 是否存在资金占用
-	HasInternalBuy      bool     `json:"hasInternalBuy"`      // 近半年是否有内部人增持
-	HasInternalSell     bool     `json:"hasInternalSell"`     // 近半年是否有内部人大额减持
-	SealControlRumor    bool     `json:"sealControlRumor"`    // 是否存在印章失控传闻（舆情）
-	Error               string   `json:"error,omitempty"`     // 数据获取错误
+	ExecChanged          bool                  `json:"execChanged"`          // 近1年财务负责人是否频繁更换
+	ExecChangeCount      int                   `json:"execChangeCount"`      // 高管变动次数
+	ExecHistory          []string              `json:"execHistory"`          // 高管变动原始公告列表
+	HasLitigation        bool                  `json:"hasLitigation"`        // 是否存在诉讼/违规担保
+	LitigationCount      int                   `json:"litigationCount"`      // 高风险诉讼/担保公告数量
+	LitigationHistory    []string              `json:"litigationHistory"`    // 诉讼/担保原始公告列表
+	HasHighRiskGuarantee bool                  `json:"hasHighRiskGuarantee"` // 是否存在高风险担保（违规/逾期/代偿）
+	HasGuarantee         bool                  `json:"hasGuarantee"`         // 是否存在普通对外担保
+	HasFundOccupation    bool                  `json:"hasFundOccupation"`    // 是否存在资金占用
+	HasInternalBuy       bool                  `json:"hasInternalBuy"`       // 近半年是否有内部人增持
+	HasInternalSell      bool                  `json:"hasInternalSell"`      // 近半年是否有内部人大额减持
+	SealControlRumor     bool                  `json:"sealControlRumor"`     // 是否存在印章失控传闻（舆情）
+	Error                string                `json:"error,omitempty"`      // 数据获取错误
 }
 
 // AuditOpinion 单年度审计意见
@@ -233,32 +233,32 @@ type AuditOpinion struct {
 type SensitivityLevel string
 
 const (
-	SensitivityStrict  SensitivityLevel = "strict"  // 严格
+	SensitivityStrict   SensitivityLevel = "strict"   // 严格
 	SensitivityStandard SensitivityLevel = "standard" // 标准
-	SensitivityLoose   SensitivityLevel = "loose"   // 宽松
+	SensitivityLoose    SensitivityLevel = "loose"    // 宽松
 )
 
 // MetricChange 单指标变化记录
 type MetricChange struct {
-	Name     string  `json:"name"`
-	Previous float64 `json:"previous"`
-	Current  float64 `json:"current"`
-	Delta    float64 `json:"delta"`    // 绝对变化
-	DeltaPct float64 `json:"deltaPct"` // 百分比变化（基点或百分比）
-	Significant bool `json:"significant"` // 是否超过阈值
+	Name        string  `json:"name"`
+	Previous    float64 `json:"previous"`
+	Current     float64 `json:"current"`
+	Delta       float64 `json:"delta"`       // 绝对变化
+	DeltaPct    float64 `json:"deltaPct"`    // 百分比变化（基点或百分比）
+	Significant bool    `json:"significant"` // 是否超过阈值
 }
 
 // AnalysisDiff 两次分析之间的差异摘要
 type AnalysisDiff struct {
-	HasPrevious       bool             `json:"hasPrevious"`
-	PreviousTime      string           `json:"previousTime,omitempty"`
-	CurrentTime       string           `json:"currentTime,omitempty"`
-	ScoreChange       float64          `json:"scoreChange"`       // 总分变化（当前 - 上次）
-	GradeChanged      bool             `json:"gradeChanged"`
-	PreviousGrade     string           `json:"previousGrade,omitempty"`
-	CurrentGrade      string           `json:"currentGrade,omitempty"`
-	NewFlags          []RiskAlertFlag  `json:"newFlags,omitempty"`      // 新增风险
-	ResolvedFlags     []RiskAlertFlag  `json:"resolvedFlags,omitempty"` // 解除的风险
-	PersistentFlags   []RiskAlertFlag  `json:"persistentFlags,omitempty"` // 持续风险
-	KeyMetricChanges  []MetricChange   `json:"keyMetricChanges,omitempty"`
+	HasPrevious      bool            `json:"hasPrevious"`
+	PreviousTime     string          `json:"previousTime,omitempty"`
+	CurrentTime      string          `json:"currentTime,omitempty"`
+	ScoreChange      float64         `json:"scoreChange"` // 总分变化（当前 - 上次）
+	GradeChanged     bool            `json:"gradeChanged"`
+	PreviousGrade    string          `json:"previousGrade,omitempty"`
+	CurrentGrade     string          `json:"currentGrade,omitempty"`
+	NewFlags         []RiskAlertFlag `json:"newFlags,omitempty"`        // 新增风险
+	ResolvedFlags    []RiskAlertFlag `json:"resolvedFlags,omitempty"`   // 解除的风险
+	PersistentFlags  []RiskAlertFlag `json:"persistentFlags,omitempty"` // 持续风险
+	KeyMetricChanges []MetricChange  `json:"keyMetricChanges,omitempty"`
 }

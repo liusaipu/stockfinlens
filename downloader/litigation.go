@@ -1,22 +1,24 @@
 package downloader
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 // LitigationInfo 诉讼/担保/资金占用信息
 type LitigationInfo struct {
-	LitigationCount       int      `json:"litigation_count"`
-	HasGuarantee          bool     `json:"has_guarantee"`
-	HasHighRiskGuarantee  bool     `json:"has_high_risk_guarantee"`
-	HasFundOccupation     bool     `json:"has_fund_occupation"`
-	History               []string `json:"history"`
-	Error                 string   `json:"error,omitempty"`
+	LitigationCount      int      `json:"litigation_count"`
+	HasGuarantee         bool     `json:"has_guarantee"`
+	HasHighRiskGuarantee bool     `json:"has_high_risk_guarantee"`
+	HasFundOccupation    bool     `json:"has_fund_occupation"`
+	History              []string `json:"history"`
+	Error                string   `json:"error,omitempty"`
 }
 
 // FetchLitigationInfo 获取股票诉讼、违规担保、资金占用信息
@@ -33,7 +35,9 @@ func FetchLitigationInfo(symbol string) (*LitigationInfo, error) {
 	}
 
 	python := resolveLitigationPython()
-	cmd := exec.Command(python, script)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
 	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
 
 	setHideWindow(cmd)

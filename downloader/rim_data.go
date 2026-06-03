@@ -1,12 +1,14 @@
 package downloader
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 )
 
 // RIMExternalData Python脚本返回的原始数据
@@ -125,7 +127,9 @@ func FetchRIMExternalData(symbol string) (*RIMExternalData, error) {
 	}
 
 	python := resolvePythonExecutable()
-	cmd := exec.Command(python, script)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, python, script)
 	cmd.Env = append(os.Environ(), "TQDM_DISABLE=1", "PYTHONUNBUFFERED=1")
 
 	// Windows: 隐藏 CMD 窗口

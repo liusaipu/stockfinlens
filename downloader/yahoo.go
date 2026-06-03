@@ -62,11 +62,11 @@ func fetchKlinesFromYahoo(ctx context.Context, market, code string, days int, pe
 		Chart struct {
 			Result []struct {
 				Meta struct {
-					Currency             string  `json:"currency"`
-					Symbol               string  `json:"symbol"`
-					RegularMarketPrice   float64 `json:"regularMarketPrice"`
-					PreviousClose        float64 `json:"previousClose"`
-					ChartPreviousClose   float64 `json:"chartPreviousClose"`
+					Currency           string  `json:"currency"`
+					Symbol             string  `json:"symbol"`
+					RegularMarketPrice float64 `json:"regularMarketPrice"`
+					PreviousClose      float64 `json:"previousClose"`
+					ChartPreviousClose float64 `json:"chartPreviousClose"`
 				} `json:"meta"`
 				Timestamp  []int64 `json:"timestamp"`
 				Indicators struct {
@@ -152,17 +152,17 @@ func fetchQuoteFromYahoo(ctx context.Context, market, code string) (*StockQuote,
 		Chart struct {
 			Result []struct {
 				Meta struct {
-					RegularMarketPrice   float64 `json:"regularMarketPrice"`
-					RegularMarketChange  float64 `json:"regularMarketChange"`
+					RegularMarketPrice         float64 `json:"regularMarketPrice"`
+					RegularMarketChange        float64 `json:"regularMarketChange"`
 					RegularMarketChangePercent float64 `json:"regularMarketChangePercent"`
-					PreviousClose        float64 `json:"previousClose"`
-					RegularMarketOpen    float64 `json:"regularMarketOpen"`
-					RegularMarketDayHigh float64 `json:"regularMarketDayHigh"`
-					RegularMarketDayLow  float64 `json:"regularMarketDayLow"`
-					RegularMarketVolume  int64   `json:"regularMarketVolume"`
-					Currency             string  `json:"currency"`
-					Symbol               string  `json:"symbol"`
-					ExchangeName         string  `json:"exchangeName"`
+					PreviousClose              float64 `json:"previousClose"`
+					RegularMarketOpen          float64 `json:"regularMarketOpen"`
+					RegularMarketDayHigh       float64 `json:"regularMarketDayHigh"`
+					RegularMarketDayLow        float64 `json:"regularMarketDayLow"`
+					RegularMarketVolume        int64   `json:"regularMarketVolume"`
+					Currency                   string  `json:"currency"`
+					Symbol                     string  `json:"symbol"`
+					ExchangeName               string  `json:"exchangeName"`
 				} `json:"meta"`
 			} `json:"result"`
 			Error *struct {
