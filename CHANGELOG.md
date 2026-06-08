@@ -1,5 +1,45 @@
 # Changelog
 
+## [v1.6.4] - 2026-06-08
+
+### 新增 (Features)
+- **中栏 UI 重构 + 资金流向卡片化**（`frontend/src/App.tsx`, `frontend/src/App.css`）
+  - 股票名称栏改为固定顶部 topbar（与右栏 `.report-tabs` 对齐），"K线"/"财务趋势"两个动作按钮从底部 footer 上移到 topbar 右侧，主要操作触手可及。
+  - `.info-panel` 拆出 `.info-panel-scroll` 子滚动容器，topbar 在外、内容可滚动；`scrollbar-gutter: stable` 永远预留 6px 滚动条空间避免显隐切换抖动。
+  - 资金流向独立成卡片，「近 N 个交易日资金流向」与「当日流向」分别可折叠（默认全部展开）；当日流向展开后显示 `更新于 HH:MM:SS` 时间戳。
+  - 当日流向**自动刷新**：已选股票 + 卡片展开 + 页面可见 + 本地处于 A 股交易时段（09:30–11:30 / 13:00–15:00，周末跳过）时每 60s 拉一次，展开瞬间立刻拉一次；非交易时段不发请求。
+- **本地反查表重建工具**（`cmd/rebuild_membership/main.go`）
+  - 新增 `go run ./cmd/rebuild_membership/` 命令，本地一键重建 `~/.config/stock-analyzer/_concept_membership.json`，配合 hot_concept 翻页修复使用。
+
+### 修复 (Fixes)
+- **TTM（滚动 12 个月）口径重写**（`analyzer/ttm.go`, `analyzer/report_modules.go`, `analyzer/ttm_test.go`）
+  - A 股财报为「累计 YTD」口径——2025-09-30 行的"营业收入"已经是 1-9 月累计，旧版 `accumulateQuarters` 把最近 4 个季报直接相加导致重复计算。
+  - 重写为标准公式：最新期是年报 → 直接取年报全年；最新期是季报 → `TTM = 上一年报 + 最新季报 − 去年同期`；公式所需数据缺失 → 降级为最近一份年报。
+  - `TTMMetrics` 新增 `Mode`（annual / quarterly / annual-fallback）、`EndPeriod`、`Notes` 字段，每份 TTM 都能追溯到具体口径与依赖期间。
+- **概念成分股 API 翻页修复**（`downloader/hot_concept.go`）
+  - 原 `FetchAllConceptConstituents` 单次 `pz=500` 被东财 API 隐式 clamp 到 100 条，导致"智能穿戴"等真实 100+ 家的热门板块在反查表里只剩 100 家，IDF 算出来全是 ~3.76 分不出区分度。
+  - 改为 `pn=1,2,3…` 翻页拉取（pageSize=100，单板块最多 30 页 ~3000 家），终止条件为本页不足 pageSize 或累计 ≥ API 返回 total。中途单页失败时返回已拿到部分，不整体失败。
+- **季报权益数据修复扩展**（`analyzer/data.go`）
+  - 此前 `fixMissingData` 只遍历 `Years`（年报）做"资产−负债 → 权益"兜底，季报期的权益字段为 0 时修复不到，导致基于季报的 ROE 计算异常。
+  - 改为遍历 `Quarters`（覆盖年报 + 季报全部期间）。利润表的"归母净利润 = 净利润 − 少数股东损益"推导仍仅限年报，避免季报 YTD 与单季混淆。
+- **数据保留：季报从 3 个提到 6 个**（`downloader/data_router.go`）
+  - TTM 标准公式需要"去年同期"季报，最少要覆盖最近 2 年的 Q1/Q2/Q3，原 3 个不够；改为 `keepRecentNonAnnualQuarters = 6`，保证无论最新季报是 Q1/Q2/Q3 都能拿到去年同期，同时给季度环比/同比预警留 1 年缓冲。
+
+### 优化 (Improvements)
+- **可比公司推荐：概念匹配引入 IDF 加权 + 强概念叠加奖励**（`analyzer/recommend.go`, `analyzer/recommend_test.go`）
+  - 概念命中按 `IDF = log(总股票数 / 该概念命中数)` 加权：稀有概念（"3D玻璃" 15 家 IDF≈5.66）权重显著高于泛主题（"智能穿戴" 100+ 家 IDF≈3.76），解决"长信(光学光电子) vs 蓝思(消费电子)"场景下面板厂(京东方/深天马)共享 5 个泛主题概念分高于玻璃厂(凯盛/宜安)共享 2 个业务概念的错配。
+  - 共享 ≥3 个高 IDF 概念时叠加奖励（每个 4 分，封顶 20）。
+  - 等价行业映射扩展到消费电子链（光学光电子 ↔ 消费电子 ↔ 元器件 ↔ 电子元件）和半导体材料链（电子化学品 ↔ 半导体材料 ↔ 化工原料），等价行业匹配分从 25 提到 30。
+- **报告模块 7 移除冗余 K 线图占位**（`analyzer/report_modules.go`）
+  - 删除"技术指标联动分析图（K线+成交量+MACD+RSI+布林带）"标题与 `chart-unified` 占位符；K 线现已通过中栏 topbar 的"K线"按钮全屏查看，避免一份图重复出现在报告与中栏。
+  - TTM 段落说明文案同步更新为新口径。
+
+### 测试 (Tests)
+- **TTM 单元测试**（`analyzer/ttm_test.go`）：覆盖最新期为年报 / 季报 / 缺去年同期 / 缺上一年报四种分支，验证 Mode 与 EndPeriod 正确。
+- **概念探针测试**（`analyzer/probe_test.go`）：辅助验证反查表加载与 DocFreq 计算。
+- **推荐测试扩展**（`analyzer/recommend_test.go`）：新增 IDF 加权与强概念叠加奖励的回归用例。
+- **冗余清理**（`app_test.go`）：删除已废弃的 13 行 debug 用例。
+
 ## [v1.6.3] - 2026-06-03
 
 ### 修复 (Fixes)

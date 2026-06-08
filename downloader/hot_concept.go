@@ -284,13 +284,134 @@ func FetchConceptConstituents(ctx context.Context, conceptCode string) ([]Concep
 }
 
 // FetchAllConceptConstituents 获取某板块的全量成分股（不排序、不截断，用于反查表构建）
-// 与 FetchConceptConstituents 的差异：pz=500 + 不做 top-50 截断。
-// 反查表必须用全量，否则只剩"当日 top 50 涨幅榜"，药明康德这类大市值在小行业里也容易漏。
+// 与 FetchConceptConstituents 的差异：分页翻页 + 不做 top-50 截断。
+//
+// 历史踩坑：原来单次 pz=500 实测被东财 API clamp 到 100 条，导致"智能穿戴"等热门板块
+// 反查表里只记录了 100 家而非真实 500+ 家，IDF 算出来全是 ~3.76 分不出区分度。
+// 改为 pn=1,2,3... 翻页，直到 len(diff)<pageSize 或累计 ≥ total。
 func FetchAllConceptConstituents(ctx context.Context, conceptCode string) ([]ConceptConstituent, error) {
-	return fetchConceptConstituentsRaw(ctx, conceptCode, 500)
+	return fetchConceptConstituentsPaginated(ctx, conceptCode, 100)
+}
+
+// fetchConceptConstituentsPaginated 翻页拉取板块成分股全集
+// pageSize 实测 100 是 API 隐式 clamp 的最大值，传更大也不会增加返回数量
+func fetchConceptConstituentsPaginated(ctx context.Context, conceptCode string, pageSize int) ([]ConceptConstituent, error) {
+	if mock := getMockConstituents(conceptCode); len(mock) > 0 {
+		return mock, nil
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 100
+	}
+
+	const maxPages = 30 // 防御性上限：单板块成分股 ~3000，30 页足够覆盖
+	var all []ConceptConstituent
+	seen := make(map[string]struct{})
+	total := -1
+
+	for pn := 1; pn <= maxPages; pn++ {
+		page, pageTotal, err := fetchConstituentsOnePage(ctx, conceptCode, pn, pageSize)
+		if err != nil {
+			if pn == 1 {
+				return nil, err
+			}
+			break // 中途失败：返回已拿到的部分，不整体失败
+		}
+		if total < 0 {
+			total = pageTotal
+		}
+		if len(page) == 0 {
+			break
+		}
+		for _, c := range page {
+			if c.Code == "" {
+				continue
+			}
+			if _, ok := seen[c.Code]; ok {
+				continue
+			}
+			seen[c.Code] = struct{}{}
+			all = append(all, c)
+		}
+		// 终止条件：本页返回不足 pageSize（最后一页）或已累计满 total
+		if len(page) < pageSize {
+			break
+		}
+		if total > 0 && len(all) >= total {
+			break
+		}
+	}
+	return all, nil
+}
+
+// fetchConstituentsOnePage 拉取成分股单页，返回 (本页数据, total, err)
+func fetchConstituentsOnePage(ctx context.Context, conceptCode string, pn, pageSize int) ([]ConceptConstituent, int, error) {
+	url := fmt.Sprintf(
+		"http://push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&_=%d",
+		pn, pageSize, conceptCode, time.Now().UnixMilli(),
+	)
+	body, err := httpGetEastMoney(ctx, url)
+	if err != nil {
+		return nil, 0, fmt.Errorf("成分股 API 请求失败: %w", err)
+	}
+	body = stripJSONP(body)
+
+	var check struct {
+		RC   int `json:"rc"`
+		Data struct {
+			Total int           `json:"total"`
+			Diff  []interface{} `json:"diff"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &check); err != nil {
+		return nil, 0, fmt.Errorf("解析成分股响应失败: %w", err)
+	}
+	if check.RC != 0 && check.RC != 200 {
+		return nil, 0, fmt.Errorf("成分股 API 返回错误码: %d", check.RC)
+	}
+	if pn == 1 && check.Data.Total == 0 && len(check.Data.Diff) == 0 {
+		return nil, 0, fmt.Errorf("该概念暂无成分股数据")
+	}
+
+	result := make([]ConceptConstituent, 0, len(check.Data.Diff))
+	for _, raw := range check.Data.Diff {
+		var c ConceptConstituent
+		switch item := raw.(type) {
+		case map[string]interface{}:
+			c = ConceptConstituent{
+				Code:              parseString(item["f12"]),
+				Name:              parseString(item["f14"]),
+				Market:            parseMarket(parseString(item["f13"]), parseString(item["f12"])),
+				Price:             parseFloat(item["f2"]),
+				ChangePct:         parseFloat(item["f3"]),
+				MarketCap:         parseFloat(item["f20"]),
+				HalfYearChangePct: parseFloat(item["f130"]),
+				MainInflow:        parseFloat(item["f62"]),
+			}
+		case []interface{}:
+			if len(item) >= 7 {
+				code := parseString(item[0])
+				c = ConceptConstituent{
+					Code:              code,
+					Name:              parseString(item[1]),
+					Market:            inferMarketFromCode(code),
+					Price:             parseFloat(item[2]),
+					ChangePct:         parseFloat(item[3]),
+					MarketCap:         parseFloat(item[4]),
+					HalfYearChangePct: parseFloat(item[5]),
+					MainInflow:        parseFloat(item[6]),
+				}
+			}
+		}
+		if c.Code == "" {
+			continue
+		}
+		result = append(result, c)
+	}
+	return result, check.Data.Total, nil
 }
 
 // fetchConceptConstituentsRaw 内部公共实现：拉取成分股原始列表，不排序、不截断。
+// 用于"非反查表"场景（如热门板块前 50 成分股展示），不翻页。
 func fetchConceptConstituentsRaw(ctx context.Context, conceptCode string, pageSize int) ([]ConceptConstituent, error) {
 	// 演示数据优先：当概念列表使用演示数据时，成分股也用演示数据，
 	// 避免用演示数据的假代码去查东财真API（代码映射不匹配会导致成分股完全错误）

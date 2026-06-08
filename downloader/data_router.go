@@ -262,7 +262,17 @@ func isAnnualReport(endDate string) bool {
 }
 
 // ConvertToFinancialReportData 将 SFL 财务数据转换为标准 FinancialReportData。
-// 保留口径：全部年报（供历史趋势分析）+ 最近 3 个非年报季报（供 TTM 模块 3 季+1 年报累加成 12 个月口径）。
+//
+// 保留口径：
+//   - 全部年报（供历史趋势分析与 TTM 公式的"上一年报"项）
+//   - 最近 6 个非年报季报（覆盖 2 个完整年度的 Q1/Q2/Q3）
+//
+// 为什么是 6：A 股财报为累计 YTD 口径，TTM 标准公式 = 上一年报 + 最新季报 − 去年同期，
+// 因此最少需要保留"最新季报"和"去年同期季报"。每年只有 Q1/Q2/Q3 三个非年报季报，
+// 保留 6 个等于覆盖最近 2 年，无论最新季报是 Q1/Q2/Q3 都能拿到去年同期；
+// 同时给季度环比/同比预警留 1 年缓冲。
+const keepRecentNonAnnualQuarters = 6
+
 func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol string) *FinancialReportData {
 	result := &FinancialReportData{
 		Symbol:          symbol,
@@ -272,7 +282,7 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 		CashFlow:        make(map[string]map[string]float64),
 	}
 
-	// 先扫描全部 EndDate（三表 union），挑出最近 3 个非年报季报作为保留集合
+	// 先扫描全部 EndDate（三表 union），挑出最近 keepRecentNonAnnualQuarters 个非年报季报作为保留集合
 	quarterSet := make(map[string]struct{})
 	collectQuarter := func(endDate string) {
 		if endDate == "" || isAnnualReport(endDate) {
@@ -295,10 +305,10 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(quarterDates))) // 降序
 	keepQuarters := make(map[string]struct{})
-	for i := 0; i < len(quarterDates) && i < 3; i++ {
+	for i := 0; i < len(quarterDates) && i < keepRecentNonAnnualQuarters; i++ {
 		keepQuarters[quarterDates[i]] = struct{}{}
 	}
-	// shouldKeep: 年报全留；非年报只留 keepQuarters 内的 3 个最近季度
+	// shouldKeep: 年报全留；非年报只留 keepQuarters 内的 keepRecentNonAnnualQuarters 个最近季度
 	shouldKeep := func(endDate string) bool {
 		if isAnnualReport(endDate) {
 			return true
@@ -309,7 +319,7 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 
 	yearSet := make(map[string]struct{}) // 仅累计年报，保持 result.Years 仅年报的既有语义
 
-	// 收入表（年报 + 最近 3 季）
+	// 收入表（年报 + 最近 N 个非年报季报）
 	for _, item := range tfd.Income {
 		if !shouldKeep(item.EndDate) {
 			continue
@@ -332,7 +342,7 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 		setVal(result.IncomeStatement, "基本每股收益", year, item.EPS)
 	}
 
-	// 资产负债表（年报 + 最近 3 季）
+	// 资产负债表（年报 + 最近 N 个非年报季报）
 	for _, item := range tfd.BalanceSheet {
 		if !shouldKeep(item.EndDate) {
 			continue
@@ -387,7 +397,7 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 		setVal(result.BalanceSheet, "归属于母公司所有者权益合计", year, item.TotalHldrEqy-item.MinorityInt)
 	}
 
-	// 现金流量表（年报 + 最近 3 季）
+	// 现金流量表（年报 + 最近 N 个非年报季报）
 	for _, item := range tfd.Cashflow {
 		if !shouldKeep(item.EndDate) {
 			continue

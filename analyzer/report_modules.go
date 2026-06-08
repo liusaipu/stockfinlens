@@ -675,9 +675,6 @@ func writeModule7(b *strings.Builder, quote *QuoteData, technical *TechnicalData
 		b.WriteString(fmt.Sprintf("| 技术形态 | %s | %s |\n", technical.Pattern, technical.SupportResistance))
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("> **综合结论**: %s\n\n", technical.Comment))
-
-		b.WriteString("### 技术指标联动分析图（K线+成交量+MACD+RSI+布林带）\n\n")
-		b.WriteString("```chart-unified\n```\n\n")
 	}
 
 	if activity != nil && activity.Score > 0 && activity.PotentialHint != "" {
@@ -1517,6 +1514,6 @@ func writeModuleTTM(b *strings.Builder, metrics *TTMMetrics) {
 		return
 	}
 	b.WriteString("## 3.4 TTM（滚动12个月）数据\n\n")
-	b.WriteString("> TTM = Trailing Twelve Months，即最近连续12个月的累计数据。对于A股，通常为最近4个季度财报数据累加，比单季度更能反映企业持续经营能力。\n\n")
+	b.WriteString("> TTM = Trailing Twelve Months，最近 12 个月的累计经营数据。A 股财报为「累计 YTD」口径，故 TTM = 上一年报 + 最新季报 − 去年同期；最新期若为年报则直接使用全年值。\n\n")
 	b.WriteString(metrics.FormatTTMReport())
 }

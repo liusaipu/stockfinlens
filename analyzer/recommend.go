@@ -17,6 +17,12 @@ import (
 type conceptMembership struct {
 	Concepts    map[string][]string // symbol(带后缀) → 概念板块名列表
 	SubIndustry map[string]string   // symbol → 二级行业（东财行业板块名）
+	// DocFreq 每个概念在全市场出现次数，用于 IDF 加权
+	// IDF = log(总股票数 / 概念命中数)
+	// 命中越少（如 "3D玻璃" 15 家）IDF 越大；命中越多（如 "智能穿戴" 100+ 家，部分被 API 截断）IDF 越小。
+	// 解决"主题型泛概念(智能穿戴/苹果概念)与业务型实质概念(3D玻璃/UTG)同权重"导致面板厂排在玻璃盖板厂之前的错配。
+	DocFreq    map[string]int
+	TotalDocs  int // 反查表覆盖的总股票数（IDF 分母）
 }
 
 var (
@@ -79,7 +85,19 @@ func loadConceptMembership(dataRoot string) *conceptMembership {
 	if raw.SubIndustry == nil {
 		raw.SubIndustry = make(map[string]string)
 	}
-	membershipData = &conceptMembership{Concepts: raw.Concepts, SubIndustry: raw.SubIndustry}
+	// 计算每个概念的全市场命中次数（DocFreq），供 IDF 加权使用
+	docFreq := make(map[string]int, 256)
+	for _, concepts := range raw.Concepts {
+		for _, c := range concepts {
+			docFreq[c]++
+		}
+	}
+	membershipData = &conceptMembership{
+		Concepts:    raw.Concepts,
+		SubIndustry: raw.SubIndustry,
+		DocFreq:     docFreq,
+		TotalDocs:   len(raw.Concepts),
+	}
 	membershipMtime = info.ModTime()
 	membershipPath = path
 	return membershipData
@@ -92,6 +110,24 @@ func lookupSubIndustry(dataRoot, symbol string) string {
 		return ""
 	}
 	return m.SubIndustry[symbol]
+}
+
+// conceptIDF 计算概念的 IDF 权重，越稀有的概念权重越大
+// 反查表未加载时返回 1.0（退化为不加权，行为与未引入 IDF 时相同）
+// API 截断导致部分热门概念命中数被 clamp 到 100，IDF 区分度仍然有效（3D玻璃 15家 vs 智能穿戴 100家）
+func conceptIDF(m *conceptMembership, concept string) float64 {
+	if m == nil || m.TotalDocs == 0 {
+		return 1.0
+	}
+	freq := m.DocFreq[concept]
+	if freq <= 0 {
+		// 反查表里没出现的概念（来自 industryConceptBoost 等本地补充），按中位 IDF 给分
+		return 1.0
+	}
+	// 标准 IDF = log(N / df)
+	// 例：N=4296, "3D玻璃" df=15 → IDF=5.657；"智能穿戴" df=100 → IDF=3.760
+	// 比值 5.657/3.760 ≈ 1.5，足够拉开稀有/泛主题概念的差距
+	return math.Log(float64(m.TotalDocs) / float64(freq))
 }
 
 // ComparableRecommendation 可比公司推荐项
@@ -167,6 +203,8 @@ func RecommendComparables(targetSymbol string, targetProfile *StockProfile, targ
 	targetConcepts := loadConcepts(filepath.Join(dataDir, "data"), targetSymbol)
 	// 读取目标股票二级行业（来自东财行业板块反查表）
 	targetSubIndustry := lookupSubIndustry(filepath.Join(dataDir, "data"), targetSymbol)
+	// 预加载反查表，传给 computeSimilarity 用于 IDF 加权（避免每个候选都触发 stat）
+	membership := loadConceptMembership(filepath.Join(dataDir, "data"))
 	fmt.Printf("[RecommendComparables] target concepts=%d subIndustry=%s\n", len(targetConcepts), targetSubIndustry)
 
 	// 扫描候选股票（优先从全市场缓存读取，避免推荐结果局限于自选股）
@@ -179,7 +217,7 @@ func RecommendComparables(targetSymbol string, targetProfile *StockProfile, targ
 	for i, c := range candidates {
 		score, reasons, dataQuality := computeSimilarity(
 			targetIndustry, targetSubIndustry, targetMarketCap, targetROE, targetGM, targetActivity, targetConcepts,
-			c,
+			c, membership,
 		)
 		// 设置最低得分门槛：目标有行业信息时至少15分，否则至少8分
 		minScore := 8.0
@@ -446,16 +484,35 @@ var industrySynonyms = map[string][]string{
 	"养殖":    {"农林牧渔", "畜牧", "猪"},
 }
 
-// 等效行业映射（不同数据源/平台对同一行业的不同命名）
+// 等效行业映射（不同数据源/平台对同一行业的不同命名，或同一产业链强相关的细分行业）
+// 关键差异 vs industrySynonyms：等价对会拿到与"完全同行业"相近的赛道分（25→35 提到 30），
+// 而 synonyms 只给 15 分。这里收录的是"同业务领域、不同命名"或"高度产业链耦合"的组合。
+//
+// 消费电子链：东财把整机/模组/触显/玻璃盖板细分到 4 个一级行业，但业务实质上是一个生态。
+// 长信科技(光学光电子)/蓝思(消费电子)/领益(消费电子)/精研(消费电子) 都是苹果链同业。
 var equivalentIndustries = map[string][]string{
-	"电信运营": {"通信服务"},
-	"通信服务": {"电信运营"},
+	"电信运营":  {"通信服务"},
+	"通信服务":  {"电信运营"},
+	"光学光电子": {"消费电子", "元器件", "电子元件"},
+	"消费电子":  {"光学光电子", "元器件", "电子元件"},
+	"元器件":   {"光学光电子", "消费电子", "电子元件"},
+	"电子元件":  {"光学光电子", "消费电子", "元器件"},
+	// 半导体材料链：电子化学品/化工原料/半导体材料三者实质同业
+	"电子化学品": {"半导体材料", "化工原料"},
+	"半导体材料": {"电子化学品", "化工原料", "半导体"},
+	"化工原料":  {"电子化学品", "半导体材料"},
 }
 
 // computeSimilarity 计算候选股票与目标股票的相似度
-// 赛道匹配 = max(二级行业 75, 一级行业 35, 概念 overlap 70) + 市值5% + ROE10% + 毛利率15% + 活跃度10% + 数据2%
+// 赛道匹配 = max(二级行业 75, 一级行业 35, 概念 IDF 加权 70)
+//
+//	+ 强概念叠加奖励 (≥3 共享高 IDF 概念时每个 4 分，封顶 20)
+//	+ 市值5% + ROE10% + 毛利率15% + 活跃度10% + 数据2%
+//
 // 二级行业升级为主信号：药明康德这类公司一级行业"医疗行业"过宽，二级"医疗研发外包"才区分CXO
-func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap, targetROE, targetGM, targetActivity float64, targetConcepts []string, c candidateInfo) (float64, []string, string) {
+// 强概念叠加奖励：解决"长信(光学光电子) vs 蓝思(消费电子)"这类一级行业不同但业务高度同业的错配
+// IDF 加权：让"3D玻璃(15家)"比"智能穿戴(100+家)"更有区分度，避免面板厂排在玻璃盖板厂之前
+func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap, targetROE, targetGM, targetActivity float64, targetConcepts []string, c candidateInfo, m *conceptMembership) (float64, []string, string) {
 	score := 0.0
 	var reasons []string
 
@@ -468,7 +525,7 @@ func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap
 		subIndustryReasons = append(subIndustryReasons, "同属"+targetSubIndustry)
 	}
 
-	// 1b. 一级行业匹配（降权：65→35, 45→25, 25→15）
+	// 1b. 一级行业匹配
 	industryScore := 0.0
 	var industryReasons []string
 	if targetIndustry != "" && c.Industry != "" {
@@ -476,8 +533,8 @@ func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap
 			industryScore = 35
 			industryReasons = append(industryReasons, "同属"+targetIndustry)
 		} else if isEquivalentIndustry(targetIndustry, c.Industry) {
-			industryScore = 25
-			industryReasons = append(industryReasons, "同属"+targetIndustry)
+			industryScore = 30
+			industryReasons = append(industryReasons, "同属"+targetIndustry+"链")
 		} else {
 			targetKeys := extractIndustryKeywords(targetIndustry)
 			candidateKeys := extractIndustryKeywords(c.Industry)
@@ -505,24 +562,40 @@ func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap
 		}
 	}
 
-	// 1c. 概念匹配（小幅上调：scaled 65→70）
+	// 1c. 概念匹配（IDF 加权）
+	// 普通 overlap/count 把"智能穿戴(100+家)"和"3D玻璃(15家)"等权，长信场景下面板厂(京东方/深天马)
+	// 共享 5 个泛主题概念分高于玻璃厂(凯盛/宜安)共享 2 个业务概念。
+	// IDF 加权后，稀有的业务标签(3D玻璃 IDF≈5.7)权重 ≈ 泛主题(智能穿戴 IDF≈3.8)的 1.5 倍。
 	conceptScore := 0.0
+	conceptOverlap := 0           // 共享概念总数（兼容回归测试）
+	rareConceptOverlap := 0       // 共享中高 IDF（业务标签）概念数
+	const rareIDFThreshold = 4.5  // 经验值：≥4.5 视为业务标签型（命中<约 50 家）
 	var conceptReasons []string
 	if len(targetConcepts) > 0 && len(c.Concepts) > 0 {
-		overlap := 0
+		// candidate concepts 转 set 加速查找
+		candSet := make(map[string]struct{}, len(c.Concepts))
+		for _, cc := range c.Concepts {
+			candSet[cc] = struct{}{}
+		}
+		sharedIDF := 0.0
+		targetIDF := 0.0
 		for _, tc := range targetConcepts {
-			for _, cc := range c.Concepts {
-				if tc == cc {
-					overlap++
+			idf := conceptIDF(m, tc)
+			targetIDF += idf
+			if _, ok := candSet[tc]; ok {
+				conceptOverlap++
+				sharedIDF += idf
+				if idf >= rareIDFThreshold {
+					rareConceptOverlap++
 				}
 			}
 		}
-		if overlap > 0 {
-			conceptScore = 70.0 * float64(overlap) / float64(len(targetConcepts))
+		if conceptOverlap > 0 && targetIDF > 0 {
+			conceptScore = 70.0 * sharedIDF / targetIDF
 			if conceptScore > 70 {
 				conceptScore = 70
 			}
-			conceptReasons = append(conceptReasons, fmt.Sprintf("共享%d个概念", overlap))
+			conceptReasons = append(conceptReasons, fmt.Sprintf("共享%d个概念", conceptOverlap))
 		}
 	}
 
@@ -538,6 +611,30 @@ func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap
 		reasons = conceptReasons
 	}
 	score += trackScore
+
+	// 1e. 强概念重叠叠加奖励（不进 max，独立加分）
+	// 场景：长信(光学光电子) vs 蓝思(消费电子)——一级行业不同(光学光电子的等价表给 30 分)，
+	// 但 3D玻璃/混合现实等业务标签重叠说明业务高度同业。
+	// 加分条件改为"≥2 个高 IDF (业务标签型) 概念"，避免泛主题概念(智能穿戴/苹果概念)堆数刷分。
+	// 每多 1 个加 5 分，封顶 20 分。
+	if rareConceptOverlap >= 2 && trackScore != conceptScore {
+		bonus := float64(rareConceptOverlap-1) * 5
+		if bonus > 20 {
+			bonus = 20
+		}
+		score += bonus
+		// reason 已通过 trackScore 路径展示；这里追加业务关联信号，避免被一级行业 reason 吞掉
+		hasConceptReason := false
+		for _, r := range reasons {
+			if strings.Contains(r, "概念") {
+				hasConceptReason = true
+				break
+			}
+		}
+		if !hasConceptReason {
+			reasons = append(reasons, fmt.Sprintf("共享%d个概念", conceptOverlap))
+		}
+	}
 
 	// 2. 市值相近 (5%)
 	if targetMarketCap > 0 && c.MarketCap > 0 {

@@ -293,6 +293,15 @@ function extractHighlightsAndRisks(report: AnalysisReport) {
   return { highlights, risks }
 }
 
+// 客户端本地时间是否处于 A 股交易时段（与 IntradayChart 的同名函数对齐）
+function isLocalTradingHours(): boolean {
+  const now = new Date()
+  const day = now.getDay()
+  if (day === 0 || day === 6) return false
+  const mins = now.getHours() * 60 + now.getMinutes()
+  return (mins >= 9 * 60 + 30 && mins < 11 * 60 + 30) || (mins >= 13 * 60 && mins < 15 * 60)
+}
+
 function App() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
@@ -330,7 +339,10 @@ function App() {
 
   const [concepts, setConcepts] = useState<downloader.StockConcepts | null>(null)
   const [moneyflow, setMoneyflow] = useState<main.StockMoneyflowResult | null>(null)
-  const [todayMoneyflowExpanded, setTodayMoneyflowExpanded] = useState(false)
+  const [todayMoneyflowExpanded, setTodayMoneyflowExpanded] = useState(true)
+  const [recentMoneyflowExpanded, setRecentMoneyflowExpanded] = useState(true)
+  const [moneyflowUpdatedAt, setMoneyflowUpdatedAt] = useState<number | null>(null)
+  const [moneyflowRefreshing, setMoneyflowRefreshing] = useState(false)
   const [sflConfig, setSflConfig] = useState<main.SFLConfig | null>(null)
 
   // 加载 SFL 配置
@@ -947,7 +959,9 @@ function App() {
     }
   }
 
-  const handleRefreshInteractQA = async () => {
+  // 注：必须 useCallback 稳定引用，否则会让下面的 markdownComponents useMemo 每次 App 重渲染都失效，
+  // 进而让 ReactMarkdown 的 components prop 每次都换新对象，触发 markdown 内嵌图表(FinancialTrendChart/UnifiedChart)被反复卸载-重挂。
+  const handleRefreshInteractQA = useCallback(async () => {
     if (!selectedStock || refreshingInteractQA) return
     setRefreshingInteractQA(true)
     try {
@@ -985,7 +999,7 @@ function App() {
     } finally {
       setRefreshingInteractQA(false)
     }
-  }
+  }, [selectedStock, refreshingInteractQA])
 
   const loadConcepts = useCallback(async (code: string) => {
     try {
@@ -1002,12 +1016,46 @@ function App() {
       const days = cfg?.moneyflow_days || 3
       const mf = await GetStockMoneyflow(code, days)
       setMoneyflow(mf || null)
-      setTodayMoneyflowExpanded(false)
+      setMoneyflowUpdatedAt(Date.now())
     } catch {
       setMoneyflow(null)
-      setTodayMoneyflowExpanded(false)
+      setMoneyflowUpdatedAt(null)
     }
   }, [])
+
+  const refreshMoneyflow = useCallback(async () => {
+    if (!selectedCode || moneyflowRefreshing) return
+    setMoneyflowRefreshing(true)
+    try {
+      await loadMoneyflow(selectedCode)
+    } finally {
+      setMoneyflowRefreshing(false)
+    }
+  }, [selectedCode, moneyflowRefreshing, loadMoneyflow])
+
+  // 当日流向自动刷新：仅当展开 + 已选股票 + 交易时段 + 页面可见时,每 60s 拉一次。
+  // 展开瞬间立刻拉一次,展开 → 收起则停掉 interval。
+  // 用 ref 解耦 refreshMoneyflow 引用,避免 moneyflowRefreshing 频繁变化重启 interval。
+  const refreshMoneyflowRef = useRef(refreshMoneyflow)
+  useEffect(() => { refreshMoneyflowRef.current = refreshMoneyflow }, [refreshMoneyflow])
+  useEffect(() => {
+    if (!todayMoneyflowExpanded || !selectedCode) return
+    const tryFetch = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!isLocalTradingHours()) return
+      refreshMoneyflowRef.current()
+    }
+    tryFetch() // 展开瞬间立刻拉一次（非交易时段则跳过，避免无效请求）
+    const handle = window.setInterval(tryFetch, 60_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tryFetch()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.clearInterval(handle)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [todayMoneyflowExpanded, selectedCode])
 
   // 加载政策库元信息（从 localStorage 或默认值）
   const loadPolicyLibMeta = useCallback(() => {
@@ -2691,7 +2739,7 @@ function App() {
       {/* 中栏：股票信息 & 操作 */}
       <section className="info-panel">
         {hotPanelOpen ? (
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', padding: '10px 16px 16px' }}>
             {/* 热点详情面板 */}
             <div className="stock-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, padding: '8px 0' }}>
               <span
@@ -2813,19 +2861,80 @@ function App() {
           </div>
         ) : selectedStock ? (
           <>
-            <div className="stock-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h1>{selectedStock.name}<span className="stock-sub">{selectedStock.code}</span></h1>
+            <div className="stock-header">
+              <h1 style={{ fontSize: 14, gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedStock.name}</span>
+                <span className="stock-sub" style={{ fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedStock.code}</span>
+              </h1>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8, flexShrink: 0 }}>
+                <button
+                  className="stock-info-refresh"
+                  onClick={() => setKlineFullscreen(true)}
+                  title="全窗口查看 K线 + 技术指标联动分析图"
+                  disabled={!selectedStock}
+                  style={{
+                    background: '#ef444420',
+                    border: '1px solid #ef444480',
+                    color: '#ef4444',
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    cursor: selectedStock ? 'pointer' : 'not-allowed',
+                    transition: 'all .15s ease',
+                    opacity: selectedStock ? 1 : 0.5,
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!selectedStock) return
+                    e.currentTarget.style.background = '#ef444435'
+                    e.currentTarget.style.borderColor = '#ef4444'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#ef444420'
+                    e.currentTarget.style.borderColor = '#ef444480'
+                  }}
+                >
+                  K线
+                </button>
+                <button
+                  className="stock-info-refresh"
+                  onClick={() => setTrendDrawerCode(selectedStock!.code)}
+                  title="查看近5年财务指标趋势"
+                  style={{
+                    background: '#10b98120',
+                    border: '1px solid #10b98180',
+                    color: '#10b981',
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    transition: 'all .15s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#10b98135'
+                    e.currentTarget.style.borderColor = '#10b981'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#10b98120'
+                    e.currentTarget.style.borderColor = '#10b98180'
+                  }}
+                >
+                  财务趋势
+                </button>
+              </div>
+            </div>
+
+            <div className="info-panel-scroll">
+            <div className="stock-info-card" style={{ position: 'relative', marginBottom: 4 }}>
               <button
                 className="stock-info-refresh"
                 onClick={handleRefreshProfile}
                 title="刷新股票基本信息（行业/PE/PB 等）"
-                style={{ whiteSpace: 'nowrap' }}
+                style={{ position: 'absolute', top: 4, right: 6, whiteSpace: 'nowrap', zIndex: 1 }}
               >
                 刷新
               </button>
-            </div>
-
-            <div className="stock-info-card">
               <div className="stock-info-grid">
                 <div className="stock-info-item">
                   <span className="stock-info-label">所属行业</span>
@@ -2922,16 +3031,48 @@ function App() {
                   })()}
                 </div>
               </div>
-              {/* 近3日资金流向 */}
+            </div>
+            {/* 近3日资金流向（独立卡片，与基本信息紧凑挨着） */}
+            {(moneyflow?.has_data && moneyflow.items && moneyflow.items.length > 0) || (moneyflow && !moneyflow.has_data && moneyflow.summary) ? (
+            <div className="stock-info-card">
               {moneyflow?.has_data && moneyflow.items && moneyflow.items.length > 0 ? (
-                <div style={{ padding: '8px 0px', borderTop: '1px solid rgba(148,163,184,0.1)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    近{moneyflow.days || sflConfig?.moneyflow_days || 3}个交易日资金流向（亿元）
+                <div>
+                  <div
+                    onClick={() => setRecentMoneyflowExpanded(v => !v)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#64748b',
+                      userSelect: 'none',
+                      marginBottom: recentMoneyflowExpanded ? 4 : 0,
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      近{moneyflow.days || sflConfig?.moneyflow_days || 3}个交易日资金流向（亿元）
+                      <span
+                        title="主力 = 超大单（>100万）+ 大单（20~100万），按单笔成交金额分档统计，机构可通过拆单规避"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ cursor: 'help', fontSize: 12, opacity: 0.5 }}
+                      >ⓘ</span>
+                    </span>
                     <span
-                      title="主力 = 超大单（>100万）+ 大单（20~100万），按单笔成交金额分档统计，机构可通过拆单规避"
-                      style={{ cursor: 'pointer', fontSize: 12, opacity: 0.5 }}
-                    >ⓘ</span>
+                      style={{
+                        fontSize: 12,
+                        color: '#64748b',
+                        display: 'inline-block',
+                        transition: 'transform 0.2s ease',
+                        transform: recentMoneyflowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                      }}
+                    >
+                      ›
+                    </span>
                   </div>
+                  {recentMoneyflowExpanded && (
+                    <>
                   {/* 表头 */}
                   <div style={{
                     display: 'grid',
@@ -2998,6 +3139,8 @@ function App() {
                       {moneyflow.summary}
                     </div>
                   )}
+                    </>
+                  )}
 
                   {/* 当日流向（展开/收起） */}
                   <div style={{ marginTop: 6, borderTop: '1px solid rgba(148,163,184,0.06)', paddingTop: 6 }}>
@@ -3015,17 +3158,19 @@ function App() {
                       }}
                     >
                       <span>当日流向</span>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: '#64748b',
-                          display: 'inline-block',
-                          transition: 'transform 0.2s ease',
-                          transform: todayMoneyflowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                        }}
-                      >
-                        ›
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: '#64748b',
+                            display: 'inline-block',
+                            transition: 'transform 0.2s ease',
+                            transform: todayMoneyflowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                          }}
+                        >
+                          ›
+                        </span>
+                      </div>
                     </div>
                     {todayMoneyflowExpanded && (
                       <div style={{ marginTop: 5 }}>
@@ -3096,84 +3241,26 @@ function App() {
                             当日数据暂未更新
                           </div>
                         )}
+                        {moneyflowUpdatedAt && (
+                          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, textAlign: 'right' }}>
+                            更新于 {new Date(moneyflowUpdatedAt).toLocaleTimeString('zh-CN', { hour12: false })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
               ) : moneyflow && !moneyflow.has_data && moneyflow.summary ? (
-                <div style={{ padding: '8px 0px', borderTop: '1px solid rgba(148,163,184,0.1)' }}>
+                <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>近{sflConfig?.moneyflow_days || 3}个交易日资金流向（亿元）</div>
                   <div style={{ fontSize: 11, color: '#94a3b8' }}>{moneyflow.summary}</div>
                 </div>
               ) : null}
-              <div className="stock-info-footer">
-                <span className="stock-info-time">
-                  {profile?.updatedAt
-                    ? `更新于: ${new Date(profile.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                    : '暂无数据'}
-                </span>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <button
-                    className="stock-info-refresh"
-                    onClick={() => setKlineFullscreen(true)}
-                    title="全窗口查看 K线 + 技术指标联动分析图"
-                    disabled={!selectedStock}
-                    style={{
-                      background: '#ef444420',
-                      border: '1px solid #ef444480',
-                      color: '#ef4444',
-                      padding: '3px 10px',
-                      borderRadius: 4,
-                      fontSize: 12,
-                      cursor: selectedStock ? 'pointer' : 'not-allowed',
-                      transition: 'all .15s ease',
-                      opacity: selectedStock ? 1 : 0.5,
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!selectedStock) return
-                      e.currentTarget.style.background = '#ef444435'
-                      e.currentTarget.style.borderColor = '#ef4444'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ef444420'
-                      e.currentTarget.style.borderColor = '#ef444480'
-                    }}
-                  >
-                    K线
-                  </button>
-                  <button
-                    className="stock-info-refresh"
-                    onClick={() => setTrendDrawerCode(selectedStock!.code)}
-                    title="查看近5年财务指标趋势"
-                    style={{
-                      background: '#10b98120',
-                      border: '1px solid #10b98180',
-                      color: '#10b981',
-                      padding: '3px 10px',
-                      borderRadius: 4,
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      transition: 'all .15s ease',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#10b98135'
-                      e.currentTarget.style.borderColor = '#10b981'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#10b98120'
-                      e.currentTarget.style.borderColor = '#10b98180'
-                    }}
-                  >
-                    财务趋势
-                  </button>
-                </div>
-              </div>
             </div>
+            ) : null}
 
             {/* 导入/导出操作区 */}
-            <div className="actions-sub" style={{ display: 'flex', marginBottom: 10, padding: '0 16px', gap: 16, justifyContent: 'center' }}>
+            <div className="actions-sub" style={{ display: 'flex', marginBottom: 10, gap: 16, justifyContent: 'center' }}>
               <button className="btn-text" style={{ flex: '1 1 0', textAlign: 'center', whiteSpace: 'nowrap', fontSize: 11 }} onClick={handleImport} disabled={loading}>
                 {loading ? '处理中...' : '导入csv/excel财报'}
               </button>
@@ -3716,10 +3803,11 @@ function App() {
               <div className="quote-error">{quoteError}</div>
             )}
 
-            
+
+            </div>
           </>
         ) : (
-          <div className="placeholder">
+          <div className="placeholder" style={{ padding: '10px 16px 16px' }}>
             <p>请从左侧自选列表中选择一只股票</p>
           </div>
         )}

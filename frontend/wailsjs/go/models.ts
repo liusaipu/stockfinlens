@@ -128,6 +128,9 @@ export namespace analyzer {
 	    roe: number;
 	    netMargin: number;
 	    cashRatio: number;
+	    mode: string;
+	    endPeriod: string;
+	    notes?: string;
 	    periodCount: number;
 	    periods: string[];
 	
@@ -144,6 +147,9 @@ export namespace analyzer {
 	        this.roe = source["roe"];
 	        this.netMargin = source["netMargin"];
 	        this.cashRatio = source["cashRatio"];
+	        this.mode = source["mode"];
+	        this.endPeriod = source["endPeriod"];
+	        this.notes = source["notes"];
 	        this.periodCount = source["periodCount"];
 	        this.periods = source["periods"];
 	    }

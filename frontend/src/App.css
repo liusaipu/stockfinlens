@@ -499,14 +499,23 @@ body.light .watch-drag-handle {
   flex-shrink: 0;
   background: #0f1419;
   border-right: 1px solid #1f2933;
-  padding: 10px 16px 16px;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .info-panel > * {
   flex-shrink: 0;
+}
+
+/* 中栏内部可滚动容器，承担原 .info-panel 的 padding */
+.info-panel > .info-panel-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  /* scrollbar-gutter: stable 永远预留 scrollbar 6px 宽度，避免显隐切换抖动 */
+  scrollbar-gutter: stable;
+  padding: 10px 16px 16px;
 }
 
 body.light .info-panel {
@@ -516,6 +525,23 @@ body.light .info-panel {
 
 .stock-header {
   margin-bottom: 8px;
+}
+
+/* 中栏 topbar：与右栏 .report-tabs 高度/分隔条保持一致 */
+.info-panel > .stock-header {
+  margin: 0;
+  padding: 8px 12px;
+  background: #0f1419;
+  border-bottom: 1px solid #1f2933;
+  display: flex;
+  align-items: center;
+  min-height: 47px;
+  box-sizing: border-box;
+}
+
+body.light .info-panel > .stock-header {
+  background: #ffffff;
+  border-bottom-color: #e5e7eb;
 }
 
 .stock-header h1 {
@@ -587,28 +613,6 @@ body.light .stock-info-value {
   color: #111827;
 }
 
-.stock-info-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid #1f2933;
-}
-
-body.light .stock-info-footer {
-  border-top-color: #e5e7eb;
-}
-
-.stock-info-time {
-  font-size: 11px;
-  color: #64748b;
-}
-
-body.light .stock-info-time {
-  color: #6b7280;
-}
-
 .stock-info-refresh {
   font-size: 11px;
   color: #3b82f6;
@@ -627,7 +631,6 @@ body.light .stock-info-time {
   display: flex;
   justify-content: center;
   gap: 16px;
-  padding: 0 16px;
   margin-bottom: 4px;
 }
 
@@ -645,7 +648,6 @@ body.light .stock-info-time {
   margin-bottom: 2px;
   font-size: 11px;
   text-align: left;
-  padding-left: 16px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

@@ -30,8 +30,8 @@ func TestComputeSimilarity_SubIndustryBeatsIndustry(t *testing.T) {
 		Concepts:    []string{"民营医院", "AI医疗"},
 	}
 
-	scoreA, reasonsA, _ := computeSimilarity(targetIndustry, targetSubIndustry, 0, 0, 0, 0, targetConcepts, candA)
-	scoreB, reasonsB, _ := computeSimilarity(targetIndustry, targetSubIndustry, 0, 0, 0, 0, targetConcepts, candB)
+	scoreA, reasonsA, _ := computeSimilarity(targetIndustry, targetSubIndustry, 0, 0, 0, 0, targetConcepts, candA, nil)
+	scoreB, reasonsB, _ := computeSimilarity(targetIndustry, targetSubIndustry, 0, 0, 0, 0, targetConcepts, candB, nil)
 
 	t.Logf("候选A(同二级+同概念): score=%.2f reasons=%v", scoreA, reasonsA)
 	t.Logf("候选B(仅同一级): score=%.2f reasons=%v", scoreB, reasonsB)
@@ -74,8 +74,8 @@ func TestComputeSimilarity_ConceptOverlapBeatsPrimary(t *testing.T) {
 		Concepts: []string{"AI算力", "光模块", "数据中心", "信创"},
 	}
 
-	scoreA, reasonsA, _ := computeSimilarity(targetIndustry, "", 0, 0, 0, 0, targetConcepts, candA)
-	scoreB, reasonsB, _ := computeSimilarity(targetIndustry, "", 0, 0, 0, 0, targetConcepts, candB)
+	scoreA, reasonsA, _ := computeSimilarity(targetIndustry, "", 0, 0, 0, 0, targetConcepts, candA, nil)
+	scoreB, reasonsB, _ := computeSimilarity(targetIndustry, "", 0, 0, 0, 0, targetConcepts, candB, nil)
 	t.Logf("候选A(同行业,0概念): %.2f %v", scoreA, reasonsA)
 	t.Logf("候选B(异行业,4概念全重叠): %.2f %v", scoreB, reasonsB)
 
@@ -89,8 +89,41 @@ func TestComputeSimilarity_ConceptOverlapBeatsPrimary(t *testing.T) {
 func TestComputeSimilarity_PrimaryStillWorksWithoutSubIndustry(t *testing.T) {
 	score, reasons, _ := computeSimilarity("白酒", "", 0, 0, 0, 0, nil, candidateInfo{
 		Industry: "白酒",
-	})
+	}, nil)
 	if score < 30 {
 		t.Errorf("无二级行业时，同一级行业(白酒)应至少拿到一级行业的 35 分，实际 %.2f reasons=%v", score, reasons)
 	}
 }
+
+// TestComputeSimilarity_ConceptHeavyOverlapBeatsWeakSamePrimary 长信科技场景回归：
+// 当目标是消费电子链公司（光学光电子一级行业过宽，下属液晶/LED/触显多个子赛道），
+// 强概念重叠的"消费电子"链同业（蓝思/领益）应当超过仅一级行业相同、零概念重叠的杂牌（深华发/TCL等部分）。
+//
+// 修复前：蓝思 18.5（仅概念）< 深华发 36（同一级）—— 错配
+// 修复后：蓝思 36-39（等价行业 30 + 强概念叠加奖励 8） >= 深华发 36（同一级）
+func TestComputeSimilarity_ConceptHeavyOverlapBeatsWeakSamePrimary(t *testing.T) {
+	targetIndustry := "光学光电子"
+	targetConcepts := []string{"智能穿戴", "苹果概念", "混合现实", "3D玻璃", "电子纸概念", "石墨烯", "虚拟现实", "固态电池"}
+
+	// 候选 A：蓝思（消费电子，与长信高度同业）—— 等价行业 + 4 概念重叠
+	candA := candidateInfo{
+		Symbol: "300433.SZ", Name: "蓝思科技", Industry: "消费电子",
+		Concepts: []string{"3D玻璃", "AI眼镜", "电子烟", "无线耳机", "智能穿戴", "苹果概念", "混合现实"},
+	}
+	// 候选 B：深华发（同光学光电子但非同业，AB股壳） —— 仅一级行业相同
+	candB := candidateInfo{
+		Symbol: "000020.SZ", Name: "深华发Ａ", Industry: "光学光电子",
+		Concepts: []string{"AB股"},
+	}
+
+	scoreA, reasonsA, _ := computeSimilarity(targetIndustry, "", 0, 0, 0, 0, targetConcepts, candA, nil)
+	scoreB, reasonsB, _ := computeSimilarity(targetIndustry, "", 0, 0, 0, 0, targetConcepts, candB, nil)
+
+	t.Logf("候选A(消费电子+4概念): score=%.2f reasons=%v", scoreA, reasonsA)
+	t.Logf("候选B(光学光电子+0概念): score=%.2f reasons=%v", scoreB, reasonsB)
+
+	if scoreA < scoreB {
+		t.Errorf("强概念重叠的同业候选(A=%.2f)应不低于仅同一级行业的杂牌(B=%.2f)", scoreA, scoreB)
+	}
+}
+

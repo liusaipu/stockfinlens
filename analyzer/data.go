@@ -68,28 +68,34 @@ func LoadFinancialData(baseDir, symbol string) (*FinancialData, error) {
 	return fd, nil
 }
 
-// fixMissingData 修复东方财富 API 数据缺失/错误问题
-// PARENT_EQUITY_BALANCE 经常返回 0 或错误值，需要从其他字段推导
+// fixMissingData 修复东方财富 API 数据缺失/错误问题。
+// 东财 API 对全部期间（含年报）的「所有者权益合计」字段均返回 0，需通过 资产−负债 推导。
 func (fd *FinancialData) fixMissingData() {
-	for _, year := range fd.Years {
-		// ========== 资产负债表修复 ==========
-		parentEquity := fd.GetValueOrZero(fd.BalanceSheet, "归母所有者权益合计", year)
-		totalEquity := fd.GetValueOrZero(fd.BalanceSheet, "所有者权益合计", year)
-		minorityEquity := fd.GetValueOrZero(fd.BalanceSheet, "少数股东权益", year)
-		asset := fd.GetValueOrZero(fd.BalanceSheet, "资产合计", year)
-		liability := fd.GetValueOrZero(fd.BalanceSheet, "负债合计", year)
+	// 收集所有期间（年报+季报），优先用 Quarters（覆盖全），为空时退回 Years
+	allPeriods := fd.Quarters
+	if len(allPeriods) == 0 {
+		allPeriods = fd.Years
+	}
+
+	// 资产负债表修复：遍历全部期间，因为所有期间的权益字段都可能为 0
+	for _, period := range allPeriods {
+		parentEquity := fd.GetValueOrZero(fd.BalanceSheet, "归母所有者权益合计", period)
+		totalEquity := fd.GetValueOrZero(fd.BalanceSheet, "所有者权益合计", period)
+		minorityEquity := fd.GetValueOrZero(fd.BalanceSheet, "少数股东权益", period)
+		asset := fd.GetValueOrZero(fd.BalanceSheet, "资产合计", period)
+		liability := fd.GetValueOrZero(fd.BalanceSheet, "负债合计", period)
 
 		// 兜底：如果总权益和归母权益都异常，用 资产 - 负债 推导总权益
 		if math.Abs(totalEquity) < 1 && asset > 0 && liability > 0 {
 			calculatedTotal := asset - liability
 			if math.Abs(calculatedTotal) > 1 {
 				fmt.Printf("[fixMissingData] %s %s: 总权益从 %.0f 修复为 %.0f (资产-负债)\n",
-					fd.Symbol, year, totalEquity, calculatedTotal)
+					fd.Symbol, period, totalEquity, calculatedTotal)
 				totalEquity = calculatedTotal
 				if _, ok := fd.BalanceSheet["所有者权益合计"]; !ok {
 					fd.BalanceSheet["所有者权益合计"] = make(map[string]float64)
 				}
-				fd.BalanceSheet["所有者权益合计"][year] = calculatedTotal
+				fd.BalanceSheet["所有者权益合计"][period] = calculatedTotal
 			}
 		}
 
@@ -98,20 +104,21 @@ func (fd *FinancialData) fixMissingData() {
 			calculatedParent := totalEquity - minorityEquity
 			if math.Abs(calculatedParent) > 1 {
 				fmt.Printf("[fixMissingData] %s %s: 归母权益从 %.0f 修复为 %.0f (总权益-少数股东权益)\n",
-					fd.Symbol, year, parentEquity, calculatedParent)
+					fd.Symbol, period, parentEquity, calculatedParent)
 				if _, ok := fd.BalanceSheet["归属于母公司所有者权益合计"]; !ok {
 					fd.BalanceSheet["归属于母公司所有者权益合计"] = make(map[string]float64)
 				}
-				fd.BalanceSheet["归属于母公司所有者权益合计"][year] = calculatedParent
+				fd.BalanceSheet["归属于母公司所有者权益合计"][period] = calculatedParent
 				if _, ok := fd.BalanceSheet["归母所有者权益合计"]; !ok {
 					fd.BalanceSheet["归母所有者权益合计"] = make(map[string]float64)
 				}
-				fd.BalanceSheet["归母所有者权益合计"][year] = calculatedParent
+				fd.BalanceSheet["归母所有者权益合计"][period] = calculatedParent
 			}
 		}
+	}
 
-		// ========== 利润表修复 ==========
-		// 旧版 downloader 遗漏了归母净利润，用 净利润 - 少数股东损益 推导
+	// 利润表修复：仅对年报期间，旧版 downloader 遗漏了归母净利润
+	for _, year := range fd.Years {
 		parentProfit := fd.GetValueOrZero(fd.IncomeStatement, "归母净利润", year)
 		netProfit := fd.GetValueOrZero(fd.IncomeStatement, "净利润", year)
 		minorityInterest := fd.GetValueOrZero(fd.IncomeStatement, "少数股东损益", year)

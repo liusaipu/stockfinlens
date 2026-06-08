@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -113,14 +111,3 @@ func TestWatchlistReorderPersistence(t *testing.T) {
 	}
 }
 
-// TestReportContainsChartUnified 验证报告生成包含技术分析图 div
-func TestReportContainsChartUnified(t *testing.T) {
-	// 读取本地 fixture 数据
-	fixturePath := filepath.Join("testdata", "603501_fixture.json")
-	if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
-		t.Skip("跳过：testdata/603501_fixture.json 不存在，需先运行 go test -run TestDownload603501 生成 fixture")
-	}
-	// 这里可以加载 fixture 并验证报告生成
-	// 由于 fixture 可能不存在，先作为占位
-	t.Log("报告生成测试占位：验证 chart-unified div 存在")
-}
