@@ -44,7 +44,9 @@ description: 安全发布 StockFinLens 新版本（防跳号、防忘 build、�
 
 `./build-release.sh all` 在后台跑（耗时 5~15 分钟，用 `run_in_background: true` 配 `timeout: 1500000`）。等通知，不要 sleep poll。
 
-构建完检查产物：`ls -lh build/bin/ | grep "v${VERSION}"`，应看到 DMG + ZIP 两个文件。
+**必须用 `all`，不能只跑 `mac` 或 `windows`**。v1.6.3 实战中只跑了 `mac`，Windows 用户在 release 发布后第二天才发现没产物，又得回头补构建 + `gh release upload`，订阅 auto-update 的 Windows 用户那一晚收不到更新。即使本机是 macOS，Wails 也能交叉编译 Windows amd64，没有理由跳过。
+
+构建完检查产物：`ls -lh build/bin/ | grep "v${VERSION}"`，应看到 DMG + ZIP **两个文件**——只看到一个就说明跑成了单平台，回头重跑 `all`。
 
 **关键**：脚本默默以当前 `wails.json` 的版本号命名产物，**不会**校验是否与 tag 一致。如果 step 2 漏改 wails.json，这里会出 `v(旧版本).dmg` 但脚本依然 exit 0。**必须用 `grep "v${VERSION}"` 而不是只看 `ls build/bin`**，文件名对不上立即停下来回到 step 2 修，别去 release。
 
@@ -83,3 +85,4 @@ curl -s -H "Accept: application/vnd.github.v3+json" \
 - ❌ 不要在 release 完成后又改 `CHANGELOG.md` 的对应版本段（用户已经在 release notes 看到了，事后改是"修史"）
 - ❌ 不要 `git push --force` 已发布的 tag
 - ❌ 不要跳过第 6 步 curl 验证——auto-update 端点偶尔有缓存延迟，没验证过的 release 不能算完整发布
+- ❌ 不要只跑 `build-release.sh mac` 或 `build-release.sh windows`——必须 `all`。漏掉的平台用户次日才会发现，补构建 + `gh release upload` 是可见的疏漏。
