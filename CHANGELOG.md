@@ -1,5 +1,21 @@
 # Changelog
 
+## [v1.6.5] - 2026-06-16
+
+### 新增 (Features)
+- **K 线图交互增强**（`frontend/src/UnifiedChart.tsx`）
+  - 周期选项（分时/日线/周线/月线）从下拉框改为平铺按钮，放到刷新按钮右侧。
+  - K 线图内部上方新增均线数值标签（MA5/MA10/MA30/MA180 等），颜色与图表均线保持一致。
+- **日线/周线/月线合并当日实时行情**（`frontend/src/UnifiedChart.tsx`）
+  - 当行情接口能获取到当日数据时，自动把当日 open/high/low/close/volume/amount/turnoverRate 合并进日线序列。
+  - 周线/月线由日线聚合，因此会自动包含当日数据，保持与雪球等平台一致。
+
+### 优化 (Improvements)
+- **默认窗口大小调整**（`main.go`）
+  - 应用启动默认窗口从 `1280x800` 调整为 `1600x900`。
+- **K 线右侧留白**（`frontend/src/UnifiedChart.tsx`）
+  - 当交易日期数不足占满图表时，坐标轴保持固定刻度位置，K 线条保持默认宽度，右侧自然留白，不再自动拉宽。
+
 ## [v1.6.4] - 2026-06-08
 
 ### 新增 (Features)

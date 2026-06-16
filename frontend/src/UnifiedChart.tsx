@@ -227,6 +227,33 @@ function normalizeTime(time: string): string {
   return time
 }
 
+// 把当日实时行情合并进日线序列：若历史已有当日则覆盖，否则追加
+function mergeTodayQuote(data: KlineData[], quote: StockQuote | undefined): KlineData[] {
+  if (!quote || quote.currentPrice <= 0 || !quote.quoteTime) return data
+  const today = normalizeTime(quote.quoteTime.slice(0, 10))
+  if (!today || today.length !== 10) return data
+
+  const todayBar: KlineData = {
+    time: today,
+    open: quote.open > 0 ? quote.open : quote.currentPrice,
+    close: quote.currentPrice,
+    high: quote.high > 0 ? quote.high : quote.currentPrice,
+    low: quote.low > 0 ? quote.low : quote.currentPrice,
+    volume: quote.volume,
+    amount: quote.turnoverAmount,
+    turnoverRate: quote.turnoverRate,
+  }
+
+  const last = data[data.length - 1]
+  if (last && last.time === today) {
+    return [...data.slice(0, -1), todayBar]
+  }
+  if (!last || last.time < today) {
+    return [...data, todayBar]
+  }
+  return data
+}
+
 function loadMAConfig(): MAConfig {
   try {
     const saved = localStorage.getItem('unifiedChart_maConfig')
@@ -258,6 +285,8 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
   const [period, setPeriod] = useState<'intraday' | 'daily' | 'weekly' | 'monthly'>('daily')
   const [maConfig, setMAConfig] = useState<MAConfig>(loadMAConfig)
   const [showSettings, setShowSettings] = useState(false)
+  const intradayBtnRef = useRef<HTMLButtonElement>(null)
+  const maRowRef = useRef<HTMLDivElement>(null)
 
   // 用 ref 稳定 onClose，避免 chart 创建 useEffect 因 prop 变化而重建
   const onCloseRef = useRef(onClose)
@@ -306,12 +335,14 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
 
   const data = useMemo(() => {
     if (rawData.length === 0) return []
+    // 分时图不合并日线；日线/周线/月线先把当日 quote 合并进日线序列，再做聚合
+    const dailyData = period === 'intraday' ? rawData : mergeTodayQuote(rawData, localQuote)
     // 根据周期聚合数据
-    let aggregated = rawData
+    let aggregated = dailyData
     if (period === 'weekly') {
-      aggregated = aggregateToWeekly(rawData)
+      aggregated = aggregateToWeekly(dailyData)
     } else if (period === 'monthly') {
-      aggregated = aggregateToMonthly(rawData)
+      aggregated = aggregateToMonthly(dailyData)
     }
     const quote = localQuote
     const hasTurnover = aggregated.some(d => d.turnoverRate > 0)
@@ -324,6 +355,25 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
       turnoverRate: (d.volume * 100 / circulatingShares) * 100,
     }))
   }, [rawData, localQuote, period])
+
+  // 指标计算：供图表 series 与左上角均线标签共用
+  const indicators = useMemo(() => calculateIndicators(data, maConfig), [data, maConfig])
+
+  // 让 K 线图内部均线标签的 "均线" 二字与顶层 "分时" 按钮水平对齐
+  useEffect(() => {
+    const update = () => {
+      if (intradayBtnRef.current && maRowRef.current) {
+        const panel = intradayBtnRef.current.closest('[data-chart-panel]') as HTMLElement | null
+        if (!panel) return
+        const intradayRect = intradayBtnRef.current.getBoundingClientRect()
+        const panelRect = panel.getBoundingClientRect()
+        maRowRef.current.style.left = `${intradayRect.left - panelRect.left}px`
+      }
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [period, refreshing, isExpanded])
 
   // chart 实例创建/销毁：只在 mount/unmount 时执行。
   // 数据/配置变化只通过 setOption 更新内容，避免 dispose→init 之间露出深色背景 + 蓝色 axisPointer 占位帧。
@@ -370,7 +420,7 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     const total = data.length
     const zoomStart = total > visibleSize ? ((total - visibleSize) / total) * 100 : 0
 
-    const { dif, dea, hist, rsi6, rsi12, rsi24, bbUpper, bbMid, bbLower, mas } = calculateIndicators(data, maConfig)
+    const { dif, dea, hist, rsi6, rsi12, rsi24, bbUpper, bbMid, bbLower, mas } = indicators
 
     // xAxis 与所有 series 全部使用全量数据;dataZoom 只裁剪可见窗口,不裁剪计算窗口。
     const dates = data.map(d => d.time)
@@ -381,20 +431,12 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     }))
 
     const xAxisLabelInterval = isExpanded ? Math.max(1, Math.floor(visibleSize / 6)) : Math.max(1, Math.floor(visibleSize / 6))
-
-    const legendData = ['K线', ...mas.map(m => m.name)]
+    // 数据不足可见窗口时，让坐标轴保持 visibleSize 个刻度位置，右侧自然留白，不拉宽 K 线
+    const xAxisMax = Math.max(total, visibleSize) - 1
 
     const option: echarts.EChartsOption = {
       backgroundColor: 'transparent',
       animation: false,
-      legend: {
-        data: legendData,
-        top: 8,
-        right: 108, // 为周期选择器+设置按钮留出空间
-        textStyle: { color: '#94a3b8', fontSize: 11 },
-        itemStyle: { borderWidth: 0 },
-        itemGap: 4,
-      },
       tooltip: {
         trigger: 'axis',
         axisPointer: {
@@ -511,11 +553,11 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
         { left: 75, right: 16, top: 478, height: 58 },
       ],
       xAxis: [
-        { type: 'category', data: dates, boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval }, splitLine: { show: false }, gridIndex: 0, axisPointer: { label: { show: false } } },
-        { type: 'category', data: dates, boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 1, axisPointer: { label: { show: false } } },
-        { type: 'category', data: dates, boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 2, axisPointer: { label: { show: false } } },
-        { type: 'category', data: dates, boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 3, axisPointer: { label: { show: false } } },
-        { type: 'category', data: dates, boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval }, splitLine: { show: false }, gridIndex: 4, axisPointer: { label: { show: true, backgroundColor: '#3b82f6' } } },
+        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval }, splitLine: { show: false }, gridIndex: 0, axisPointer: { label: { show: false } } },
+        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 1, axisPointer: { label: { show: false } } },
+        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 2, axisPointer: { label: { show: false } } },
+        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 3, axisPointer: { label: { show: false } } },
+        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval }, splitLine: { show: false }, gridIndex: 4, axisPointer: { label: { show: true, backgroundColor: '#3b82f6' } } },
       ],
       yAxis: [
         { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, gridIndex: 0, position: 'left', axisLabel: { fontSize: 10, color: '#94a3b8', margin: 10 }, splitNumber: 5, name: 'K线', nameLocation: 'middle', nameRotate: 0, nameGap: 32, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right' }, axisPointer: { label: { show: true, formatter: (params: any) => fmt2(params.value) } } },
@@ -674,8 +716,8 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
         top: 0, left: 0,
         zIndex: isExpanded ? 9999 : 1,
         backgroundColor: isExpanded ? fullscreenBg : 'transparent',
-      }}>
-        {/* 左上角：提示文字 + 刷新按钮 */}
+      }} data-chart-panel>
+        {/* 左上角：提示文字 + 刷新按钮 + 周期选择 */}
         <div style={{
           position: 'absolute', top: 12, left: 12, zIndex: 10000,
           display: 'flex', alignItems: 'center', gap: 12,
@@ -692,34 +734,63 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
           }}>
             {refreshing ? '刷新中…' : '刷新'}
           </button>
+
+          {/* 周期选择器 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {([
+              { value: 'intraday', label: '分时' },
+              { value: 'daily', label: '日线' },
+              { value: 'weekly', label: '周线' },
+              { value: 'monthly', label: '月线' },
+            ] as const).map((p) => {
+              const active = period === p.value
+              return (
+                <button
+                  key={p.value}
+                  ref={p.value === 'intraday' ? intradayBtnRef : undefined}
+                  onClick={() => setPeriod(p.value)}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 4,
+                    border: '1px solid',
+                    borderColor: active ? '#3b82f6' : 'rgba(148,163,184,0.3)',
+                    background: active ? '#3b82f6' : btnBg,
+                    color: active ? '#fff' : btnText,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        {/* 右上角：周期选择器 + 设置按钮 */}
+        {/* K线图内部上方：均线数值标签 */}
+        {period !== 'intraday' && (
+          <div ref={maRowRef} style={{
+            position: 'absolute', top: 46, zIndex: 9999,
+            display: 'flex', alignItems: 'center', gap: 8,
+            pointerEvents: 'none',
+          }}>
+            <span style={{ color: hintText, fontSize: 11 }}>均线</span>
+            {indicators.mas.map((m) => {
+              const last = [...m.data].reverse().find(v => v != null)
+              return (
+                <span key={m.name} style={{ color: m.color, fontSize: 11, whiteSpace: 'nowrap' }}>
+                  {m.name}:{fmt2(last)}
+                </span>
+              )
+            })}
+          </div>
+        )}
+
+        {/* 右上角：设置按钮 */}
         <div style={{
           position: 'absolute', top: 6, right: 8, zIndex: 10001,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          {/* 周期选择器 */}
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as 'intraday' | 'daily' | 'weekly' | 'monthly')}
-            style={{
-              padding: '3px 6px',
-              borderRadius: 4,
-              border: '1px solid rgba(148,163,184,0.3)',
-              background: btnBg,
-              color: btnText,
-              fontSize: 12,
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            <option value="intraday">分时</option>
-            <option value="daily">日线</option>
-            <option value="weekly">周线</option>
-            <option value="monthly">月线</option>
-          </select>
-          {/* 设置按钮 */}
           <button
             onClick={() => setShowSettings(true)}
             title="均线设置"
