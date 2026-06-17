@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.6.7] - 2026-06-17
+
+### 优化 (Improvements)
+- **季度滚动预警改为横表，只展示最近一期**（`analyzer/quarterly.go`, `analyzer/report_modules.go`, `analyzer/quarterly_test.go`）
+  - `BuildQuarterlyAlert` 只取最近一个季度生成环比/同比，避免历史多期堆叠。
+  - `QuarterlyAlertItem` 新增 `PreviousPeriod` 字段，明确记录对比期间。
+  - 报告渲染改为横表：行=指标，列=当前值 / 环比（vs 上一单季） / 同比（vs 去年同期），对比期间一目了然。
+
 ## [v1.6.6] - 2026-06-16
 
 ### 修复 (Fixes)

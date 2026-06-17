@@ -156,6 +156,7 @@ export namespace analyzer {
 	}
 	export class QuarterlyAlertItem {
 	    period: string;
+	    previousPeriod: string;
 	    metric: string;
 	    current: number;
 	    previous: number;
@@ -171,6 +172,7 @@ export namespace analyzer {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.period = source["period"];
+	        this.previousPeriod = source["previousPeriod"];
 	        this.metric = source["metric"];
 	        this.current = source["current"];
 	        this.previous = source["previous"];

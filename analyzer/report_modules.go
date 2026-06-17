@@ -1489,23 +1489,75 @@ func writeModuleQuarterly(b *strings.Builder, alert *QuarterlyAlert) {
 	if alert == nil || !alert.HasData || len(alert.Items) == 0 {
 		return
 	}
-	b.WriteString("## 3.3 季度滚动预警（环比+同比）\n\n")
-	b.WriteString("| 期间 | 对比类型 | 指标 | 当前值 | 对比基准 | 变化 | 状态 |\n")
-	b.WriteString("|------|----------|------|--------|----------|------|------|\n")
+
+	// 按指标聚合，每个指标一行，列展示环比/同比
+	itemsByMetric := make(map[string]map[string]QuarterlyAlertItem)
+	var metricsOrder []string
 	for _, item := range alert.Items {
-		status := "🟡"
-		if item.Level == "danger" {
-			status = "🔴"
+		if itemsByMetric[item.Metric] == nil {
+			itemsByMetric[item.Metric] = make(map[string]QuarterlyAlertItem)
+			metricsOrder = append(metricsOrder, item.Metric)
 		}
-		// 毛利率/净利率显示为百分点变化，其他显示为百分比变化
-		changeStr := fmt.Sprintf("%+.1f%%", item.ChangePct*100)
-		if item.Metric == "毛利率" {
-			changeStr = fmt.Sprintf("%+.1fpp", item.ChangePct*100)
+		itemsByMetric[item.Metric][item.CompareType] = item
+	}
+
+	curPeriod := alert.Items[0].Period
+	b.WriteString("## 3.3 季度滚动预警（环比+同比）\n\n")
+	b.WriteString(fmt.Sprintf("当前报告期：**%s**，指标已还原为单季度值\n\n", curPeriod))
+	b.WriteString("| 指标 | 当前值 | 环比（vs 上一单季） | 同比（vs 去年同期） |\n")
+	b.WriteString("|------|--------|---------------------|---------------------|\n")
+
+	for _, metric := range metricsOrder {
+		items := itemsByMetric[metric]
+		curItem := items["环比"]
+		if curItem.Metric == "" {
+			curItem = items["同比"]
 		}
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %.2f | %.2f | %s | %s %s |\n",
-			item.Period, item.CompareType, item.Metric, item.Current, item.Previous, changeStr, status, item.Description))
+
+		currentStr := formatQuarterlyValue(metric, curItem.Current)
+
+		qoq := items["环比"]
+		qoqStr := "—"
+		if qoq.Metric != "" {
+			qoqStr = formatQuarterlyChange(metric, qoq.ChangePct, qoq.PreviousPeriod)
+		}
+
+		yoy := items["同比"]
+		yoyStr := "—"
+		if yoy.Metric != "" {
+			yoyStr = formatQuarterlyChange(metric, yoy.ChangePct, yoy.PreviousPeriod)
+		}
+
+		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", metric, currentStr, qoqStr, yoyStr))
 	}
 	b.WriteString("\n")
+}
+
+// formatQuarterlyValue 格式化季度预警数值
+func formatQuarterlyValue(metric string, v float64) string {
+	if metric == "毛利率" {
+		return fmt.Sprintf("%.2f%%", v*100)
+	}
+	if v >= 1e8 {
+		return fmt.Sprintf("%.2f亿", v/1e8)
+	}
+	if v >= 1e4 {
+		return fmt.Sprintf("%.2f万", v/1e4)
+	}
+	return fmt.Sprintf("%.2f", v)
+}
+
+// formatQuarterlyChange 格式化季度预警变化，带对比期间
+func formatQuarterlyChange(metric string, changePct float64, previousPeriod string) string {
+	unit := "%"
+	if metric == "毛利率" {
+		unit = "pp"
+	}
+	sign := "+"
+	if changePct < 0 {
+		sign = ""
+	}
+	return fmt.Sprintf("%s%.2f%s (vs %s)", sign, changePct*100, unit, previousPeriod)
 }
 
 // writeModuleTTM TTM 滚动指标模块

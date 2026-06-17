@@ -111,6 +111,9 @@ func TestBuildQuarterlyAlertQoQ(t *testing.T) {
 	if math.Abs(revQoQ.Previous-wantPrev) > 1e4 {
 		t.Errorf("Previous = %.2f, want %.2f", revQoQ.Previous, wantPrev)
 	}
+	if revQoQ.PreviousPeriod != "2025-12-31" {
+		t.Errorf("PreviousPeriod = %s, want 2025-12-31", revQoQ.PreviousPeriod)
+	}
 
 	// 环比变化应约为 -14%，不再是从前累计口径的 -62.8%
 	wantChange := (11.50e8 - wantPrev) / wantPrev
@@ -152,6 +155,9 @@ func TestBuildQuarterlyAlertYoY(t *testing.T) {
 	}
 	if math.Abs(revYoY.Current-12.0e8) > 1e-4 || math.Abs(revYoY.Previous-20.0e8) > 1e-4 {
 		t.Errorf("同比 Current=%.2f Previous=%.2f, want 12e8/20e8", revYoY.Current, revYoY.Previous)
+	}
+	if revYoY.PreviousPeriod != "2025-03-31" {
+		t.Errorf("PreviousPeriod = %s, want 2025-03-31", revYoY.PreviousPeriod)
 	}
 }
 
