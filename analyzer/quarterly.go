@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -57,28 +58,18 @@ func BuildQuarterlyAlert(data *FinancialData) *QuarterlyAlert {
 	return alert
 }
 
-// addQoQChecks 添加环比检测项（基于单季还原值）
+// addQoQChecks 添加环比检测项（基于单季还原值，始终生成条目）
 func (alert *QuarterlyAlert) addQoQChecks(data *FinancialData, cur, prev string) {
 	// 营收环比
 	curRev := singleQuarterValue(data, data.IncomeStatement, "营业收入", cur)
 	prevRev := singleQuarterValue(data, data.IncomeStatement, "营业收入", prev)
 	if prevRev > 0 {
 		revChange := (curRev - prevRev) / prevRev
-		if revChange < -0.20 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: prev, Metric: "营业收入", Current: curRev, Previous: prevRev,
-				ChangePct: revChange, Level: "danger",
-				Description: fmt.Sprintf("营收环比下滑 %.1f%%", -revChange*100),
-				CompareType: "环比",
-			})
-		} else if revChange < -0.05 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: prev, Metric: "营业收入", Current: curRev, Previous: prevRev,
-				ChangePct: revChange, Level: "warning",
-				Description: fmt.Sprintf("营收环比下滑 %.1f%%", -revChange*100),
-				CompareType: "环比",
-			})
-		}
+		level, desc := classifyChange("营业收入", revChange, true)
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: prev, Metric: "营业收入", Current: curRev, Previous: prevRev,
+			ChangePct: revChange, Level: level, Description: desc, CompareType: "环比",
+		})
 	}
 
 	// 净利润环比
@@ -86,21 +77,11 @@ func (alert *QuarterlyAlert) addQoQChecks(data *FinancialData, cur, prev string)
 	prevNP := singleQuarterValue(data, data.IncomeStatement, "净利润", prev)
 	if prevNP != 0 {
 		npChange := (curNP - prevNP) / abs(prevNP)
-		if npChange < -0.30 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: prev, Metric: "净利润", Current: curNP, Previous: prevNP,
-				ChangePct: npChange, Level: "danger",
-				Description: fmt.Sprintf("净利润环比下滑 %.1f%%", -npChange*100),
-				CompareType: "环比",
-			})
-		} else if npChange < -0.10 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: prev, Metric: "净利润", Current: curNP, Previous: prevNP,
-				ChangePct: npChange, Level: "warning",
-				Description: fmt.Sprintf("净利润环比下滑 %.1f%%", -npChange*100),
-				CompareType: "环比",
-			})
-		}
+		level, desc := classifyChange("净利润", npChange, true)
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: prev, Metric: "净利润", Current: curNP, Previous: prevNP,
+			ChangePct: npChange, Level: level, Description: desc, CompareType: "环比",
+		})
 	}
 
 	// 毛利率环比变化（基于单季营收/成本）
@@ -112,14 +93,11 @@ func (alert *QuarterlyAlert) addQoQChecks(data *FinancialData, cur, prev string)
 		curGM := (curRevSQ - curCostSQ) / curRevSQ
 		prevGM := (prevRevSQ - prevCostSQ) / prevRevSQ
 		gmChange := curGM - prevGM
-		if gmChange < -0.03 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: prev, Metric: "毛利率", Current: curGM, Previous: prevGM,
-				ChangePct: gmChange, Level: "warning",
-				Description: fmt.Sprintf("毛利率环比下降 %.1f%%", -gmChange*100),
-				CompareType: "环比",
-			})
-		}
+		level, desc := classifyChange("毛利率", gmChange, true)
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: prev, Metric: "毛利率", Current: curGM, Previous: prevGM,
+			ChangePct: gmChange, Level: level, Description: desc, CompareType: "环比",
+		})
 	}
 
 	// 经营现金流环比（现金流量表也是累计 YTD，需还原为单季）
@@ -127,39 +105,29 @@ func (alert *QuarterlyAlert) addQoQChecks(data *FinancialData, cur, prev string)
 	prevOCF := singleQuarterValue(data, data.CashFlow, "经营活动产生的现金流量净额", prev)
 	if prevOCF != 0 {
 		ocfChange := (curOCF - prevOCF) / abs(prevOCF)
+		level, desc := "normal", "经营现金流环比正常"
 		if curOCF < 0 && prevOCF > 0 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: prev, Metric: "经营现金流", Current: curOCF, Previous: prevOCF,
-				ChangePct: ocfChange, Level: "danger",
-				Description: "经营现金流由正转负",
-				CompareType: "环比",
-			})
+			level, desc = "danger", "经营现金流由正转负"
 		}
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: prev, Metric: "经营现金流", Current: curOCF, Previous: prevOCF,
+			ChangePct: ocfChange, Level: level, Description: desc, CompareType: "环比",
+		})
 	}
 }
 
-// addYoYChecks 添加同比检测项（基于单季还原值）
+// addYoYChecks 添加同比检测项（基于单季还原值，始终生成条目）
 func (alert *QuarterlyAlert) addYoYChecks(data *FinancialData, cur, yoy string) {
 	// 营收同比
 	curRev := singleQuarterValue(data, data.IncomeStatement, "营业收入", cur)
 	yoyRev := singleQuarterValue(data, data.IncomeStatement, "营业收入", yoy)
 	if yoyRev > 0 {
 		revChange := (curRev - yoyRev) / yoyRev
-		if revChange < -0.30 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "营业收入", Current: curRev, Previous: yoyRev,
-				ChangePct: revChange, Level: "danger",
-				Description: fmt.Sprintf("营收同比下滑 %.1f%%", -revChange*100),
-				CompareType: "同比",
-			})
-		} else if revChange < -0.15 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "营业收入", Current: curRev, Previous: yoyRev,
-				ChangePct: revChange, Level: "warning",
-				Description: fmt.Sprintf("营收同比下滑 %.1f%%", -revChange*100),
-				CompareType: "同比",
-			})
-		}
+		level, desc := classifyChange("营业收入", revChange, false)
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: yoy, Metric: "营业收入", Current: curRev, Previous: yoyRev,
+			ChangePct: revChange, Level: level, Description: desc, CompareType: "同比",
+		})
 	}
 
 	// 净利润同比
@@ -167,21 +135,11 @@ func (alert *QuarterlyAlert) addYoYChecks(data *FinancialData, cur, yoy string) 
 	yoyNP := singleQuarterValue(data, data.IncomeStatement, "净利润", yoy)
 	if yoyNP != 0 {
 		npChange := (curNP - yoyNP) / abs(yoyNP)
-		if npChange < -0.50 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "净利润", Current: curNP, Previous: yoyNP,
-				ChangePct: npChange, Level: "danger",
-				Description: fmt.Sprintf("净利润同比下滑 %.1f%%", -npChange*100),
-				CompareType: "同比",
-			})
-		} else if npChange < -0.25 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "净利润", Current: curNP, Previous: yoyNP,
-				ChangePct: npChange, Level: "warning",
-				Description: fmt.Sprintf("净利润同比下滑 %.1f%%", -npChange*100),
-				CompareType: "同比",
-			})
-		}
+		level, desc := classifyChange("净利润", npChange, false)
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: yoy, Metric: "净利润", Current: curNP, Previous: yoyNP,
+			ChangePct: npChange, Level: level, Description: desc, CompareType: "同比",
+		})
 	}
 
 	// 毛利率同比变化（百分点，基于单季营收/成本）
@@ -193,21 +151,11 @@ func (alert *QuarterlyAlert) addYoYChecks(data *FinancialData, cur, yoy string) 
 		curGM := (curRevSQ - curCostSQ) / curRevSQ
 		yoyGM := (yoyRevSQ - yoyCostSQ) / yoyRevSQ
 		gmChange := curGM - yoyGM
-		if gmChange < -0.05 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "毛利率", Current: curGM, Previous: yoyGM,
-				ChangePct: gmChange, Level: "danger",
-				Description: fmt.Sprintf("毛利率同比下降 %.1f%%", -gmChange*100),
-				CompareType: "同比",
-			})
-		} else if gmChange < -0.03 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "毛利率", Current: curGM, Previous: yoyGM,
-				ChangePct: gmChange, Level: "warning",
-				Description: fmt.Sprintf("毛利率同比下降 %.1f%%", -gmChange*100),
-				CompareType: "同比",
-			})
-		}
+		level, desc := classifyChange("毛利率", gmChange, false)
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: yoy, Metric: "毛利率", Current: curGM, Previous: yoyGM,
+			ChangePct: gmChange, Level: level, Description: desc, CompareType: "同比",
+		})
 	}
 
 	// 经营现金流同比（现金流量表累计 YTD 还原为单季）
@@ -215,14 +163,72 @@ func (alert *QuarterlyAlert) addYoYChecks(data *FinancialData, cur, yoy string) 
 	yoyOCF := singleQuarterValue(data, data.CashFlow, "经营活动产生的现金流量净额", yoy)
 	if yoyOCF != 0 {
 		ocfChange := (curOCF - yoyOCF) / abs(yoyOCF)
+		level, desc := "normal", "经营现金流同比正常"
 		if curOCF < 0 && yoyOCF > 0 {
-			alert.Items = append(alert.Items, QuarterlyAlertItem{
-				Period: cur, PreviousPeriod: yoy, Metric: "经营现金流", Current: curOCF, Previous: yoyOCF,
-				ChangePct: ocfChange, Level: "danger",
-				Description: "经营现金流同比由正转负",
-				CompareType: "同比",
-			})
+			level, desc = "danger", "经营现金流同比由正转负"
 		}
+		alert.Items = append(alert.Items, QuarterlyAlertItem{
+			Period: cur, PreviousPeriod: yoy, Metric: "经营现金流", Current: curOCF, Previous: yoyOCF,
+			ChangePct: ocfChange, Level: level, Description: desc, CompareType: "同比",
+		})
+	}
+}
+
+// classifyChange 根据变化率返回风险等级和描述（始终返回，不再过滤）
+func classifyChange(metric string, changePct float64, isQoQ bool) (level string, desc string) {
+	prefix := "同比"
+	if isQoQ {
+		prefix = "环比"
+	}
+
+	// 毛利率用百分点描述
+	if metric == "毛利率" {
+		changePP := changePct * 100
+		switch {
+		case changePct < -0.05:
+			return "danger", fmt.Sprintf("毛利率%s下降 %.1fpp", prefix, -changePP)
+		case changePct < -0.03:
+			return "warning", fmt.Sprintf("毛利率%s下降 %.1fpp", prefix, -changePP)
+		case changePct > 0.05:
+			return "normal", fmt.Sprintf("毛利率%s上升 %.1fpp", prefix, changePP)
+		default:
+			return "normal", fmt.Sprintf("毛利率%s变化 %.1fpp", prefix, changePP)
+		}
+	}
+
+	// 营收/净利润用百分比描述
+	changePercent := changePct * 100
+	sign := "变化"
+	if changePct > 0 {
+		sign = "增长"
+	} else if changePct < 0 {
+		sign = "下滑"
+	}
+
+	// 环比/同比的危险、警告阈值不同
+	var dangerThreshold, warningThreshold float64
+	switch metric {
+	case "营业收入":
+		if isQoQ {
+			dangerThreshold, warningThreshold = -0.20, -0.05
+		} else {
+			dangerThreshold, warningThreshold = -0.30, -0.15
+		}
+	case "净利润":
+		if isQoQ {
+			dangerThreshold, warningThreshold = -0.30, -0.10
+		} else {
+			dangerThreshold, warningThreshold = -0.50, -0.25
+		}
+	}
+
+	switch {
+	case changePct <= dangerThreshold:
+		return "danger", fmt.Sprintf("%s%s %.1f%%", metric, sign, math.Abs(changePercent))
+	case changePct <= warningThreshold:
+		return "warning", fmt.Sprintf("%s%s %.1f%%", metric, sign, math.Abs(changePercent))
+	default:
+		return "normal", fmt.Sprintf("%s%s %.1f%%", metric, sign, math.Abs(changePercent))
 	}
 }
 
