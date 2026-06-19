@@ -1,3 +1,148 @@
+export namespace ai_researcher {
+	
+	export class AIConfig {
+	    enabled: boolean;
+	    llm_provider: string;
+	    llm_api_key: string;
+	    llm_base_url: string;
+	    llm_model: string;
+	    llm_timeout: number;
+	    temperature: number;
+	    max_tokens: number;
+	    top_p: number;
+	    search_provider: string;
+	    search_api_key: string;
+	    search_depth: string;
+	    search_timeout: number;
+	    max_results: number;
+	    search_recency_days: number;
+	    focus_regions: string[];
+	    output_language: string;
+	    enable_social: boolean;
+	    cache_ttl_hours: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.llm_provider = source["llm_provider"];
+	        this.llm_api_key = source["llm_api_key"];
+	        this.llm_base_url = source["llm_base_url"];
+	        this.llm_model = source["llm_model"];
+	        this.llm_timeout = source["llm_timeout"];
+	        this.temperature = source["temperature"];
+	        this.max_tokens = source["max_tokens"];
+	        this.top_p = source["top_p"];
+	        this.search_provider = source["search_provider"];
+	        this.search_api_key = source["search_api_key"];
+	        this.search_depth = source["search_depth"];
+	        this.search_timeout = source["search_timeout"];
+	        this.max_results = source["max_results"];
+	        this.search_recency_days = source["search_recency_days"];
+	        this.focus_regions = source["focus_regions"];
+	        this.output_language = source["output_language"];
+	        this.enable_social = source["enable_social"];
+	        this.cache_ttl_hours = source["cache_ttl_hours"];
+	    }
+	}
+	export class ResearchSource {
+	    title: string;
+	    url: string;
+	    date: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResearchSource(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.url = source["url"];
+	        this.date = source["date"];
+	    }
+	}
+	export class ResearchSection {
+	    title: string;
+	    summary: string;
+	    key_points: string[];
+	    sentiment: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ResearchSection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.summary = source["summary"];
+	        this.key_points = source["key_points"];
+	        this.sentiment = source["sentiment"];
+	    }
+	}
+	export class AIResearchReport {
+	    symbol: string;
+	    name: string;
+	    generated_at: string;
+	    model_used: string;
+	    from_cache: boolean;
+	    sections: ResearchSection[];
+	    sources: ResearchSource[];
+	
+	    static createFrom(source: any = {}) {
+	        return new AIResearchReport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.symbol = source["symbol"];
+	        this.name = source["name"];
+	        this.generated_at = source["generated_at"];
+	        this.model_used = source["model_used"];
+	        this.from_cache = source["from_cache"];
+	        this.sections = this.convertValues(source["sections"], ResearchSection);
+	        this.sources = this.convertValues(source["sources"], ResearchSource);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	export class TestConnectionResult {
+	    success: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TestConnectionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	    }
+	}
+
+}
+
 export namespace analyzer {
 	
 	export class MetricChange {

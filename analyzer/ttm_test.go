@@ -9,14 +9,14 @@ import (
 // ttmFixture 构造测试用 FinancialData。
 // periods 应按降序提供。每个 map 的 key 是期间（如 "2025-12-31"），value 是该期累计值。
 type ttmFixture struct {
-	periods      []string // 全部期间（含年报+季报），降序
-	years        []string // 仅 -12-31 / 4 位年份，降序
-	revenue      map[string]float64
-	profit       map[string]float64
-	cash         map[string]float64
-	equity       map[string]float64 // 所有者权益合计（>=0 时设置，0 或缺失时走 fallback）
-	totalAssets  map[string]float64 // 资产合计（fallback 用）
-	totalLiab    map[string]float64 // 负债合计（fallback 用）
+	periods     []string // 全部期间（含年报+季报），降序
+	years       []string // 仅 -12-31 / 4 位年份，降序
+	revenue     map[string]float64
+	profit      map[string]float64
+	cash        map[string]float64
+	equity      map[string]float64 // 所有者权益合计（>=0 时设置，0 或缺失时走 fallback）
+	totalAssets map[string]float64 // 资产合计（fallback 用）
+	totalLiab   map[string]float64 // 负债合计（fallback 用）
 }
 
 func buildFD(f ttmFixture) *FinancialData {

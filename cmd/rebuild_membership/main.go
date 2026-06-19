@@ -4,7 +4,8 @@
 // 默认输出到 ~/.config/stock-analyzer/_concept_membership.json，覆盖现有文件。
 //
 // 用法：
-//   go run ./cmd/rebuild_membership/
+//
+//	go run ./cmd/rebuild_membership/
 package main
 
 import (

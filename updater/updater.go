@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	githubAPIURL = "https://api.github.com/repos/liusaipu/stockfinlens/releases/latest"
-	apiTimeout   = 10 * time.Second
+	githubAPIURL    = "https://api.github.com/repos/liusaipu/stockfinlens/releases/latest"
+	apiTimeout      = 10 * time.Second
 	downloadTimeout = 60 * time.Second
 )
 

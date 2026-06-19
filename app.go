@@ -1,9 +1,9 @@
 package main
 
 import (
-	_ "embed"
 	"archive/zip"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/liusaipu/stockfinlens/ai_researcher"
 	analyzer "github.com/liusaipu/stockfinlens/analyzer"
 	"github.com/liusaipu/stockfinlens/downloader"
 	"github.com/liusaipu/stockfinlens/tray"
@@ -59,7 +60,7 @@ func debugLog(format string, v ...interface{}) {
 type App struct {
 	ctx             context.Context
 	storage         *Storage
-	stocks          []StockInfo // 内存中的股票代码库
+	stocks          []StockInfo            // 内存中的股票代码库
 	analysisGroup   singleflight.Group     // 同股票同 flag 的并发分析请求自动合并
 	dataRouter      *downloader.DataRouter // 数据源路由
 	riskSensitivity string                 // 风险警示敏感度
@@ -78,7 +79,7 @@ type App struct {
 	marketCache *downloader.MarketCacheManager
 
 	// 分时数据缓存 + 并发请求去重
-	intradayCache *downloader.IntradayCache
+	intradayCache  *downloader.IntradayCache
 	intradayFlight singleflight.Group
 }
 
@@ -118,7 +119,7 @@ type DownloadResult struct {
 	Success          bool                          `json:"success"`
 	Message          string                        `json:"message"`
 	Years            []string                      `json:"years"`
-	Quarters         []string                      `json:"quarters"`         // 非年报季度报告期（用于 TTM 口径）
+	Quarters         []string                      `json:"quarters"` // 非年报季度报告期（用于 TTM 口径）
 	Validation       []downloader.ValidationResult `json:"validation"`
 	SourceName       string                        `json:"sourceName"`       // 数据来源（StockFinLens / 东方财富 / 腾讯财经）
 	QualityScore     float64                       `json:"qualityScore"`     // 资产负债表质量得分 0-100
@@ -3245,6 +3246,93 @@ func (a *App) SaveSFLConfig(cfg SFLConfig) error {
 	return nil
 }
 
+// ========== AI 投研配置 Wails 绑定 ==========
+
+// GetAIConfig 获取 AI 投研配置
+func (a *App) GetAIConfig() (*ai_researcher.AIConfig, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	cfg, err := a.storage.LoadAIConfig()
+	if err != nil {
+		return nil, err
+	}
+	cfg.Normalize()
+	return cfg, nil
+}
+
+// SaveAIConfig 保存 AI 投研配置
+func (a *App) SaveAIConfig(cfg ai_researcher.AIConfig) error {
+	if a.storage == nil {
+		return fmt.Errorf("存储未初始化")
+	}
+	cfg.Normalize()
+	return a.storage.SaveAIConfig(&cfg)
+}
+
+// TestAIConnection 测试 AI 投研连接（LLM + 搜索引擎）
+func (a *App) TestAIConnection() (*ai_researcher.TestConnectionResult, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	cfg, err := a.storage.LoadAIConfig()
+	if err != nil {
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+	}
+	cfg.Normalize()
+	researcher, err := ai_researcher.NewResearcher(cfg, a.storage)
+	if err != nil {
+		return &ai_researcher.TestConnectionResult{Success: false, Message: err.Error()}, nil
+	}
+	return researcher.TestConnection()
+}
+
+// AnalyzeStockWithAI 对指定股票执行 AI 投研分析
+func (a *App) AnalyzeStockWithAI(symbol string, name string) (*ai_researcher.AIResearchReport, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	if symbol == "" {
+		return nil, fmt.Errorf("股票代码不能为空")
+	}
+
+	cfg, err := a.storage.LoadAIConfig()
+	if err != nil {
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+	}
+	cfg.Normalize()
+
+	researcher, err := ai_researcher.NewResearcher(cfg, a.storage)
+	if err != nil {
+		return nil, fmt.Errorf("初始化 AI 投研失败: %w", err)
+	}
+
+	return researcher.Research(symbol, name)
+}
+
+// LoadAIResearchReport 仅加载某只股票的 AI 投研缓存（不触发搜索）
+func (a *App) LoadAIResearchReport(symbol string) (*ai_researcher.AIResearchReport, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	if symbol == "" {
+		return nil, fmt.Errorf("股票代码不能为空")
+	}
+
+	cfg, err := a.storage.LoadAIConfig()
+	if err != nil {
+		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
+	}
+	cfg.Normalize()
+
+	cache := ai_researcher.NewCacheManager(a.storage)
+	report, err := cache.Get(symbol, cfg.CacheTTLHours)
+	if err != nil {
+		return nil, fmt.Errorf("加载 AI 投研缓存失败: %w", err)
+	}
+	return report, nil
+}
+
 // reloadDataRouter 根据当前配置重新加载数据源路由
 func (a *App) reloadDataRouter() {
 	if a.storage == nil {
@@ -3416,7 +3504,6 @@ func (a *App) GetStockMoneyflow(symbol string, days int) (*StockMoneyflowResult,
 
 	return result, nil
 }
-
 
 // ========== 自动更新 Wails 绑定 ==========
 

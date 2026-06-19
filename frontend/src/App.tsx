@@ -4,14 +4,17 @@ import { STOCKS } from './stocks'
 import { UnifiedChart } from './UnifiedChart'
 import { FinancialTrendChart } from './FinancialTrendChart'
 import { FinancialTrendDrawer } from './FinancialTrendDrawer'
+import { AIResearchPanel } from './AIResearchPanel'
 import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
 import { UpdateModal, UpdateInfo } from './UpdateModal'
+import { AnalyzeStockWithAI, LoadAIResearchReport } from './api'
 import { EventsOn, WindowGetSize } from '../wailsjs/runtime'
 import { RiskBadge } from './components/RiskBadge'
 import { RiskAlertBanner } from './components/RiskAlertBanner'
 import ReactMarkdown from 'react-markdown'
+import type { ai_researcher } from '../wailsjs/go/models'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 
@@ -305,6 +308,10 @@ function isLocalTradingHours(): boolean {
 function App() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
+  const selectedCodeRef = useRef<string | null>(null)
+  useEffect(() => {
+    selectedCodeRef.current = selectedCode
+  }, [selectedCode])
   const [query, setQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -316,6 +323,30 @@ function App() {
   const [downloadSuggestion, setDownloadSuggestion] = useState<string>('')
   const [report, setReport] = useState<AnalysisReport | null>(null)
   const [snapshots, setSnapshots] = useState<Record<string, AnalysisReport>>({})
+
+  // AI 投研状态
+  const [activeReportTab, setActiveReportTab] = useState<'report' | 'ai'>('report')
+  const [aiReport, setAiReport] = useState<ai_researcher.AIResearchReport | null>(null)
+  const [aiReportLoading, setAiReportLoading] = useState(false)
+  const [aiReportError, setAiReportError] = useState<string | null>(null)
+
+  // 切换股票时自动加载该股票的 AI 投研缓存；若分析过程中切换，则取消当前加载状态
+  useEffect(() => {
+    setAiReport(null)
+    setAiReportError(null)
+    setAiReportLoading(false)
+    if (!selectedCode) return
+    LoadAIResearchReport(selectedCode)
+      .then((report) => {
+        if (report) {
+          setAiReport(report)
+        }
+      })
+      .catch((err: any) => {
+        console.error('加载 AI 投研缓存失败:', err)
+      })
+  }, [selectedCode])
+
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
   const [viewingHistory, setViewingHistory] = useState<string | null>(null)
@@ -1311,6 +1342,9 @@ function App() {
       setReport(null)
       setViewingHistory(null)
       setHistoryContent('')
+      setActiveReportTab('report')
+      setAiReport(null)
+      setAiReportError(null)
       setCompReportsDownloaded(false)
       setComparables([])
       setAppliedComparables([])
@@ -1494,6 +1528,7 @@ function App() {
       setReport(result)
       setViewingHistory(null)
       setHistoryContent('')
+      setActiveReportTab('report')
       if (settings.analysisNotification) {
         SendNotification('分析完成', `${selectedStock.name || selectedStock.code} 的财报分析已完成`).catch(() => {})
       }
@@ -1559,6 +1594,32 @@ function App() {
     
     await runAnalyze(overwriteLatest)
   }
+
+  const handleAnalyzeAI = useCallback(async () => {
+    if (!selectedStock) {
+      alert('请选择一只股票')
+      return
+    }
+    setActiveReportTab('ai')
+    setAiReportLoading(true)
+    setAiReportError(null)
+    const targetCode = selectedStock.code
+    try {
+      const result = await AnalyzeStockWithAI(selectedStock.code, selectedStock.name || '')
+      // 如果分析过程中切换了股票，忽略旧结果
+      if (targetCode === selectedCodeRef.current) {
+        setAiReport(result)
+      }
+    } catch (err: any) {
+      if (targetCode === selectedCodeRef.current) {
+        setAiReportError(err?.message || 'AI 投研分析失败')
+      }
+    } finally {
+      if (targetCode === selectedCodeRef.current) {
+        setAiReportLoading(false)
+      }
+    }
+  }, [selectedStock])
 
   const openRIMModal = () => {
     if (!selectedStock) return
@@ -4097,13 +4158,31 @@ function App() {
         <div className="report-tabs">
           <div className="report-tabs-left">
             {selectedStock && (
-              <span className="report-timestamp">
-                {lastAnalysisAt
-                  ? `上次分析: ${lastAnalysisAt}`
-                  : '请先执行财报分析'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  className={`report-tab-btn ${activeReportTab === 'report' ? 'active' : ''}`}
+                  onClick={() => setActiveReportTab('report')}
+                  disabled={!displayContent}
+                  title={!displayContent ? '请先执行财报分析' : '查看财报分析报告'}
+                >
+                  财报报告
+                </button>
+                <button
+                  className={`report-tab-btn ${activeReportTab === 'ai' ? 'active' : ''}`}
+                  onClick={() => setActiveReportTab('ai')}
+                >
+                  AI 投研
+                </button>
+                {activeReportTab === 'report' && (
+                  <span className="report-timestamp">
+                    {lastAnalysisAt
+                      ? `上次分析: ${lastAnalysisAt}`
+                      : '请先执行财报分析'}
+                  </span>
+                )}
+              </div>
             )}
-            {displayContent && (
+            {activeReportTab === 'report' && displayContent && (
               <select
                 ref={tocSelectRef}
                 className="toc-select"
@@ -4198,7 +4277,16 @@ function App() {
           </div>
         </div>
         <div className="report-content" ref={reportContentRef}>
-          {displayContent ? (
+          {activeReportTab === 'ai' && selectedStock ? (
+            <AIResearchPanel
+              symbol={selectedStock.code}
+              name={selectedStock.name || ''}
+              report={aiReport}
+              loading={aiReportLoading}
+              error={aiReportError}
+              onRefresh={handleAnalyzeAI}
+            />
+          ) : displayContent ? (
             <div className="markdown-body" onClick={(e) => {
               const target = e.target as HTMLElement
               if (target.closest('.rim-adjust-btn')) {

@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"testing"
+
+	"github.com/liusaipu/stockfinlens/ai_researcher"
 )
 
 // 创建测试用的 App 实例（带临时存储，隔离用户真实数据）
@@ -111,3 +113,49 @@ func TestWatchlistReorderPersistence(t *testing.T) {
 	}
 }
 
+// TestAIConfigPersistence 验证 AI 投研配置读写持久化
+func TestAIConfigPersistence(t *testing.T) {
+	app := newTestApp(t)
+
+	// 默认应返回默认配置
+	cfg, err := app.storage.LoadAIConfig()
+	if err != nil {
+		t.Fatalf("加载 AI 配置失败: %v", err)
+	}
+	if cfg.LLMProvider != "deepseek" {
+		t.Errorf("默认 LLM 供应商应为 deepseek，实际是 %s", cfg.LLMProvider)
+	}
+
+	// 保存自定义配置
+	custom := ai_researcher.AIConfig{
+		Enabled:      true,
+		LLMProvider:  "kimi",
+		LLMAPIKey:    "sk-test",
+		LLMModel:     "moonshot-v1-8k",
+		SearchAPIKey: "tvly-test",
+	}
+	if err := app.storage.SaveAIConfig(&custom); err != nil {
+		t.Fatalf("保存 AI 配置失败: %v", err)
+	}
+
+	// 重新加载验证持久化
+	cfg2, err := app.storage.LoadAIConfig()
+	if err != nil {
+		t.Fatalf("重新加载 AI 配置失败: %v", err)
+	}
+	if cfg2.LLMProvider != "kimi" {
+		t.Errorf("持久化后 LLM 供应商应为 kimi，实际是 %s", cfg2.LLMProvider)
+	}
+	if !cfg2.Enabled {
+		t.Error("持久化后 Enabled 应为 true")
+	}
+
+	// Wails 绑定读取应一致
+	boundCfg, err := app.GetAIConfig()
+	if err != nil {
+		t.Fatalf("GetAIConfig 失败: %v", err)
+	}
+	if boundCfg.LLMProvider != "kimi" {
+		t.Errorf("绑定读取的 LLM 供应商应为 kimi，实际是 %s", boundCfg.LLMProvider)
+	}
+}

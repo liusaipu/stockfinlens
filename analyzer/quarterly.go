@@ -8,15 +8,15 @@ import (
 
 // QuarterlyAlertItem 单条季度预警项
 type QuarterlyAlertItem struct {
-	Period          string  `json:"period"`
-	PreviousPeriod  string  `json:"previousPeriod"`
-	Metric          string  `json:"metric"`
-	Current         float64 `json:"current"`
-	Previous        float64 `json:"previous"`
-	ChangePct       float64 `json:"changePct"`
-	Level           string  `json:"level"` // "warning" / "danger"
-	Description     string  `json:"description"`
-	CompareType     string  `json:"compareType"` // "环比" / "同比"
+	Period         string  `json:"period"`
+	PreviousPeriod string  `json:"previousPeriod"`
+	Metric         string  `json:"metric"`
+	Current        float64 `json:"current"`
+	Previous       float64 `json:"previous"`
+	ChangePct      float64 `json:"changePct"`
+	Level          string  `json:"level"` // "warning" / "danger"
+	Description    string  `json:"description"`
+	CompareType    string  `json:"compareType"` // "环比" / "同比"
 }
 
 // QuarterlyAlert 季度滚动预警摘要

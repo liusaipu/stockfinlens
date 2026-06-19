@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './Settings.css'
-import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate } from './api'
-import type { main } from '../wailsjs/go/models'
+import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection } from './api'
+import type { main, ai_researcher } from '../wailsjs/go/models'
 import { UpdateModal } from './UpdateModal'
 
 export interface AppSettings {
@@ -100,7 +100,7 @@ export function Settings({
   onCheckPythonDeps,
 }: SettingsProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'appearance' | 'features' | 'data' | 'about'>('appearance')
+  const [activeTab, setActiveTab] = useState<'appearance' | 'features' | 'data' | 'ai' | 'about'>('appearance')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -109,6 +109,14 @@ export function Settings({
   const [sflLoading, setSflLoading] = useState(false)
   const [sflVerifyStatus, setSflVerifyStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
   const [sflSaving, setSflSaving] = useState(false)
+
+  // AI 投研配置状态
+  const [aiCfg, setAiCfg] = useState<ai_researcher.AIConfig | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiTestStatus, setAiTestStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
+  const [aiSaving, setAiSaving] = useState(false)
+  const [showLLMKey, setShowLLMKey] = useState(false)
+  const [showSearchKey, setShowSearchKey] = useState(false)
 
   // 检查更新状态
   const [updateChecking, setUpdateChecking] = useState(false)
@@ -126,6 +134,17 @@ export function Settings({
         use_for_financial: true, use_for_kline: true, use_for_quote: true, use_for_moneyflow: true,
         moneyflow_days: 3
       } as main.SFLConfig)
+    })
+    GetAIConfig().then((cfg) => {
+      setAiCfg(cfg)
+    }).catch(() => {
+      setAiCfg({
+        enabled: false, llm_provider: 'deepseek', llm_api_key: '', llm_base_url: 'https://api.deepseek.com/v1',
+        llm_model: 'deepseek-chat', llm_timeout: 90, temperature: 0.2, max_tokens: 4096, top_p: 1.0,
+        search_provider: 'tavily', search_api_key: '', search_depth: 'advanced', search_timeout: 180, max_results: 10,
+        search_recency_days: 90, focus_regions: ['us', 'jp'], output_language: 'zh-CN', enable_social: true,
+        cache_ttl_hours: 6
+      } as ai_researcher.AIConfig)
     })
   }, [isOpen])
 
@@ -158,6 +177,35 @@ export function Settings({
       setSflSaving(false)
     }
   }, [sflCfg])
+
+  const handleTestAI = useCallback(async () => {
+    if (!aiCfg) return
+    setAiTestStatus({type: null, message: ''})
+    setAiLoading(true)
+    try {
+      // 测试前自动保存当前表单配置，避免用户打开开关后未保存导致测试失败
+      await SaveAIConfig(aiCfg)
+      const result = await TestAIConnection()
+      setAiTestStatus({type: result.success ? 'success' : 'error', message: result.message || (result.success ? '连接成功' : '连接失败')})
+    } catch (err: any) {
+      setAiTestStatus({type: 'error', message: err?.message || '连接测试失败'})
+    } finally {
+      setAiLoading(false)
+    }
+  }, [aiCfg])
+
+  const handleSaveAI = useCallback(async () => {
+    if (!aiCfg) return
+    setAiSaving(true)
+    try {
+      await SaveAIConfig(aiCfg)
+      setAiTestStatus({type: 'success', message: '配置已保存'})
+    } catch (err: any) {
+      setAiTestStatus({type: 'error', message: err?.message || '保存失败'})
+    } finally {
+      setAiSaving(false)
+    }
+  }, [aiCfg])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -224,6 +272,7 @@ export function Settings({
             <button className={activeTab === 'appearance' ? 'active' : ''} onClick={() => setActiveTab('appearance')}>外观</button>
             <button className={activeTab === 'features' ? 'active' : ''} onClick={() => setActiveTab('features')}>功能</button>
             <button className={activeTab === 'data' ? 'active' : ''} onClick={() => setActiveTab('data')}>数据</button>
+            <button className={activeTab === 'ai' ? 'active' : ''} onClick={() => setActiveTab('ai')}>AI 投研</button>
             <button className={activeTab === 'about' ? 'active' : ''} onClick={() => setActiveTab('about')}>关于</button>
           </div>
 
@@ -486,6 +535,332 @@ export function Settings({
                 )}
               </div>
 
+            </div>
+          )}
+
+          {activeTab === 'ai' && (
+            <div className="settings-section">
+              <div className="settings-data-section">
+                <div className="settings-data-title">🤖 AI 投研</div>
+                <div className="settings-data-desc">
+                  使用大模型搜索并分析股票的催化剂、政策影响、国际对标与社交情绪
+                </div>
+
+                {aiCfg && (
+                  <>
+                    <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                      <label>启用 AI 投研</label>
+                      <div className="settings-toggle-switch">
+                        <label className="switch">
+                          <input
+                            type="checkbox"
+                            checked={aiCfg.enabled}
+                            onChange={(e) => setAiCfg({ ...aiCfg, enabled: e.target.checked })}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {!aiCfg.enabled && (
+                      <div className="settings-action-status" style={{ marginTop: 8 }}>
+                        <span className="status-error">
+                          ⚠️ 功能未启用：请先打开上方开关，再填写 API Key 并测试连接
+                        </span>
+                      </div>
+                    )}
+
+                    {aiCfg.enabled && (
+                      <>
+                        <div style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>
+                          大模型配置（第一层：连接信息）
+                        </div>
+
+                        <div className="settings-item" style={{ marginTop: 8 }}>
+                          <label>LLM 供应商</label>
+                          <select
+                            value={aiCfg.llm_provider}
+                            onChange={(e) => {
+                              const provider = e.target.value
+                              const defaults: Record<string, { base_url: string; model: string }> = {
+                                kimi: { base_url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
+                                deepseek: { base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+                              }
+                              setAiCfg({
+                                ...aiCfg,
+                                llm_provider: provider,
+                                llm_base_url: defaults[provider]?.base_url || aiCfg.llm_base_url,
+                                llm_model: defaults[provider]?.model || aiCfg.llm_model,
+                              })
+                            }}
+                            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
+                          >
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="kimi">Kimi（Moonshot）</option>
+                          </select>
+                        </div>
+
+                        <div className="settings-item" style={{ marginTop: 8 }}>
+                          <label>API Key</label>
+                          <div style={{ position: 'relative', marginTop: 4 }}>
+                            <input
+                              type={showLLMKey ? 'text' : 'password'}
+                              value={aiCfg.llm_api_key}
+                              onChange={(e) => setAiCfg({ ...aiCfg, llm_api_key: e.target.value })}
+                              placeholder="sk-..."
+                              style={{ width: '100%', paddingRight: 32 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowLLMKey((v) => !v)}
+                              style={{
+                                position: 'absolute',
+                                right: 6,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: 14,
+                                color: '#94a3b8',
+                                padding: 2,
+                              }}
+                              title={showLLMKey ? '隐藏' : '显示'}
+                            >
+                              {showLLMKey ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="settings-item" style={{ marginTop: 8 }}>
+                          <label>Base URL</label>
+                          <input
+                            type="text"
+                            value={aiCfg.llm_base_url}
+                            onChange={(e) => setAiCfg({ ...aiCfg, llm_base_url: e.target.value })}
+                            placeholder="https://api.deepseek.com/v1"
+                            style={{ width: '100%', marginTop: 4 }}
+                          />
+                        </div>
+
+                        <div className="settings-item" style={{ marginTop: 8 }}>
+                          <label>模型名称</label>
+                          <input
+                            type="text"
+                            value={aiCfg.llm_model}
+                            onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
+                            placeholder="deepseek-chat / moonshot-v1-8k"
+                            style={{ width: '100%', marginTop: 4 }}
+                          />
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            可手动输入，例如 DeepSeek V3 / R1 或未来新模型名
+                          </div>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>请求超时</label>
+                          <div className="settings-input-group">
+                            <input
+                              type="number"
+                              min={10}
+                              max={300}
+                              value={aiCfg.llm_timeout}
+                              onChange={(e) => setAiCfg({ ...aiCfg, llm_timeout: parseInt(e.target.value, 10) || 90 })}
+                            />
+                            <span>秒</span>
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 16, fontSize: 12, color: '#94a3b8' }}>
+                          搜索引擎配置（首期支持 Tavily）
+                        </div>
+
+                        <div className="settings-item" style={{ marginTop: 8 }}>
+                          <label>Tavily API Key</label>
+                          <div style={{ position: 'relative', marginTop: 4 }}>
+                            <input
+                              type={showSearchKey ? 'text' : 'password'}
+                              value={aiCfg.search_api_key}
+                              onChange={(e) => setAiCfg({ ...aiCfg, search_api_key: e.target.value })}
+                              placeholder="tvly-..."
+                              style={{ width: '100%', paddingRight: 32 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSearchKey((v) => !v)}
+                              style={{
+                                position: 'absolute',
+                                right: 6,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: 14,
+                                color: '#94a3b8',
+                                padding: 2,
+                              }}
+                              title={showSearchKey ? '隐藏' : '显示'}
+                            >
+                              {showSearchKey ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            在 tavily.com 注册后生成，每月有免费额度
+                          </div>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>搜索深度</label>
+                          <select
+                            value={aiCfg.search_depth}
+                            onChange={(e) => setAiCfg({ ...aiCfg, search_depth: e.target.value as 'basic' | 'advanced' })}
+                            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
+                          >
+                            <option value="advanced">advanced（质量高，费用约 basic 10 倍）</option>
+                            <option value="basic">basic（快且便宜）</option>
+                          </select>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>搜索超时</label>
+                          <div className="settings-input-group">
+                            <input
+                              type="number"
+                              min={30}
+                              max={600}
+                              value={aiCfg.search_timeout}
+                              onChange={(e) => setAiCfg({ ...aiCfg, search_timeout: parseInt(e.target.value, 10) || 180 })}
+                            />
+                            <span>秒</span>
+                          </div>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>返回条数</label>
+                          <div className="settings-input-group">
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={aiCfg.max_results}
+                              onChange={(e) => setAiCfg({ ...aiCfg, max_results: parseInt(e.target.value, 10) || 10 })}
+                            />
+                            <span>条/查询</span>
+                          </div>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>时间范围</label>
+                          <div className="settings-input-group">
+                            <input
+                              type="number"
+                              min={7}
+                              value={aiCfg.search_recency_days}
+                              onChange={(e) => setAiCfg({ ...aiCfg, search_recency_days: parseInt(e.target.value, 10) || 90 })}
+                            />
+                            <span>天内</span>
+                          </div>
+                        </div>
+
+                        <div className="settings-item" style={{ marginTop: 8, fontSize: 12 }}>
+                          <label style={{ marginBottom: 4 }}>国际市场关注</label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {[
+                              { key: 'us', label: '美国' },
+                              { key: 'jp', label: '日本' },
+                              { key: 'eu', label: '欧洲' },
+                              { key: 'hk', label: '香港' },
+                              { key: 'kr', label: '韩国' },
+                              { key: 'tw', label: '台湾' },
+                            ].map((r) => (
+                              <label key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={aiCfg.focus_regions?.includes(r.key) || false}
+                                  onChange={(e) => {
+                                    const regions = new Set(aiCfg.focus_regions || [])
+                                    if (e.target.checked) {
+                                      regions.add(r.key)
+                                    } else {
+                                      regions.delete(r.key)
+                                    }
+                                    setAiCfg({ ...aiCfg, focus_regions: Array.from(regions) })
+                                  }}
+                                />
+                                <span>{r.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>抓取社交情绪</label>
+                          <div className="settings-toggle-switch">
+                            <label className="switch">
+                              <input
+                                type="checkbox"
+                                checked={aiCfg.enable_social}
+                                onChange={(e) => setAiCfg({ ...aiCfg, enable_social: e.target.checked })}
+                              />
+                              <span className="slider"></span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                          <label>缓存时间</label>
+                          <div className="settings-input-group">
+                            <input
+                              type="number"
+                              min={1}
+                              max={72}
+                              value={aiCfg.cache_ttl_hours}
+                              onChange={(e) => setAiCfg({ ...aiCfg, cache_ttl_hours: parseInt(e.target.value, 10) || 6 })}
+                            />
+                            <span>小时</span>
+                          </div>
+                        </div>
+
+                        {aiTestStatus.type && (
+                          <div className="settings-action-status" style={{ marginTop: 12 }}>
+                            {aiTestStatus.type === 'success' ? (
+                              <span className="status-success">{aiTestStatus.message}</span>
+                            ) : (
+                              <span className="status-error">{aiTestStatus.message}</span>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                          <button
+                            className="settings-data-btn"
+                            onClick={handleTestAI}
+                            disabled={aiLoading || !aiCfg.enabled || !aiCfg.llm_api_key || !aiCfg.search_api_key}
+                            title={!aiCfg.enabled ? '请先启用 AI 投研' : !aiCfg.llm_api_key || !aiCfg.search_api_key ? '请填写 LLM 和 Tavily API Key' : '测试连接'}
+                            style={{ whiteSpace: 'nowrap' }}
+                          >
+                            {aiLoading ? '测试中...' : '🔍 测试连接'}
+                          </button>
+                          <button
+                            className="settings-data-btn"
+                            onClick={handleSaveAI}
+                            disabled={aiSaving}
+                            style={{ whiteSpace: 'nowrap' }}
+                          >
+                            {aiSaving ? '保存中...' : '💾 保存配置'}
+                          </button>
+                        </div>
+
+                        <div style={{ marginTop: 12, fontSize: 11, color: '#64748b', lineHeight: 1.5 }}>
+                          💡 提示：DeepSeek 目前公开模型为 deepseek-chat（V3）和 deepseek-reasoner（R1）。<br />
+                          ⚠️ AI 分析仅供参考，所有结论请以上市公司公告和官方数据为准。
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           )}
 

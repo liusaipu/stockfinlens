@@ -14,6 +14,10 @@ export function AnalyzeStock(arg1, arg2) {
   return window['go']['main']['App']['AnalyzeStock'](arg1, arg2);
 }
 
+export function AnalyzeStockWithAI(arg1, arg2) {
+  return window['go']['main']['App']['AnalyzeStockWithAI'](arg1, arg2);
+}
+
 export function AnalyzeStockWithRIM(arg1, arg2, arg3) {
   return window['go']['main']['App']['AnalyzeStockWithRIM'](arg1, arg2, arg3);
 }
@@ -92,6 +96,10 @@ export function FetchHotConcepts(arg1) {
 
 export function FetchMissingActivity(arg1) {
   return window['go']['main']['App']['FetchMissingActivity'](arg1);
+}
+
+export function GetAIConfig() {
+  return window['go']['main']['App']['GetAIConfig']();
 }
 
 export function GetAutoCheckUpdate() {
@@ -214,6 +222,10 @@ export function InstallPythonDependencies(arg1) {
   return window['go']['main']['App']['InstallPythonDependencies'](arg1);
 }
 
+export function LoadAIResearchReport(arg1) {
+  return window['go']['main']['App']['LoadAIResearchReport'](arg1);
+}
+
 export function LoadAnalysisSnapshot(arg1) {
   return window['go']['main']['App']['LoadAnalysisSnapshot'](arg1);
 }
@@ -274,6 +286,10 @@ export function ReorderWatchlist(arg1) {
   return window['go']['main']['App']['ReorderWatchlist'](arg1);
 }
 
+export function SaveAIConfig(arg1) {
+  return window['go']['main']['App']['SaveAIConfig'](arg1);
+}
+
 export function SaveDefaultPolicyLibrary() {
   return window['go']['main']['App']['SaveDefaultPolicyLibrary']();
 }
@@ -300,6 +316,10 @@ export function SetRiskSensitivity(arg1) {
 
 export function SkipVersion(arg1) {
   return window['go']['main']['App']['SkipVersion'](arg1);
+}
+
+export function TestAIConnection() {
+  return window['go']['main']['App']['TestAIConnection']();
 }
 
 export function UpdateIndustryDatabase() {

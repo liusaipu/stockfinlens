@@ -126,4 +126,3 @@ func TestComputeSimilarity_ConceptHeavyOverlapBeatsWeakSamePrimary(t *testing.T)
 		t.Errorf("强概念重叠的同业候选(A=%.2f)应不低于仅同一级行业的杂牌(B=%.2f)", scoreA, scoreB)
 	}
 }
-

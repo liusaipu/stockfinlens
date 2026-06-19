@@ -894,7 +894,6 @@ func computeMLConfidence(finData *analyzer.FinancialData, klines []downloader.Kl
 	return "high"
 }
 
-
 // RecommendComparables 自动推荐可比公司（Wails 绑定）
 
 // convertDownloaderQAs 将 downloader.InteractQA 转换为 analyzer.InteractQA

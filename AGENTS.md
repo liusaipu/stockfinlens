@@ -93,6 +93,16 @@ stockfinlens/
 │   ├── policy_test.go            # 政策匹配测试
 │   └── report_test.go            # 报告生成测试
 │
+├── ai_researcher/                # AI 投研搜索（大模型 + Tavily 联网搜索）
+│   ├── config.go                 # AI 配置结构（LLM + 搜索引擎 + 业务偏好）
+│   ├── types.go                  # AI 投研输出结构（报告、模块、来源）
+│   ├── tavily.go                 # Tavily 搜索客户端（多查询并发、域名过滤）
+│   ├── llm.go                    # Kimi/DeepSeek OpenAI-compatible LLM 客户端
+│   ├── prompts.go                # 系统提示词与 4 维度搜索查询模板
+│   ├── cache.go                  # 按 symbol 缓存搜索结果与分析结论
+│   ├── researcher.go             # 搜索 → LLM → 结构化报告编排
+│   └── ai_researcher_test.go     # 配置、查询构建、LLM 输出解析测试
+│
 ├── downloader/                   # 数据下载与爬取层（所有网络 I/O，28 个文件）
 │   ├── eastmoney_moneyflow.go    # 东财资金流向接口（多 CDN fallback）
 │   ├── data_router.go            # 数据源路由：StockFinLens Pro vs 备用源，按类别切换
@@ -147,6 +157,7 @@ stockfinlens/
 │   │   ├── KlineChart.tsx        # K线迷你图表（lightweight-charts）
 │   │   ├── indicatorCharts.tsx   # 技术指标子图（MACD/RSI/布林带，lightweight-charts）
 │   │   ├── FinancialTrendDrawer.tsx # 财务趋势抽屉（5 年 ROE/毛利率/营收增速/现金含量/负债率）
+│   │   ├── AIResearchPanel.tsx   # AI 投研报告展示面板（4 模块 + 来源链接）
 │   │   ├── ModuleCopyButton.tsx  # 报告模块复制/导出按钮（Markdown/纯文本/PNG）
 │   │   ├── PythonDepsModal.tsx   # Python 依赖安装弹窗（监听 `python:install:progress`）
 │   │   ├── ErrorBoundary.tsx     # 错误边界
@@ -287,7 +298,7 @@ cd frontend && npm test
 
 ### 构建注意事项
 
-1. **版本号唯一来源**: `wails.json` 中的 `info.productVersion` 是应用版本的**唯一来源**。前端通过 `frontend/vite.config.ts` 在构建期读取并以 `define` 注入全局常量 `__APP_VERSION__`，`Settings.tsx` 直接引用该常量，**禁止重新硬编码**。构建脚本不再做一致性校验（版本自然一致）。当前版本为 `1.4.0`。
+1. **版本号唯一来源**: `wails.json` 中的 `info.productVersion` 是应用版本的**唯一来源**。前端通过 `frontend/vite.config.ts` 在构建期读取并以 `define` 注入全局常量 `__APP_VERSION__`，`Settings.tsx` 直接引用该常量，**禁止重新硬编码**。构建脚本不再做一致性校验（版本自然一致）。当前版本为 `1.6.9`。
 2. **前端 dist 重建**: 如果前端代码有变更，构建前必须确保 `frontend/dist` 是最新的。Wails `build` 在 `dist` 已存在时可能跳过前端构建，导致打包旧代码。`build-release.sh` 会强制先执行 `cd frontend && npm run build`。Windows 构建建议同样手动前置该步骤。
 3. **打包产物必须包含**: `ml_models/` 和 `scripts/` 目录。Go 后端在运行时会从可执行文件同级目录查找这些路径。
 4. **开发模式 vs 生产模式**: `main.go` 中 `readStockJSON()` 优先读取本地 `data/stocks.json`，打包后 fallback 到 `embed.FS`。
@@ -302,6 +313,7 @@ cd frontend && npm test
 |----|------|
 | `main` | Wails 应用生命周期、App 绑定方法、存储管理、CSV/Excel 解析、Python 依赖管理、系统托盘 |
 | `analyzer` | 纯分析逻辑，不依赖网络，输入为本地财务数据 + 外部传入的行情/舆情/可比公司数据 |
+| `ai_researcher` | AI 投研搜索：调用 Tavily 搜索互联网公开信息，通过 Kimi/DeepSeek 生成结构化投研报告 |
 | `downloader` | 所有网络 I/O：财报下载、行情、K线、舆情、风险爬虫、外部数据获取、数据源路由 |
 | `updater` | 自动更新：GitHub Release 检测、多源下载、跨平台安装 |
 | `tray` | 系统托盘集成（macOS/Windows） |
@@ -313,7 +325,8 @@ cd frontend && npm test
 3. 自动更新：`startup` -> 后台检查 GitHub API -> `update:available` Event -> `UpdateModal` -> `DownloadUpdate`（gh-proxy.com 加速镜像优先）-> `ApplyUpdate`（Windows: bat 替换+重启 / macOS: open dmg）
 4. 执行分析：`AnalyzeStock` -> `analyzer.RunAnalysisWithAll` -> 生成 `AnalysisReport` -> 保存 Markdown 报告与 JSON 快照
 5. 前端读取快照恢复亮点/风险面板，读取 Markdown 渲染报告
-6. 市场热点：用户点击"刷新" -> `FetchHotConcepts` -> `downloader.FetchHotConceptBoard` -> 东财 API -> 综合打分排序 -> 缓存到 `data/hot_concepts/latest.json` + 归档历史 -> 前端展示 Top 20 热门概念及成分股
+6. AI 投研：用户点击"AI 投研" -> `AnalyzeStockWithAI` -> `ai_researcher.Research` -> Tavily 多维度搜索 -> LLM 生成结构化报告 -> 缓存到 `data/{symbol}/ai_research_cache.json` -> 前端 `AIResearchPanel` 渲染
+7. 市场热点：用户点击"刷新" -> `FetchHotConcepts` -> `downloader.FetchHotConceptBoard` -> 东财 API -> 综合打分排序 -> 缓存到 `data/hot_concepts/latest.json` + 归档历史 -> 前端展示 Top 20 热门概念及成分股
 
 ### 并发模型
 
@@ -342,8 +355,33 @@ cd frontend && npm test
 | K线数据 | `data/{symbol}/klines.json` | 持久（分析时写入） |
 | 分析报告 | `reports/{symbol}/latest.md` | 每次分析覆盖 |
 | 分析快照 | `snapshots/{symbol}.json` | 每次分析覆盖 |
+| AI 投研报告 | `data/{symbol}/ai_research_cache.json` | 6 小时（可配置） |
 | 热门概念排行 | `data/hot_concepts/latest.json` | 15 分钟 |
 | 热门概念历史 | `data/hot_concepts/history/YYYY-MM-DD.json` | 永久（保留 30 天） |
+
+### AI 投研配置参数
+
+配置文件：`~/.config/stock-analyzer/ai_config.json`
+
+| 层级 | 参数 | 说明 | 默认值 |
+|------|------|------|--------|
+| 连接层 | `llm_provider` | LLM 供应商：`kimi` / `deepseek` | `deepseek` |
+| 连接层 | `llm_api_key` | LLM API Key | `''` |
+| 连接层 | `llm_base_url` | OpenAI-compatible 端点 | `https://api.deepseek.com/v1` |
+| 连接层 | `llm_model` | 模型名，支持手动输入未来版本 | `deepseek-chat` |
+| 连接层 | `llm_timeout` | 请求超时（秒） | `90` |
+| 生成层 | `temperature` | 创造性/稳定性控制 | `0.2` |
+| 生成层 | `max_tokens` | 单次输出上限 | `4096` |
+| 生成层 | `top_p` | 采样多样性 | `1.0` |
+| 搜索层 | `search_provider` | 搜索引擎：`tavily` | `tavily` |
+| 搜索层 | `search_api_key` | Tavily API Key | `''` |
+| 搜索层 | `search_depth` | `basic` / `advanced` | `advanced` |
+| 搜索层 | `max_results` | 每次查询返回条数 | `10` |
+| 搜索层 | `search_recency_days` | 只搜最近 N 天 | `90` |
+| 业务层 | `focus_regions` | 国际市场关注区域 | `['us', 'jp']` |
+| 业务层 | `output_language` | 输出语言 | `zh-CN` |
+| 业务层 | `enable_social` | 是否抓取社交情绪 | `true` |
+| 业务层 | `cache_ttl_hours` | 缓存有效期 | `6` |
 
 ### 分析引擎的财报透镜流程
 
@@ -363,7 +401,10 @@ cd frontend && npm test
 
 统一回归入口：`./scripts/run-regression.sh [quick|full]`
 
-### Go 后端测试文件分布（共 14 个 `*_test.go`）
+### Go 后端测试文件分布（共 15 个 `*_test.go`）
+
+**ai_researcher 包（1 个）**：
+- `ai_researcher/ai_researcher_test.go` — 配置默认值、查询构建、LLM 输出解析、来源去重测试
 
 **analyzer 包（5 个）**：
 - `analyzer/activity_test.go` — 活跃度计算测试（大/中/小市值模拟）
@@ -407,6 +448,7 @@ npm run test:ui   # 打开 UI 界面
 | 领域 | 说明 |
 |------|------|
 | `App.tsx` 主组件 | ~4140 行单文件大组件，无自动化测试 |
+| `AIResearchPanel.tsx` | AI 投研报告面板无自动化测试 |
 | ML 推理引擎 | `ml_models/inference.py` 及 Engine A/B/D 无 Python 单元测试 |
 | RIM 估值模型 | `analyzer/rim.go` 无独立单元测试 |
 | 技术形态分析 | `analyzer/technical.go` 无测试 |

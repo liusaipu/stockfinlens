@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/liusaipu/stockfinlens/ai_researcher"
 	"github.com/liusaipu/stockfinlens/analyzer"
 	"github.com/liusaipu/stockfinlens/downloader"
 )
@@ -1113,15 +1114,15 @@ func (s *Storage) SaveAppConfig(cfg *AppConfig) error {
 
 // SFLConfig SFL 配置
 type SFLConfig struct {
-	Enabled        bool   `json:"enabled"`
-	Token          string `json:"token"`
-	Verified       bool   `json:"verified"`
-	VerifiedAt     string `json:"verified_at"`
-	UseForFinancial bool  `json:"use_for_financial"`
-	UseForKline     bool  `json:"use_for_kline"`
-	UseForQuote     bool  `json:"use_for_quote"`
-	UseForMoneyflow bool  `json:"use_for_moneyflow"`
-	MoneyflowDays   int   `json:"moneyflow_days"`
+	Enabled         bool   `json:"enabled"`
+	Token           string `json:"token"`
+	Verified        bool   `json:"verified"`
+	VerifiedAt      string `json:"verified_at"`
+	UseForFinancial bool   `json:"use_for_financial"`
+	UseForKline     bool   `json:"use_for_kline"`
+	UseForQuote     bool   `json:"use_for_quote"`
+	UseForMoneyflow bool   `json:"use_for_moneyflow"`
+	MoneyflowDays   int    `json:"moneyflow_days"`
 }
 
 // SFLConfigPath 返回 SFL 配置文件路径
@@ -1162,6 +1163,84 @@ func (s *Storage) SaveSFLConfig(cfg *SFLConfig) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("序列化SFL 配置失败: %w", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+// ========== AI 投研配置存储 ==========
+
+// AIConfigPath 返回 AI 投研配置文件路径
+func (s *Storage) AIConfigPath() string {
+	return filepath.Join(s.dataDir, "ai_config.json")
+}
+
+// LoadAIConfig 加载 AI 投研配置
+func (s *Storage) LoadAIConfig() (*ai_researcher.AIConfig, error) {
+	path := s.AIConfigPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ai_researcher.DefaultAIConfig(), nil
+		}
+		return nil, err
+	}
+	var cfg ai_researcher.AIConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("解析 AI 配置失败: %w", err)
+	}
+	cfg.Normalize()
+	return &cfg, nil
+}
+
+// SaveAIConfig 保存 AI 投研配置
+func (s *Storage) SaveAIConfig(cfg *ai_researcher.AIConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("配置不能为空")
+	}
+	cfg.Normalize()
+	path := s.AIConfigPath()
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化 AI 配置失败: %w", err)
+	}
+	return os.WriteFile(path, data, 0600)
+}
+
+// AIResearchCachePath 返回某只股票的 AI 投研缓存路径
+func (s *Storage) AIResearchCachePath(symbol string) string {
+	return filepath.Join(s.dataDir, "data", symbol, "ai_research_cache.json")
+}
+
+// LoadAIResearchCache 加载 AI 投研缓存
+func (s *Storage) LoadAIResearchCache(symbol string) (*ai_researcher.AIResearchReport, error) {
+	path := s.AIResearchCachePath(symbol)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var report ai_researcher.AIResearchReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		return nil, fmt.Errorf("解析 AI 投研缓存失败: %w", err)
+	}
+	return &report, nil
+}
+
+// SaveAIResearchCache 保存 AI 投研缓存
+func (s *Storage) SaveAIResearchCache(symbol string, report *ai_researcher.AIResearchReport) error {
+	if report == nil {
+		return nil
+	}
+	dir, err := s.EnsureStockDataDir(symbol)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "ai_research_cache.json")
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化 AI 投研缓存失败: %w", err)
 	}
 	return os.WriteFile(path, data, 0644)
 }

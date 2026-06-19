@@ -21,8 +21,8 @@ type conceptMembership struct {
 	// IDF = log(总股票数 / 概念命中数)
 	// 命中越少（如 "3D玻璃" 15 家）IDF 越大；命中越多（如 "智能穿戴" 100+ 家，部分被 API 截断）IDF 越小。
 	// 解决"主题型泛概念(智能穿戴/苹果概念)与业务型实质概念(3D玻璃/UTG)同权重"导致面板厂排在玻璃盖板厂之前的错配。
-	DocFreq    map[string]int
-	TotalDocs  int // 反查表覆盖的总股票数（IDF 分母）
+	DocFreq   map[string]int
+	TotalDocs int // 反查表覆盖的总股票数（IDF 分母）
 }
 
 var (
@@ -506,8 +506,8 @@ var equivalentIndustries = map[string][]string{
 // computeSimilarity 计算候选股票与目标股票的相似度
 // 赛道匹配 = max(二级行业 75, 一级行业 35, 概念 IDF 加权 70)
 //
-//	+ 强概念叠加奖励 (≥3 共享高 IDF 概念时每个 4 分，封顶 20)
-//	+ 市值5% + ROE10% + 毛利率15% + 活跃度10% + 数据2%
+//   - 强概念叠加奖励 (≥3 共享高 IDF 概念时每个 4 分，封顶 20)
+//   - 市值5% + ROE10% + 毛利率15% + 活跃度10% + 数据2%
 //
 // 二级行业升级为主信号：药明康德这类公司一级行业"医疗行业"过宽，二级"医疗研发外包"才区分CXO
 // 强概念叠加奖励：解决"长信(光学光电子) vs 蓝思(消费电子)"这类一级行业不同但业务高度同业的错配
@@ -567,9 +567,9 @@ func computeSimilarity(targetIndustry, targetSubIndustry string, targetMarketCap
 	// 共享 5 个泛主题概念分高于玻璃厂(凯盛/宜安)共享 2 个业务概念。
 	// IDF 加权后，稀有的业务标签(3D玻璃 IDF≈5.7)权重 ≈ 泛主题(智能穿戴 IDF≈3.8)的 1.5 倍。
 	conceptScore := 0.0
-	conceptOverlap := 0           // 共享概念总数（兼容回归测试）
-	rareConceptOverlap := 0       // 共享中高 IDF（业务标签）概念数
-	const rareIDFThreshold = 4.5  // 经验值：≥4.5 视为业务标签型（命中<约 50 家）
+	conceptOverlap := 0          // 共享概念总数（兼容回归测试）
+	rareConceptOverlap := 0      // 共享中高 IDF（业务标签）概念数
+	const rareIDFThreshold = 4.5 // 经验值：≥4.5 视为业务标签型（命中<约 50 家）
 	var conceptReasons []string
 	if len(targetConcepts) > 0 && len(c.Concepts) > 0 {
 		// candidate concepts 转 set 加速查找

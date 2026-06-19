@@ -11,6 +11,7 @@ body {
   --panel-bg: #141b24;
   --text-muted: #94a3b8;
   --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
 }
 
 body.light {
@@ -19,6 +20,7 @@ body.light {
   --panel-bg: #ffffff;
   --text-muted: #6b7280;
   --text-primary: #334155;
+  --text-secondary: #475569;
 }
 
 /* 现代风格滚动条 - 全局 */
@@ -1245,6 +1247,51 @@ body.light .placeholder {
   gap: 8px;
   min-width: 0;
   overflow: hidden;
+}
+
+/* 报告/AI 投研切换标签 */
+.report-tab-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.report-tab-btn:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #e2e8f0;
+}
+
+.report-tab-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.6);
+  color: #60a5fa;
+}
+
+.report-tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+body.light .report-tab-btn {
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #64748b;
+}
+
+body.light .report-tab-btn:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.6);
+  color: #334155;
+}
+
+body.light .report-tab-btn.active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.7);
+  color: #2563eb;
 }
 
 /* 分析报告时间戳 */
