@@ -1,6 +1,7 @@
 package ai_researcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -48,34 +49,46 @@ func NewResearcher(cfg *AIConfig, storage cacheStorage) (*Researcher, error) {
 }
 
 // Research 执行 AI 投研分析
-func (r *Researcher) Research(symbol, name string) (*AIResearchReport, error) {
+func (r *Researcher) Research(ctx context.Context, symbol, name string, progress ProgressFunc) (*AIResearchReport, error) {
 	if !r.cfg.Enabled {
 		return nil, fmt.Errorf("AI 投研功能未启用")
 	}
 
+	emit := func(stage, msg string) {
+		if progress != nil {
+			progress(stage, msg)
+		}
+	}
+
 	// 1. 检查缓存
+	emit("cache", "正在检查本地缓存...")
 	if cached, err := r.cache.Get(symbol, r.cfg.CacheTTLHours); err == nil && cached != nil {
 		cached.Symbol = symbol
 		cached.Name = name
 		cached.FromCache = true
+		emit("cache", "已命中本地缓存")
 		return cached, nil
 	}
 
 	// 2. 构造并执行搜索
+	emit("search", "正在搜索互联网公开信息...")
 	queries := BuildQueries(symbol, name, r.cfg.FocusRegions, r.cfg.EnableSocial, r.cfg.SearchRecencyDays)
-	results, err := r.tavily.SearchMulti(queries, IncludeDomains())
+	results, err := r.tavily.SearchMulti(ctx, queries, IncludeDomains(), emit)
 	if err != nil {
 		return nil, fmt.Errorf("搜索失败: %w", err)
 	}
+	emit("search", fmt.Sprintf("搜索完成，共获取 %d 条结果", len(results)))
 
 	// 3. 去重、汇总来源
 	sources := collectSources(results)
 
 	// 4. 调用 LLM
+	emit("llm", "正在调用大模型生成投研报告...")
 	systemPrompt := SystemPrompt(r.cfg.OutputLanguage)
 	userPrompt := UserPrompt(symbol, name, r.cfg.FocusRegions, r.cfg.EnableSocial, results)
 
 	content, err := r.llm.Complete(
+		ctx,
 		systemPrompt,
 		userPrompt,
 		r.cfg.Temperature,
@@ -88,6 +101,7 @@ func (r *Researcher) Research(symbol, name string) (*AIResearchReport, error) {
 	}
 
 	// 5. 解析 JSON
+	emit("parse", "正在解析结构化报告...")
 	parsed, err := parseLLMOutput(content)
 	if err != nil {
 		return nil, fmt.Errorf("解析 LLM 输出失败: %w", err)
@@ -104,11 +118,13 @@ func (r *Researcher) Research(symbol, name string) (*AIResearchReport, error) {
 	}
 
 	// 6. 保存缓存
+	emit("cache", "正在保存分析结果...")
 	if err := r.cache.Set(symbol, report); err != nil {
 		// 缓存失败不影响主流程
 		fmt.Printf("[AIResearch] 保存缓存失败: %v\n", err)
 	}
 
+	emit("done", "分析完成")
 	return report, nil
 }
 

@@ -47,3 +47,13 @@ type TestConnectionResult struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
+
+// ProgressFunc 进度回调函数类型
+type ProgressFunc func(stage string, message string)
+
+// AIProgressEvent AI 投研进度事件（通过 Wails 事件推送到前端）
+type AIProgressEvent struct {
+	Symbol  string `json:"symbol"`
+	Stage   string `json:"stage"`
+	Message string `json:"message"`
+}

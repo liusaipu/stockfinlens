@@ -2,6 +2,7 @@ package ai_researcher
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,7 +67,7 @@ func NewLLMClient(apiKey, baseURL, model string, timeoutSeconds int) *LLMClient 
 }
 
 // Complete 发送对话请求并返回文本内容
-func (c *LLMClient) Complete(systemPrompt, userPrompt string, temperature float64, maxTokens int, topP float64, forceJSON bool) (string, error) {
+func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt string, temperature float64, maxTokens int, topP float64, forceJSON bool) (string, error) {
 	if c.apiKey == "" {
 		return "", fmt.Errorf("LLM API Key 为空")
 	}
@@ -104,7 +105,7 @@ func (c *LLMClient) Complete(systemPrompt, userPrompt string, temperature float6
 	}
 	url += "chat/completions"
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody))
 	if err != nil {
 		return "", fmt.Errorf("创建 LLM 请求失败: %w", err)
 	}
@@ -140,6 +141,6 @@ func (c *LLMClient) Complete(systemPrompt, userPrompt string, temperature float6
 
 // Test 测试 LLM 连接是否可用
 func (c *LLMClient) Test() error {
-	_, err := c.Complete("You are a helpful assistant.", "Hi", 0.2, 10, 1.0, false)
+	_, err := c.Complete(context.Background(), "You are a helpful assistant.", "Hi", 0.2, 10, 1.0, false)
 	return err
 }

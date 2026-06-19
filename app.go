@@ -81,6 +81,10 @@ type App struct {
 	// 分时数据缓存 + 并发请求去重
 	intradayCache  *downloader.IntradayCache
 	intradayFlight singleflight.Group
+
+	// AI 投研取消函数（按 symbol 存储）
+	aiCancelFuncs   map[string]context.CancelFunc
+	aiCancelFuncsMu sync.Mutex
 }
 
 // trayQuoteItem tray 滚动显示用的股票数据
@@ -164,7 +168,9 @@ func extractNonAnnualPeriods(data *downloader.FinancialReportData) []string {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		aiCancelFuncs: make(map[string]context.CancelFunc),
+	}
 }
 
 // startup is called when the app starts
@@ -3307,7 +3313,49 @@ func (a *App) AnalyzeStockWithAI(symbol string, name string) (*ai_researcher.AIR
 		return nil, fmt.Errorf("初始化 AI 投研失败: %w", err)
 	}
 
-	return researcher.Research(symbol, name)
+	// 创建可取消的上下文，并存储取消函数
+	ctx, cancel := context.WithCancel(context.Background())
+	a.aiCancelFuncsMu.Lock()
+	// 如果同一股票已有正在进行的分析，先取消旧的
+	if oldCancel, ok := a.aiCancelFuncs[symbol]; ok {
+		oldCancel()
+	}
+	a.aiCancelFuncs[symbol] = cancel
+	a.aiCancelFuncsMu.Unlock()
+
+	progress := func(stage, message string) {
+		runtime.EventsEmit(a.ctx, "ai:progress", ai_researcher.AIProgressEvent{
+			Symbol:  symbol,
+			Stage:   stage,
+			Message: message,
+		})
+	}
+
+	report, err := researcher.Research(ctx, symbol, name, progress)
+
+	a.aiCancelFuncsMu.Lock()
+	delete(a.aiCancelFuncs, symbol)
+	a.aiCancelFuncsMu.Unlock()
+
+	if err != nil {
+		if err == context.Canceled {
+			return nil, fmt.Errorf("AI 投研分析已取消")
+		}
+		return nil, err
+	}
+	return report, nil
+}
+
+// CancelAIResearch 取消指定股票的 AI 投研分析
+func (a *App) CancelAIResearch(symbol string) error {
+	a.aiCancelFuncsMu.Lock()
+	defer a.aiCancelFuncsMu.Unlock()
+	if cancel, ok := a.aiCancelFuncs[symbol]; ok {
+		cancel()
+		delete(a.aiCancelFuncs, symbol)
+		return nil
+	}
+	return fmt.Errorf("没有正在进行的 AI 投研分析")
 }
 
 // LoadAIResearchReport 仅加载某只股票的 AI 投研缓存（不触发搜索）

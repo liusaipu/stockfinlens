@@ -9,12 +9,18 @@ import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
 import { UpdateModal, UpdateInfo } from './UpdateModal'
-import { AnalyzeStockWithAI, LoadAIResearchReport } from './api'
+import { AnalyzeStockWithAI, LoadAIResearchReport, CancelAIResearch } from './api'
 import { EventsOn, WindowGetSize } from '../wailsjs/runtime'
 import { RiskBadge } from './components/RiskBadge'
 import { RiskAlertBanner } from './components/RiskAlertBanner'
 import ReactMarkdown from 'react-markdown'
 import type { ai_researcher } from '../wailsjs/go/models'
+
+interface AIProgressEvent {
+  symbol: string
+  stage: string
+  message: string
+}
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 
@@ -329,23 +335,39 @@ function App() {
   const [aiReport, setAiReport] = useState<ai_researcher.AIResearchReport | null>(null)
   const [aiReportLoading, setAiReportLoading] = useState(false)
   const [aiReportError, setAiReportError] = useState<string | null>(null)
+  const [aiAnalyzingCode, setAiAnalyzingCode] = useState<string | null>(null)
+  const [aiProgress, setAiProgress] = useState<{ stage: string; message: string } | null>(null)
 
-  // 切换股票时自动加载该股票的 AI 投研缓存；若分析过程中切换，则取消当前加载状态
+  // 监听 AI 投研进度事件
+  useEffect(() => {
+    const cleanup = EventsOn('ai:progress', (data: AIProgressEvent) => {
+      if (data.symbol === selectedCodeRef.current) {
+        setAiProgress({ stage: data.stage, message: data.message })
+      }
+    })
+    return () => {
+      cleanup()
+    }
+  }, [])
+
+  // 切换股票时自动加载该股票的 AI 投研缓存；若该股票正在后台分析，则保持加载状态
   useEffect(() => {
     setAiReport(null)
     setAiReportError(null)
-    setAiReportLoading(false)
+    setAiProgress(null)
+    setAiReportLoading(aiAnalyzingCode === selectedCode)
     if (!selectedCode) return
     LoadAIResearchReport(selectedCode)
       .then((report) => {
         if (report) {
           setAiReport(report)
+          setAiReportLoading(false)
         }
       })
       .catch((err: any) => {
         console.error('加载 AI 投研缓存失败:', err)
       })
-  }, [selectedCode])
+  }, [selectedCode, aiAnalyzingCode])
 
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
@@ -1603,7 +1625,9 @@ function App() {
     setActiveReportTab('ai')
     setAiReportLoading(true)
     setAiReportError(null)
+    setAiProgress({ stage: 'init', message: '正在初始化...' })
     const targetCode = selectedStock.code
+    setAiAnalyzingCode(targetCode)
     try {
       const result = await AnalyzeStockWithAI(selectedStock.code, selectedStock.name || '')
       // 如果分析过程中切换了股票，忽略旧结果
@@ -1617,8 +1641,22 @@ function App() {
     } finally {
       if (targetCode === selectedCodeRef.current) {
         setAiReportLoading(false)
+        setAiProgress(null)
       }
+      setAiAnalyzingCode((prev) => prev === targetCode ? null : prev)
     }
+  }, [selectedStock])
+
+  const handleCancelAI = useCallback(async () => {
+    if (!selectedStock) return
+    try {
+      await CancelAIResearch(selectedStock.code)
+    } catch (err: any) {
+      console.error('取消 AI 投研失败:', err)
+    }
+    setAiReportLoading(false)
+    setAiProgress(null)
+    setAiAnalyzingCode((prev) => prev === selectedStock.code ? null : prev)
   }, [selectedStock])
 
   const openRIMModal = () => {
@@ -4284,7 +4322,9 @@ function App() {
               report={aiReport}
               loading={aiReportLoading}
               error={aiReportError}
+              progress={aiProgress}
               onRefresh={handleAnalyzeAI}
+              onCancel={handleCancelAI}
             />
           ) : displayContent ? (
             <div className="markdown-body" onClick={(e) => {

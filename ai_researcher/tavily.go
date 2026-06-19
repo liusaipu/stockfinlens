@@ -2,6 +2,7 @@ package ai_researcher
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -55,7 +56,7 @@ func NewTavilyClient(apiKey, depth string, maxResults, recencyDays int, timeoutS
 }
 
 // Search 执行单次搜索查询，带 3 次重试
-func (c *TavilyClient) Search(query string, includeDomains []string) (*SearchResult, error) {
+func (c *TavilyClient) Search(ctx context.Context, query string, includeDomains []string, progress ProgressFunc) (*SearchResult, error) {
 	if c.apiKey == "" {
 		return nil, fmt.Errorf("Tavily API Key 为空")
 	}
@@ -63,9 +64,16 @@ func (c *TavilyClient) Search(query string, includeDomains []string) (*SearchRes
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
-			time.Sleep(time.Duration(attempt) * time.Second)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Duration(attempt) * time.Second):
+			}
 		}
-		result, err := c.searchOnce(query, includeDomains)
+		if progress != nil {
+			progress("search", fmt.Sprintf("正在搜索: %s", query))
+		}
+		result, err := c.searchOnce(ctx, query, includeDomains)
 		if err == nil {
 			return result, nil
 		}
@@ -78,7 +86,7 @@ func (c *TavilyClient) Search(query string, includeDomains []string) (*SearchRes
 	return nil, fmt.Errorf("Tavily 搜索重试 3 次后仍失败: %w", lastErr)
 }
 
-func (c *TavilyClient) searchOnce(query string, includeDomains []string) (*SearchResult, error) {
+func (c *TavilyClient) searchOnce(ctx context.Context, query string, includeDomains []string) (*SearchResult, error) {
 	reqBody := map[string]interface{}{
 		"api_key":             c.apiKey,
 		"query":               query,
@@ -106,7 +114,7 @@ func (c *TavilyClient) searchOnce(query string, includeDomains []string) (*Searc
 		return nil, fmt.Errorf("构造 Tavily 请求失败: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", tavilyAPIURL, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", tavilyAPIURL, bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("创建 Tavily 请求失败: %w", err)
 	}
@@ -152,7 +160,7 @@ func (c *TavilyClient) searchOnce(query string, includeDomains []string) (*Searc
 }
 
 // SearchMulti 并发执行多个查询，允许部分失败
-func (c *TavilyClient) SearchMulti(queries []string, includeDomains []string) ([]SearchResult, error) {
+func (c *TavilyClient) SearchMulti(ctx context.Context, queries []string, includeDomains []string, progress ProgressFunc) ([]SearchResult, error) {
 	if len(queries) == 0 {
 		return nil, nil
 	}
@@ -164,7 +172,7 @@ func (c *TavilyClient) SearchMulti(queries []string, includeDomains []string) ([
 	ch := make(chan pair, len(queries))
 	for i, q := range queries {
 		go func(idx int, query string) {
-			res, err := c.Search(query, includeDomains)
+			res, err := c.Search(ctx, query, includeDomains, progress)
 			ch <- pair{idx: idx, result: res, err: err}
 		}(i, q)
 	}
@@ -172,12 +180,16 @@ func (c *TavilyClient) SearchMulti(queries []string, includeDomains []string) ([
 	results := make([]SearchResult, 0, len(queries))
 	var errs []string
 	for i := 0; i < len(queries); i++ {
-		p := <-ch
-		if p.err != nil {
-			errs = append(errs, fmt.Sprintf("查询[%d]失败: %v", p.idx, p.err))
-		}
-		if p.result != nil {
-			results = append(results, *p.result)
+		select {
+		case <-ctx.Done():
+			return results, ctx.Err()
+		case p := <-ch:
+			if p.err != nil {
+				errs = append(errs, fmt.Sprintf("查询[%d]失败: %v", p.idx, p.err))
+			}
+			if p.result != nil {
+				results = append(results, *p.result)
+			}
 		}
 	}
 
@@ -193,6 +205,6 @@ func (c *TavilyClient) SearchMulti(queries []string, includeDomains []string) ([
 
 // Test 测试 Tavily 连接是否可用
 func (c *TavilyClient) Test() error {
-	_, err := c.Search("test", nil)
+	_, err := c.Search(context.Background(), "test", nil, nil)
 	return err
 }

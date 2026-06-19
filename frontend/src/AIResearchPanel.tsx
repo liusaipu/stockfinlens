@@ -9,7 +9,9 @@ interface AIResearchPanelProps {
   report: ai_researcher.AIResearchReport | null
   loading: boolean
   error: string | null
+  progress: { stage: string; message: string } | null
   onRefresh: () => void
+  onCancel: () => void
 }
 
 const sentimentMap: Record<string, { label: string; color: string }> = {
@@ -26,10 +28,11 @@ function isConfigured(cfg: ai_researcher.AIConfig | null): boolean {
   return true
 }
 
-export function AIResearchPanel({ symbol, name, report, loading, error, onRefresh }: AIResearchPanelProps) {
+export function AIResearchPanel({ symbol, name, report, loading, error, progress, onRefresh, onCancel }: AIResearchPanelProps) {
   const [expandedSources, setExpandedSources] = useState(false)
   const [config, setConfig] = useState<ai_researcher.AIConfig | null>(null)
   const [configLoading, setConfigLoading] = useState(true)
+  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
     setConfigLoading(true)
@@ -39,8 +42,27 @@ export function AIResearchPanel({ symbol, name, report, loading, error, onRefres
       .finally(() => setConfigLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (!loading) {
+      setElapsed(0)
+      return
+    }
+    const start = Date.now()
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [loading])
+
   const configured = isConfigured(config)
   const showConfigurePrompt = !configLoading && !configured && !report && !loading
+
+  const formatElapsed = (sec: number) => {
+    if (sec < 60) return `${sec} 秒`
+    const m = Math.floor(sec / 60)
+    const s = sec % 60
+    return `${m} 分 ${s} 秒`
+  }
 
   return (
     <div className="ai-research-panel">
@@ -59,14 +81,24 @@ export function AIResearchPanel({ symbol, name, report, loading, error, onRefres
             )}
           </div>
         </div>
-        <button
-          className="ai-research-refresh"
-          onClick={onRefresh}
-          disabled={loading || configLoading || !configured}
-          title={configured ? (report ? '重新分析' : '开始分析') : '请先配置 AI 投研'}
-        >
-          {loading ? '分析中...' : report ? '重新分析' : '开始分析'}
-        </button>
+        {loading ? (
+          <button
+            className="ai-research-cancel"
+            onClick={onCancel}
+            title="取消分析"
+          >
+            取消
+          </button>
+        ) : (
+          <button
+            className="ai-research-refresh"
+            onClick={onRefresh}
+            disabled={loading || configLoading || !configured}
+            title={configured ? (report ? '重新分析' : '开始分析') : '请先配置 AI 投研'}
+          >
+            {report ? '重新分析' : '开始分析'}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -78,8 +110,15 @@ export function AIResearchPanel({ symbol, name, report, loading, error, onRefres
       {loading && !report && (
         <div className="ai-research-loading">
           <div className="ai-research-spinner" />
-          <div>正在搜索并分析相关信息，请稍候...</div>
-          <div className="ai-research-loading-hint">首次分析约需 30-90 秒</div>
+          <div>{progress?.message || '正在搜索并分析相关信息，请稍候...'}</div>
+          <div className="ai-research-loading-hint">
+            已耗时 {formatElapsed(elapsed)} · 首次分析约需 30-120 秒
+          </div>
+          {progress && progress.stage !== 'init' && (
+            <div className="ai-research-progress-stage">
+              当前阶段：{progress.stage === 'search' ? '联网搜索' : progress.stage === 'llm' ? '大模型分析' : progress.stage === 'parse' ? '解析报告' : progress.stage === 'cache' ? '保存结果' : progress.message}
+            </div>
+          )}
         </div>
       )}
 

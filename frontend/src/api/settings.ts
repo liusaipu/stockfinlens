@@ -14,6 +14,7 @@ export const {
   TestAIConnection,
   AnalyzeStockWithAI,
   LoadAIResearchReport,
+  CancelAIResearch,
   CheckForUpdate,
   SkipVersion,
   DownloadUpdate,
