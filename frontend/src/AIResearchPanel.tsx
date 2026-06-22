@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './AIResearchPanel.css'
 import type { ai_researcher } from '../wailsjs/go/models'
 import { GetAIConfig } from './api'
@@ -10,8 +10,7 @@ interface AIResearchPanelProps {
   loading: boolean
   error: string | null
   progress: { stage: string; message: string } | null
-  onRefresh: () => void
-  onCancel: () => void
+  reportRef?: React.RefObject<HTMLDivElement>
 }
 
 const sentimentMap: Record<string, { label: string; color: string }> = {
@@ -28,11 +27,13 @@ function isConfigured(cfg: ai_researcher.AIConfig | null): boolean {
   return true
 }
 
-export function AIResearchPanel({ symbol, name, report, loading, error, progress, onRefresh, onCancel }: AIResearchPanelProps) {
+export function AIResearchPanel({ symbol, name, report, loading, error, progress, reportRef }: AIResearchPanelProps) {
   const [expandedSources, setExpandedSources] = useState(false)
   const [config, setConfig] = useState<ai_researcher.AIConfig | null>(null)
   const [configLoading, setConfigLoading] = useState(true)
   const [elapsed, setElapsed] = useState(0)
+  const localReportRef = useRef<HTMLDivElement>(null)
+  const contentRef = reportRef || localReportRef
 
   useEffect(() => {
     setConfigLoading(true)
@@ -81,24 +82,6 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
             )}
           </div>
         </div>
-        {loading ? (
-          <button
-            className="ai-research-cancel"
-            onClick={onCancel}
-            title="取消分析"
-          >
-            取消
-          </button>
-        ) : (
-          <button
-            className="ai-research-refresh"
-            onClick={onRefresh}
-            disabled={loading || configLoading || !configured}
-            title={configured ? (report ? '重新分析' : '开始分析') : '请先配置 AI 投研'}
-          >
-            {report ? '重新分析' : '开始分析'}
-          </button>
-        )}
       </div>
 
       {error && (
@@ -142,7 +125,7 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
       {!loading && !error && !report && !showConfigurePrompt && (
         <div className="ai-research-empty">
           <div className="ai-research-empty-icon">🤖</div>
-          <div>点击右上角「开始分析」启动 AI 投研</div>
+          <div>点击顶部工具栏「开始分析」启动 AI 投研</div>
           <div className="ai-research-empty-hint">
             将搜索产品催化剂、政策影响、全球产业映射、国际对标和社交情绪
           </div>
@@ -150,7 +133,7 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
       )}
 
       {report && (
-        <>
+        <div ref={contentRef} className="ai-research-content">
           <div className="ai-research-disclaimer">
             ⚠️ AI 分析仅供参考，请以上市公司公告和官方数据为准。
           </div>
@@ -207,7 +190,7 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
               )}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )

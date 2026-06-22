@@ -1502,10 +1502,26 @@ func writeModuleQuarterly(b *strings.Builder, alert *QuarterlyAlert) {
 	}
 
 	curPeriod := alert.Items[0].Period
+
+	// 提取统一的对比期间，用于列头展示；数据行不再重复 (vs xxx)
+	qoqPeriod := "上一单季"
+	yoyPeriod := "去年同期"
+	for _, items := range itemsByMetric {
+		if q, ok := items["环比"]; ok && q.PreviousPeriod != "" {
+			qoqPeriod = q.PreviousPeriod
+		}
+		if y, ok := items["同比"]; ok && y.PreviousPeriod != "" {
+			yoyPeriod = y.PreviousPeriod
+		}
+		if qoqPeriod != "上一单季" && yoyPeriod != "去年同期" {
+			break
+		}
+	}
+
 	b.WriteString("## 3.3 季度滚动预警（环比+同比）\n\n")
 	b.WriteString(fmt.Sprintf("当前报告期：**%s**，指标已还原为单季度值\n\n", curPeriod))
-	b.WriteString("| 指标 | 当前值 | 环比（vs 上一单季） | 同比（vs 去年同期） |\n")
-	b.WriteString("|------|--------|---------------------|---------------------|\n")
+	b.WriteString(fmt.Sprintf("| 指标 | 当前值 | 环比（vs %s） | 同比（vs %s） |\n", qoqPeriod, yoyPeriod))
+	b.WriteString("|------|--------|---------------|---------------|\n")
 
 	for _, metric := range metricsOrder {
 		items := itemsByMetric[metric]
@@ -1519,13 +1535,13 @@ func writeModuleQuarterly(b *strings.Builder, alert *QuarterlyAlert) {
 		qoq := items["环比"]
 		qoqStr := "—"
 		if qoq.Metric != "" {
-			qoqStr = formatQuarterlyChange(metric, qoq.ChangePct, qoq.PreviousPeriod)
+			qoqStr = formatQuarterlyChange(metric, qoq.ChangePct)
 		}
 
 		yoy := items["同比"]
 		yoyStr := "—"
 		if yoy.Metric != "" {
-			yoyStr = formatQuarterlyChange(metric, yoy.ChangePct, yoy.PreviousPeriod)
+			yoyStr = formatQuarterlyChange(metric, yoy.ChangePct)
 		}
 
 		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", metric, currentStr, qoqStr, yoyStr))
@@ -1538,17 +1554,18 @@ func formatQuarterlyValue(metric string, v float64) string {
 	if metric == "毛利率" {
 		return fmt.Sprintf("%.2f%%", v*100)
 	}
-	if v >= 1e8 {
+	absV := math.Abs(v)
+	if absV >= 1e8 {
 		return fmt.Sprintf("%.2f亿", v/1e8)
 	}
-	if v >= 1e4 {
+	if absV >= 1e4 {
 		return fmt.Sprintf("%.2f万", v/1e4)
 	}
 	return fmt.Sprintf("%.2f", v)
 }
 
-// formatQuarterlyChange 格式化季度预警变化，带对比期间
-func formatQuarterlyChange(metric string, changePct float64, previousPeriod string) string {
+// formatQuarterlyChange 格式化季度预警变化
+func formatQuarterlyChange(metric string, changePct float64) string {
 	unit := "%"
 	if metric == "毛利率" {
 		unit = "pp"
@@ -1557,7 +1574,7 @@ func formatQuarterlyChange(metric string, changePct float64, previousPeriod stri
 	if changePct < 0 {
 		sign = ""
 	}
-	return fmt.Sprintf("%s%.2f%s (vs %s)", sign, changePct*100, unit, previousPeriod)
+	return fmt.Sprintf("%s%.2f%s", sign, changePct*100, unit)
 }
 
 // writeModuleTTM TTM 滚动指标模块

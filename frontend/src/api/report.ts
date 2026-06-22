@@ -8,4 +8,7 @@ export const {
   ExportReportPDF,
   ExportReportImage,
   DeleteReport,
+  ExportAIResearchTxt,
+  ExportAIResearchMd,
+  ExportAIResearchPdf,
 } = Go_

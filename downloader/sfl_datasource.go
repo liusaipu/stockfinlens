@@ -748,6 +748,59 @@ func (c *SFLClient) FetchMoneyflow(ctx context.Context, market, code, startDate,
 	return result, nil
 }
 
+// FetchMoneyflowDC 从 tushare 获取东方财富版个股资金流向（moneyflow_dc）
+// 字段说明：net_amount=主力净流入额，buy_elg/lg/md/sm_amount=各档位净流入额（均为带符号净值）
+// 数据开始于 20230911，单位为万元，本函数统一转换为元
+func (c *SFLClient) FetchMoneyflowDC(ctx context.Context, market, code, startDate, endDate string) ([]SFLMoneyflowItem, error) {
+	tsCode := toTsCode(market, code)
+	params := map[string]interface{}{
+		"ts_code":    tsCode,
+		"start_date": startDate,
+		"end_date":   endDate,
+	}
+	fields := []string{"trade_date", "ts_code", "net_amount",
+		"buy_elg_amount", "buy_lg_amount", "buy_md_amount", "buy_sm_amount"}
+
+	resp, err := c.query(ctx, "moneyflow_dc", params, fields)
+	if err != nil {
+		fmt.Printf("[SFL.FetchMoneyflowDC] %s query error: %v\n", tsCode, err)
+		return nil, err
+	}
+
+	fmt.Printf("[SFL.FetchMoneyflowDC] %s resp items=%d fields=%v\n", tsCode, len(resp.Data.Items), resp.Data.Fields)
+
+	idx := buildFieldIndex(resp.Data.Fields)
+	const wanToYuan = 10000.0
+	result := make([]SFLMoneyflowItem, 0, len(resp.Data.Items))
+	for _, item := range resp.Data.Items {
+		mainNet := getFloat(item, idx, "net_amount") * wanToYuan
+		elgNet := getFloat(item, idx, "buy_elg_amount") * wanToYuan
+		lgNet := getFloat(item, idx, "buy_lg_amount") * wanToYuan
+		mdNet := getFloat(item, idx, "buy_md_amount") * wanToYuan
+		smNet := getFloat(item, idx, "buy_sm_amount") * wanToYuan
+
+		// net_amount 为空时，用超大单+大单兜底
+		if mainNet == 0 && (lgNet != 0 || elgNet != 0) {
+			mainNet = elgNet + lgNet
+		}
+
+		result = append(result, SFLMoneyflowItem{
+			TsCode:        getStr(item, idx, "ts_code"),
+			TradeDate:     getStr(item, idx, "trade_date"),
+			BuySmAmount:   maxFloat(smNet, 0),
+			SellSmAmount:  maxFloat(-smNet, 0),
+			BuyMdAmount:   maxFloat(mdNet, 0),
+			SellMdAmount:  maxFloat(-mdNet, 0),
+			BuyLgAmount:   maxFloat(lgNet, 0),
+			SellLgAmount:  maxFloat(-lgNet, 0),
+			BuyElgAmount:  maxFloat(elgNet, 0),
+			SellElgAmount: maxFloat(-elgNet, 0),
+			NetMfAmount:   mainNet,
+		})
+	}
+	return result, nil
+}
+
 // ========== 概念板块 ==========
 
 // SFLConcept 概念板块

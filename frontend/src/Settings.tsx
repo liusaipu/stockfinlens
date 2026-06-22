@@ -596,7 +596,7 @@ export function Settings({
                             style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
                           >
                             <option value="deepseek">DeepSeek</option>
-                            <option value="kimi">Kimi（Moonshot）</option>
+                            <option value="kimi">Kimi（Moonshot 开放平台）</option>
                           </select>
                         </div>
 

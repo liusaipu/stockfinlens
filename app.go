@@ -2390,6 +2390,64 @@ func (a *App) ExportReportPDF(symbol string, base64Data string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// ExportAIResearchTxt 保存 AI 投研报告为 TXT
+func (a *App) ExportAIResearchTxt(symbol string, content string) error {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "保存 AI 投研报告",
+		DefaultFilename: fmt.Sprintf("%s_AI投研报告.txt", symbol),
+		Filters: []runtime.FileFilter{
+			{DisplayName: "文本文件", Pattern: "*.txt"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if path == "" {
+		return nil
+	}
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// ExportAIResearchMd 保存 AI 投研报告为 Markdown
+func (a *App) ExportAIResearchMd(symbol string, content string) error {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "保存 AI 投研报告",
+		DefaultFilename: fmt.Sprintf("%s_AI投研报告.md", symbol),
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Markdown", Pattern: "*.md"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if path == "" {
+		return nil
+	}
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// ExportAIResearchPdf 保存 AI 投研报告为 PDF
+func (a *App) ExportAIResearchPdf(symbol string, base64Data string) error {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "保存 AI 投研报告",
+		DefaultFilename: fmt.Sprintf("%s_AI投研报告.pdf", symbol),
+		Filters: []runtime.FileFilter{
+			{DisplayName: "PDF", Pattern: "*.pdf"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if path == "" {
+		return nil
+	}
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return fmt.Errorf("解码 PDF 数据失败: %w", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
 // ExportReportImage 将图片 base64 DataURL 保存为用户选择的文件
 func (a *App) ExportReportImage(symbol string, dataURL string) error {
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
@@ -3294,7 +3352,8 @@ func (a *App) TestAIConnection() (*ai_researcher.TestConnectionResult, error) {
 }
 
 // AnalyzeStockWithAI 对指定股票执行 AI 投研分析
-func (a *App) AnalyzeStockWithAI(symbol string, name string) (*ai_researcher.AIResearchReport, error) {
+// forceRefresh 为 true 时跳过缓存，强制重新搜索分析
+func (a *App) AnalyzeStockWithAI(symbol string, name string, forceRefresh bool) (*ai_researcher.AIResearchReport, error) {
 	if a.storage == nil {
 		return nil, fmt.Errorf("存储未初始化")
 	}
@@ -3331,7 +3390,7 @@ func (a *App) AnalyzeStockWithAI(symbol string, name string) (*ai_researcher.AIR
 		})
 	}
 
-	report, err := researcher.Research(ctx, symbol, name, progress)
+	report, err := researcher.Research(ctx, symbol, name, forceRefresh, progress)
 
 	a.aiCancelFuncsMu.Lock()
 	delete(a.aiCancelFuncs, symbol)
@@ -3435,6 +3494,7 @@ type StockMoneyflowItem struct {
 	MdNetAmount  float64 `json:"md_net_amount"`  // 中单净流入
 	LgNetAmount  float64 `json:"lg_net_amount"`  // 大单净流入
 	ElgNetAmount float64 `json:"elg_net_amount"` // 特大单净流入
+	NetMfAmount  float64 `json:"net_mf_amount"`  // 数据源当日净流入净额（东财 f52 / SFL net_mf_amount）
 }
 
 // StockMoneyflowResult 个股资金流向查询结果
@@ -3513,6 +3573,7 @@ func (a *App) GetStockMoneyflow(symbol string, days int) (*StockMoneyflowResult,
 			MdNetAmount:  mdNet,
 			LgNetAmount:  lgNet,
 			ElgNetAmount: elgNet,
+			NetMfAmount:  item.NetMfAmount,
 		}
 
 		// 当日数据（按日期匹配）分离出来，不加入历史 Items

@@ -12,7 +12,7 @@ export function AddToWatchlist(arg1:string):Promise<void>;
 
 export function AnalyzeStock(arg1:string,arg2:boolean):Promise<analyzer.AnalysisReport>;
 
-export function AnalyzeStockWithAI(arg1:string,arg2:string):Promise<ai_researcher.AIResearchReport>;
+export function AnalyzeStockWithAI(arg1:string,arg2:string,arg3:boolean):Promise<ai_researcher.AIResearchReport>;
 
 export function AnalyzeStockWithRIM(arg1:string,arg2:boolean,arg3:string):Promise<analyzer.AnalysisReport>;
 
@@ -37,6 +37,12 @@ export function DownloadReport(arg1:string,arg2:string):Promise<void>;
 export function DownloadReports(arg1:string,arg2:number):Promise<main.DownloadResult>;
 
 export function DownloadUpdate(arg1:string,arg2:string):Promise<string>;
+
+export function ExportAIResearchMd(arg1:string,arg2:string):Promise<void>;
+
+export function ExportAIResearchPdf(arg1:string,arg2:string):Promise<void>;
+
+export function ExportAIResearchTxt(arg1:string,arg2:string):Promise<void>;
 
 export function ExportCurrentFinancialData(arg1:string):Promise<void>;
 

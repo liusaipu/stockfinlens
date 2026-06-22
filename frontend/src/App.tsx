@@ -9,7 +9,9 @@ import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
 import { UpdateModal, UpdateInfo } from './UpdateModal'
-import { AnalyzeStockWithAI, LoadAIResearchReport, CancelAIResearch } from './api'
+
+import { AnalyzeStockWithAI, LoadAIResearchReport, CancelAIResearch, ExportAIResearchTxt, ExportAIResearchMd, ExportAIResearchPdf } from './api'
+import html2pdf from 'html2pdf.js'
 import { EventsOn, WindowGetSize } from '../wailsjs/runtime'
 import { RiskBadge } from './components/RiskBadge'
 import { RiskAlertBanner } from './components/RiskAlertBanner'
@@ -187,7 +189,6 @@ function InteractQAPanel({ qas, visibleCount, setVisibleCount }: { qas: any[], v
   )
 }
 import { toPng } from 'html-to-image'
-import html2pdf from 'html2pdf.js'
 import {
   GetWatchlist,
   GetWatchlistActivity,
@@ -488,6 +489,10 @@ function App() {
   const [klineFullscreen, setKlineFullscreen] = useState(false)
   const [riskRadar, setRiskRadar] = useState<RiskRadarItem[] | null>(null)
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
+  const aiExportMenuRef = useRef<HTMLDivElement>(null)
+  const aiExportMenuBtnRef = useRef<HTMLButtonElement>(null)
+  const [aiExportMenuOpen, setAiExportMenuOpen] = useState(false)
+  const aiReportContentRef = useRef<HTMLDivElement>(null)
   // Python 依赖检测弹窗
   const [showPythonDepsModal, setShowPythonDepsModal] = useState(false)
   // 自动更新弹窗
@@ -1617,7 +1622,7 @@ function App() {
     await runAnalyze(overwriteLatest)
   }
 
-  const handleAnalyzeAI = useCallback(async () => {
+  const handleAnalyzeAI = useCallback(async (forceRefresh = false) => {
     if (!selectedStock) {
       alert('请选择一只股票')
       return
@@ -1629,7 +1634,7 @@ function App() {
     const targetCode = selectedStock.code
     setAiAnalyzingCode(targetCode)
     try {
-      const result = await AnalyzeStockWithAI(selectedStock.code, selectedStock.name || '')
+      const result = await AnalyzeStockWithAI(selectedStock.code, selectedStock.name || '', forceRefresh)
       // 如果分析过程中切换了股票，忽略旧结果
       if (targetCode === selectedCodeRef.current) {
         setAiReport(result)
@@ -1836,6 +1841,145 @@ function App() {
     }
   }
 
+  // AI 投研报告导出
+  const reportToTxt = (report: ai_researcher.AIResearchReport): string => {
+    const sentimentMap: Record<string, string> = { positive: '乐观', neutral: '中性', negative: '谨慎' }
+    const lines: string[] = []
+    lines.push(`AI 投研报告：${report.name || report.symbol}`)
+    lines.push(`股票代码：${report.symbol}`)
+    lines.push(`生成时间：${new Date(report.generated_at).toLocaleString('zh-CN')}`)
+    lines.push(`使用模型：${report.model_used}${report.from_cache ? '（来自缓存）' : ''}`)
+    lines.push('')
+    lines.push('====================================')
+    lines.push('')
+    report.sections?.forEach((section) => {
+      lines.push(`【${section.title}】`)
+      lines.push(`情绪：${sentimentMap[section.sentiment] || section.sentiment}`)
+      lines.push('')
+      lines.push(section.summary)
+      lines.push('')
+      if (section.key_points && section.key_points.length > 0) {
+        lines.push('要点：')
+        section.key_points.forEach((point, idx) => {
+          lines.push(`${idx + 1}. ${point}`)
+        })
+        lines.push('')
+      }
+      lines.push('------------------------------------')
+      lines.push('')
+    })
+    if (report.sources && report.sources.length > 0) {
+      lines.push('参考来源：')
+      report.sources.forEach((source, idx) => {
+        lines.push(`${idx + 1}. ${source.title}${source.date ? ` (${source.date})` : ''}`)
+        lines.push(`   ${source.url}`)
+      })
+    }
+    lines.push('')
+    lines.push('免责声明：AI 分析仅供参考，请以上市公司公告和官方数据为准。')
+    return lines.join('\n')
+  }
+
+  const reportToMd = (report: ai_researcher.AIResearchReport): string => {
+    const sentimentMap: Record<string, string> = { positive: '乐观', neutral: '中性', negative: '谨慎' }
+    const lines: string[] = []
+    lines.push(`# AI 投研报告：${report.name || report.symbol}`)
+    lines.push('')
+    lines.push(`- **股票代码**：${report.symbol}`)
+    lines.push(`- **生成时间**：${new Date(report.generated_at).toLocaleString('zh-CN')}`)
+    lines.push(`- **使用模型**：${report.model_used}${report.from_cache ? '（来自缓存）' : ''}`)
+    lines.push('')
+    lines.push('---')
+    lines.push('')
+    report.sections?.forEach((section) => {
+      lines.push(`## ${section.title}`)
+      lines.push('')
+      lines.push(`**情绪**：${sentimentMap[section.sentiment] || section.sentiment}`)
+      lines.push('')
+      lines.push(section.summary)
+      lines.push('')
+      if (section.key_points && section.key_points.length > 0) {
+        lines.push('### 要点')
+        lines.push('')
+        section.key_points.forEach((point) => {
+          lines.push(`- ${point}`)
+        })
+        lines.push('')
+      }
+      lines.push('---')
+      lines.push('')
+    })
+    if (report.sources && report.sources.length > 0) {
+      lines.push('## 参考来源')
+      lines.push('')
+      report.sources.forEach((source) => {
+        lines.push(`- [${source.title}${source.date ? ` (${source.date})` : ''}](${source.url})`)
+      })
+      lines.push('')
+    }
+    lines.push('> ⚠️ **免责声明**：AI 分析仅供参考，请以上市公司公告和官方数据为准。')
+    return lines.join('\n')
+  }
+
+  const handleExportAIResearchTxt = async () => {
+    if (!selectedStock || !aiReport) return
+    try {
+      await ExportAIResearchTxt(selectedStock.code, reportToTxt(aiReport))
+    } catch (err: any) {
+      const msg = String(err)
+      if (msg.includes('取消保存') || msg.includes('用户取消')) return
+      alert('导出 TXT 失败: ' + msg)
+    }
+  }
+
+  const handleExportAIResearchMd = async () => {
+    if (!selectedStock || !aiReport) return
+    try {
+      await ExportAIResearchMd(selectedStock.code, reportToMd(aiReport))
+    } catch (err: any) {
+      const msg = String(err)
+      if (msg.includes('取消保存') || msg.includes('用户取消')) return
+      alert('导出 Markdown 失败: ' + msg)
+    }
+  }
+
+  const handleExportAIResearchPdf = async () => {
+    if (!selectedStock || !aiReport || !aiReportContentRef.current) return
+    try {
+      const opt = {
+        margin: [12, 12, 12, 12] as [number, number, number, number],
+        filename: `${selectedStock.code}_AI投研报告.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc: Document) => {
+            const style = clonedDoc.createElement('style')
+            style.textContent = `
+              .ai-research-content { color: #1f2937 !important; background: #ffffff !important; }
+              .ai-research-content h2 { color: #111827 !important; }
+              .ai-research-content p, .ai-research-content li, .ai-research-content span, .ai-research-content div { color: #1f2937 !important; }
+              .ai-research-disclaimer { background: rgba(245,158,11,0.08) !important; color: #b45309 !important; }
+              .ai-research-section { background: #ffffff !important; border-left-color: #3b82f6 !important; }
+              .ai-research-sources { background: #f8fafc !important; }
+              .ai-research-sources-list a { color: #2563eb !important; }
+            `
+            clonedDoc.head.appendChild(style)
+          },
+        },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+      }
+      const pdfDataUrl: string = await html2pdf().set(opt).from(aiReportContentRef.current).outputPdf('datauristring')
+      const base64Data = pdfDataUrl.split(',')[1]
+      await ExportAIResearchPdf(selectedStock.code, base64Data)
+    } catch (err: any) {
+      const msg = String(err)
+      if (msg.includes('取消保存') || msg.includes('用户取消')) return
+      alert('导出 PDF 失败: ' + msg)
+    }
+  }
+
   // 下载菜单点击外部关闭
   useEffect(() => {
     if (!downloadMenuOpen) return
@@ -1852,6 +1996,23 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [downloadMenuOpen])
+
+  // AI 投研导出菜单点击外部关闭
+  useEffect(() => {
+    if (!aiExportMenuOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        aiExportMenuRef.current &&
+        !aiExportMenuRef.current.contains(e.target as Node) &&
+        aiExportMenuBtnRef.current &&
+        !aiExportMenuBtnRef.current.contains(e.target as Node)
+      ) {
+        setAiExportMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [aiExportMenuOpen])
 
   const handleDeleteReport = async () => {
     if (!selectedStock || !displayContent) {
@@ -3341,7 +3502,7 @@ function App() {
                           </div>
                         )}
                         {moneyflowUpdatedAt && (
-                          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, textAlign: 'right' }}>
+                          <div style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', marginTop: 6, textAlign: 'right' }}>
                             更新于 {new Date(moneyflowUpdatedAt).toLocaleTimeString('zh-CN', { hour12: false })}
                           </div>
                         )}
@@ -4251,67 +4412,134 @@ function App() {
 
           </div>
           <div className="report-tabs-right">
-            <div className="report-search-wrap">
-              <input
-                ref={reportSearchRef}
-                type="text"
-                className="report-search-input"
-                placeholder="搜索报告内容"
-                onKeyDown={handleReportSearchKeyDown}
-                disabled={!displayContent}
-                title={!displayContent ? '请先执行分析' : '输入关键词，按回车依次跳转匹配项'}
-              />
-            </div>
-            <button
-              className="btn-delete-report"
-              onClick={handleDeleteReport}
-              disabled={!displayContent}
-              title={!displayContent ? '没有可删除的报告' : '删除当前显示的报告'}
-            >
-              删除报告
-            </button>
-            <div className="download-dropdown" ref={downloadMenuRef}>
-              <button
-                ref={downloadMenuBtnRef}
-                className="btn-download"
-                onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
-                disabled={!displayContent}
-                title={!displayContent ? '请先执行分析' : '下载当前显示的报告'}
-              >
-                下载报告 ▼
-              </button>
-              {downloadMenuOpen && (
-                <div className="download-dropdown-menu">
-                  <div
-                    className="download-dropdown-item"
-                    onClick={() => {
-                      setDownloadMenuOpen(false)
-                      handleReportDownload()
-                    }}
-                  >
-                    <span>📝</span> Markdown 格式
+            {activeReportTab === 'ai' ? (
+              <>
+                {aiReport && (
+                  <div className="download-dropdown" ref={aiExportMenuRef}>
+                    <button
+                      ref={aiExportMenuBtnRef}
+                      className="btn-download"
+                      onClick={() => setAiExportMenuOpen(!aiExportMenuOpen)}
+                      title="导出 AI 投研报告"
+                    >
+                      导出报告 ▼
+                    </button>
+                    {aiExportMenuOpen && (
+                      <div className="download-dropdown-menu">
+                        <div
+                          className="download-dropdown-item"
+                          onClick={() => {
+                            setAiExportMenuOpen(false)
+                            handleExportAIResearchTxt()
+                          }}
+                        >
+                          <span>📝</span> TXT 格式
+                        </div>
+                        <div
+                          className="download-dropdown-item"
+                          onClick={() => {
+                            setAiExportMenuOpen(false)
+                            handleExportAIResearchMd()
+                          }}
+                        >
+                          <span>📄</span> Markdown 格式
+                        </div>
+                        <div
+                          className="download-dropdown-item"
+                          onClick={() => {
+                            setAiExportMenuOpen(false)
+                            handleExportAIResearchPdf()
+                          }}
+                        >
+                          <span>📑</span> PDF 格式
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div
-                    className="download-dropdown-item"
-                    onClick={() => {
-                      setDownloadMenuOpen(false)
-                      handleExportPDF()
-                    }}
+                )}
+                {aiReportLoading ? (
+                  <button
+                    className="btn-delete-report"
+                    onClick={handleCancelAI}
+                    title="取消分析"
                   >
-                    <span>📄</span> PDF 格式
-                  </div>
-                  <div
-                    className="download-dropdown-item"
-                    onClick={() => {
-                      setDownloadMenuOpen(false)
-                      handleDownloadImage()
-                    }}
+                    取消
+                  </button>
+                ) : (
+                  <button
+                    className="btn-download"
+                    onClick={() => handleAnalyzeAI(aiReport ? true : false)}
+                    title={aiReport ? '重新分析' : '开始分析'}
                   >
-                    <span>🖼️</span> 长图片
-                  </div>
+                    {aiReport ? '重新分析' : '开始分析'}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="report-search-wrap">
+                  <input
+                    ref={reportSearchRef}
+                    type="text"
+                    className="report-search-input"
+                    placeholder="搜索报告内容"
+                    onKeyDown={handleReportSearchKeyDown}
+                    disabled={!displayContent}
+                    title={!displayContent ? '请先执行分析' : '输入关键词，按回车依次跳转匹配项'}
+                  />
                 </div>
-              )}
-            </div>
+                <button
+                  className="btn-delete-report"
+                  onClick={handleDeleteReport}
+                  disabled={!displayContent}
+                  title={!displayContent ? '没有可删除的报告' : '删除当前显示的报告'}
+                >
+                  删除报告
+                </button>
+                <div className="download-dropdown" ref={downloadMenuRef}>
+                  <button
+                    ref={downloadMenuBtnRef}
+                    className="btn-download"
+                    onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                    disabled={!displayContent}
+                    title={!displayContent ? '请先执行分析' : '下载当前显示的报告'}
+                  >
+                    下载报告 ▼
+                  </button>
+                  {downloadMenuOpen && (
+                    <div className="download-dropdown-menu">
+                      <div
+                        className="download-dropdown-item"
+                        onClick={() => {
+                          setDownloadMenuOpen(false)
+                          handleReportDownload()
+                        }}
+                      >
+                        <span>📝</span> Markdown 格式
+                      </div>
+                      <div
+                        className="download-dropdown-item"
+                        onClick={() => {
+                          setDownloadMenuOpen(false)
+                          handleExportPDF()
+                        }}
+                      >
+                        <span>📄</span> PDF 格式
+                      </div>
+                      <div
+                        className="download-dropdown-item"
+                        onClick={() => {
+                          setDownloadMenuOpen(false)
+                          handleDownloadImage()
+                        }}
+                      >
+                        <span>🖼️</span> 长图片
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="report-content" ref={reportContentRef}>
@@ -4323,8 +4551,7 @@ function App() {
               loading={aiReportLoading}
               error={aiReportError}
               progress={aiProgress}
-              onRefresh={handleAnalyzeAI}
-              onCancel={handleCancelAI}
+              reportRef={aiReportContentRef}
             />
           ) : displayContent ? (
             <div className="markdown-body" onClick={(e) => {
@@ -4565,6 +4792,8 @@ function App() {
           onClose={() => setTrendDrawerCode(null)}
         />
       )}
+
+
 
       {/* 技术图全窗口（K线 + 技术指标联动） */}
       {klineFullscreen && selectedStock && (

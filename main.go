@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
@@ -30,11 +31,16 @@ func main() {
 	// Create an instance of the app structure
 	app := NewApp()
 
+	// 创建系统菜单，启用 macOS 复制/粘贴快捷键（Cmd+C / Cmd+V）
+	appMenu := menu.NewMenu()
+	appMenu.Append(menu.EditMenu())
+
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:  "StockFinLens",
 		Width:  1600,
 		Height: 900,
+		Menu:   appMenu,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

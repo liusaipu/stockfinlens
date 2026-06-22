@@ -64,6 +64,7 @@ func TestBuildQueries(t *testing.T) {
 
 	hasProduct := false
 	hasPolicy := false
+	hasRisk := false
 	hasGlobalMapping := false
 	hasCompetitor := false
 	hasSocial := false
@@ -73,6 +74,9 @@ func TestBuildQueries(t *testing.T) {
 		}
 		if strings.Contains(q, "政策") || strings.Contains(q, "营收") {
 			hasPolicy = true
+		}
+		if strings.Contains(q, "证监会") || strings.Contains(q, "处罚") || strings.Contains(q, "ST") || strings.Contains(q, "退市") {
+			hasRisk = true
 		}
 		if strings.Contains(q, "全球产业映射") || strings.Contains(q, "Nvidia") || strings.Contains(q, "OpenAI") {
 			hasGlobalMapping = true
@@ -89,6 +93,9 @@ func TestBuildQueries(t *testing.T) {
 	}
 	if !hasPolicy {
 		t.Error("缺少政策影响查询")
+	}
+	if !hasRisk {
+		t.Error("缺少风险事件与监管处罚查询")
 	}
 	if !hasGlobalMapping {
 		t.Error("缺少全球产业映射查询")

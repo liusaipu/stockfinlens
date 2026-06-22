@@ -49,7 +49,8 @@ func NewResearcher(cfg *AIConfig, storage cacheStorage) (*Researcher, error) {
 }
 
 // Research 执行 AI 投研分析
-func (r *Researcher) Research(ctx context.Context, symbol, name string, progress ProgressFunc) (*AIResearchReport, error) {
+// forceRefresh 为 true 时跳过缓存，强制重新搜索分析
+func (r *Researcher) Research(ctx context.Context, symbol, name string, forceRefresh bool, progress ProgressFunc) (*AIResearchReport, error) {
 	if !r.cfg.Enabled {
 		return nil, fmt.Errorf("AI 投研功能未启用")
 	}
@@ -60,14 +61,16 @@ func (r *Researcher) Research(ctx context.Context, symbol, name string, progress
 		}
 	}
 
-	// 1. 检查缓存
-	emit("cache", "正在检查本地缓存...")
-	if cached, err := r.cache.Get(symbol, r.cfg.CacheTTLHours); err == nil && cached != nil {
-		cached.Symbol = symbol
-		cached.Name = name
-		cached.FromCache = true
-		emit("cache", "已命中本地缓存")
-		return cached, nil
+	// 1. 检查缓存（非强制刷新时）
+	if !forceRefresh {
+		emit("cache", "正在检查本地缓存...")
+		if cached, err := r.cache.Get(symbol, r.cfg.CacheTTLHours); err == nil && cached != nil {
+			cached.Symbol = symbol
+			cached.Name = name
+			cached.FromCache = true
+			emit("cache", "已命中本地缓存")
+			return cached, nil
+		}
 	}
 
 	// 2. 构造并执行搜索

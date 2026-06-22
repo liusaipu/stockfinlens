@@ -14,8 +14,8 @@ export function AnalyzeStock(arg1, arg2) {
   return window['go']['main']['App']['AnalyzeStock'](arg1, arg2);
 }
 
-export function AnalyzeStockWithAI(arg1, arg2) {
-  return window['go']['main']['App']['AnalyzeStockWithAI'](arg1, arg2);
+export function AnalyzeStockWithAI(arg1, arg2, arg3) {
+  return window['go']['main']['App']['AnalyzeStockWithAI'](arg1, arg2, arg3);
 }
 
 export function AnalyzeStockWithRIM(arg1, arg2, arg3) {
@@ -64,6 +64,18 @@ export function DownloadReports(arg1, arg2) {
 
 export function DownloadUpdate(arg1, arg2) {
   return window['go']['main']['App']['DownloadUpdate'](arg1, arg2);
+}
+
+export function ExportAIResearchMd(arg1, arg2) {
+  return window['go']['main']['App']['ExportAIResearchMd'](arg1, arg2);
+}
+
+export function ExportAIResearchPdf(arg1, arg2) {
+  return window['go']['main']['App']['ExportAIResearchPdf'](arg1, arg2);
+}
+
+export function ExportAIResearchTxt(arg1, arg2) {
+  return window['go']['main']['App']['ExportAIResearchTxt'](arg1, arg2);
 }
 
 export function ExportCurrentFinancialData(arg1) {

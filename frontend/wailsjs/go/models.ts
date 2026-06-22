@@ -278,6 +278,11 @@ export namespace analyzer {
 	    notes?: string;
 	    periodCount: number;
 	    periods: string[];
+	    hasPrior: boolean;
+	    priorEndPeriod?: string;
+	    priorRevenue: number;
+	    priorNetProfit: number;
+	    priorOperatingCash: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new TTMMetrics(source);
@@ -297,6 +302,11 @@ export namespace analyzer {
 	        this.notes = source["notes"];
 	        this.periodCount = source["periodCount"];
 	        this.periods = source["periods"];
+	        this.hasPrior = source["hasPrior"];
+	        this.priorEndPeriod = source["priorEndPeriod"];
+	        this.priorRevenue = source["priorRevenue"];
+	        this.priorNetProfit = source["priorNetProfit"];
+	        this.priorOperatingCash = source["priorOperatingCash"];
 	    }
 	}
 	export class QuarterlyAlertItem {
@@ -1678,6 +1688,7 @@ export namespace main {
 	    md_net_amount: number;
 	    lg_net_amount: number;
 	    elg_net_amount: number;
+	    net_mf_amount: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new StockMoneyflowItem(source);
@@ -1691,6 +1702,7 @@ export namespace main {
 	        this.md_net_amount = source["md_net_amount"];
 	        this.lg_net_amount = source["lg_net_amount"];
 	        this.elg_net_amount = source["elg_net_amount"];
+	        this.net_mf_amount = source["net_mf_amount"];
 	    }
 	}
 	export class StockMoneyflowResult {

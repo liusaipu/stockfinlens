@@ -454,8 +454,14 @@ type moneyflowSource struct {
 func (r *DataRouter) FetchMoneyflow(ctx context.Context, market, code, startDate, endDate string) ([]SFLMoneyflowItem, error) {
 	var sources []moneyflowSource
 
-	// SFL（如果启用）
+	// SFL（如果启用）：优先使用 moneyflow_dc（东方财富口径），失败或不足时回退到标准 moneyflow
 	if r.sflEnabled && r.useForMoneyflow && r.sflClient != nil {
+		sources = append(sources, moneyflowSource{
+			name: "StockFinLensDC",
+			fn: func() ([]SFLMoneyflowItem, error) {
+				return r.sflClient.FetchMoneyflowDC(ctx, market, code, startDate, endDate)
+			},
+		})
 		sources = append(sources, moneyflowSource{
 			name: "StockFinLens",
 			fn: func() ([]SFLMoneyflowItem, error) {
@@ -476,10 +482,8 @@ func (r *DataRouter) FetchMoneyflow(ctx context.Context, market, code, startDate
 		return nil, fmt.Errorf("资金流向数据暂不可用")
 	}
 
-	// 随机扰乱：打乱数据源尝试顺序，降低单一源被反爬风险
-	shuffleSources(sources)
-
-	// 多源结果合并：遍历所有可用数据源，按日期汇总
+	// 多源结果合并：按固定优先级遍历（DC > 标准 moneyflow > 东财），避免不同源数据混排
+	// 历史日期保留第一个提供该日期的源，当日在后续源有非空数据时允许覆盖
 	// 合并策略：
 	//   - 历史日期：第一个提供该日期的数据源优先（SFL 历史数据通常更可靠）
 	//   - 当日日期（endDate）：后提供的数据源可以覆盖（东财当日数据更新更快）

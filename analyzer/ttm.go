@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -33,6 +34,13 @@ type TTMMetrics struct {
 
 	PeriodCount int      `json:"periodCount"` // 参与公式的期数（年报=1，标准公式=3）
 	Periods     []string `json:"periods"`     // 参与公式的原始期间，用于追溯
+
+	// 上期 TTM 数据，用于 3.4.1 表格展示同比变化
+	HasPrior           bool    `json:"hasPrior"`
+	PriorEndPeriod     string  `json:"priorEndPeriod,omitempty"`
+	PriorRevenue       float64 `json:"priorRevenue"`
+	PriorNetProfit     float64 `json:"priorNetProfit"`
+	PriorOperatingCash float64 `json:"priorOperatingCash"`
 }
 
 // BuildTTMMetrics 根据财务数据计算 TTM。
@@ -50,10 +58,29 @@ func BuildTTMMetrics(data *FinancialData) *TTMMetrics {
 	}
 
 	latest := data.Quarters[0] // 已降序
-	if isAnnualPeriod(latest) {
-		return buildFromAnnual(data, latest, TTMModeAnnual, "")
+	m := buildTTMForEndPeriod(data, latest)
+
+	// 同时计算上一期 TTM，用于 3.4.1 表格展示同比变化
+	prior := previousQuarterPeriod(latest)
+	if prior != "" && hasPeriod(data.Quarters, prior) {
+		pm := buildPriorTTMForPeriod(data, prior)
+		if pm.HasData {
+			m.HasPrior = true
+			m.PriorEndPeriod = prior
+			m.PriorRevenue = pm.Revenue
+			m.PriorNetProfit = pm.NetProfit
+			m.PriorOperatingCash = pm.OperatingCash
+		}
 	}
-	return buildFromQuarter(data, latest)
+	return m
+}
+
+// buildTTMForEndPeriod 为指定截止期计算当前 TTM（含降级策略）
+func buildTTMForEndPeriod(data *FinancialData, endPeriod string) *TTMMetrics {
+	if isAnnualPeriod(endPeriod) {
+		return buildFromAnnual(data, endPeriod, TTMModeAnnual, "")
+	}
+	return buildFromQuarter(data, endPeriod)
 }
 
 // buildFromQuarter 以季报为最新期，套用标准 TTM 公式
@@ -134,6 +161,36 @@ func buildFromAnnual(data *FinancialData, annual, mode, note string) *TTMMetrics
 	m.OperatingCash = data.GetValueOrZero(data.CashFlow, "经营活动产生的现金流量净额", annual)
 	parentProfit := parentNetProfitAt(data, annual)
 	m.applyRatios(data, annual, priorAnnualOf(annual), parentProfit)
+	return m
+}
+
+// buildPriorTTMForPeriod 为上一期截止期计算 TTM 累计值（仅用于 3.4.1 表格对比）。
+// 为保持可比口径，不使用全局 fallback，仅在所需三期/年报齐全时返回数据。
+func buildPriorTTMForPeriod(data *FinancialData, endPeriod string) *TTMMetrics {
+	if isAnnualPeriod(endPeriod) {
+		m := &TTMMetrics{HasData: true}
+		m.Revenue = data.GetValueOrZero(data.IncomeStatement, "营业收入", endPeriod)
+		m.NetProfit = data.GetValueOrZero(data.IncomeStatement, "净利润", endPeriod)
+		m.OperatingCash = data.GetValueOrZero(data.CashFlow, "经营活动产生的现金流量净额", endPeriod)
+		return m
+	}
+	if len(endPeriod) < 10 {
+		return &TTMMetrics{}
+	}
+	year, err := strconv.Atoi(endPeriod[:4])
+	if err != nil {
+		return &TTMMetrics{}
+	}
+	priorYearStr := strconv.Itoa(year - 1)
+	priorAnnual := priorYearStr + "-12-31"
+	samePriorYear := priorYearStr + endPeriod[4:]
+	if !hasPeriod(data.Quarters, endPeriod) || !hasPeriod(data.Quarters, priorAnnual) || !hasPeriod(data.Quarters, samePriorYear) {
+		return &TTMMetrics{}
+	}
+	m := &TTMMetrics{HasData: true}
+	m.Revenue = ttmFormula(data, data.IncomeStatement, "营业收入", priorAnnual, endPeriod, samePriorYear)
+	m.NetProfit = ttmFormula(data, data.IncomeStatement, "净利润", priorAnnual, endPeriod, samePriorYear)
+	m.OperatingCash = ttmFormula(data, data.CashFlow, "经营活动产生的现金流量净额", priorAnnual, endPeriod, samePriorYear)
 	return m
 }
 
@@ -277,11 +334,14 @@ func (m *TTMMetrics) FormatTTMReport() string {
 
 	// 表1：经营规模（TTM 累计值）
 	b.WriteString("### 3.4.1 经营规模（TTM 累计值）\n\n")
-	b.WriteString("| 指标 | 数值 |\n")
-	b.WriteString("|------|------|\n")
-	b.WriteString(fmt.Sprintf("| 营业收入 | %.2f 亿元 |\n", m.Revenue/1e8))
-	b.WriteString(fmt.Sprintf("| 净利润 | %.2f 亿元 |\n", m.NetProfit/1e8))
-	b.WriteString(fmt.Sprintf("| 经营现金流 | %.2f 亿元 |\n", m.OperatingCash/1e8))
+	b.WriteString(fmt.Sprintf("| 指标 | 当期 TTM（%s） | 上期 TTM%s | TTM 同比 |\n", m.EndPeriod, formatPriorTTMHeader(m)))
+	b.WriteString("|------|----------------|------------|----------|\n")
+	b.WriteString(fmt.Sprintf("| 营业收入 | %.2f 亿元 | %s | %s |\n",
+		m.Revenue/1e8, formatTTMValue(m.PriorRevenue, m.HasPrior), formatTTMChange(m.Revenue, m.PriorRevenue, m.HasPrior)))
+	b.WriteString(fmt.Sprintf("| 净利润 | %.2f 亿元 | %s | %s |\n",
+		m.NetProfit/1e8, formatTTMValue(m.PriorNetProfit, m.HasPrior), formatTTMChange(m.NetProfit, m.PriorNetProfit, m.HasPrior)))
+	b.WriteString(fmt.Sprintf("| 经营现金流 | %.2f 亿元 | %s | %s |\n",
+		m.OperatingCash/1e8, formatTTMValue(m.PriorOperatingCash, m.HasPrior), formatTTMChange(m.OperatingCash, m.PriorOperatingCash, m.HasPrior)))
 	b.WriteString("\n")
 
 	// 表2：盈利能力（比率）
@@ -331,4 +391,33 @@ func ttmWindowHint(endPeriod string) string {
 		startYear = year
 	}
 	return fmt.Sprintf("%d-%02d ~ %d-%02d", startYear, startMonth, year, month)
+}
+
+// formatPriorTTMHeader 上期 TTM 列头，带上截止期便于理解
+func formatPriorTTMHeader(m *TTMMetrics) string {
+	if !m.HasPrior || m.PriorEndPeriod == "" {
+		return ""
+	}
+	return fmt.Sprintf("（%s）", m.PriorEndPeriod)
+}
+
+// formatTTMValue 格式化 TTM 数值列
+func formatTTMValue(v float64, has bool) string {
+	if !has {
+		return "—"
+	}
+	return fmt.Sprintf("%.2f 亿元", v/1e8)
+}
+
+// formatTTMChange 格式化 TTM 同比变化，以绝对值作为分母避免负基数异常
+func formatTTMChange(current, prior float64, has bool) string {
+	if !has || prior == 0 {
+		return "—"
+	}
+	change := (current - prior) / math.Abs(prior)
+	sign := "+"
+	if change < 0 {
+		sign = ""
+	}
+	return fmt.Sprintf("%s%.2f%%", sign, change*100)
 }
