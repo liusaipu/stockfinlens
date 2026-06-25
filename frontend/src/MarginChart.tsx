@@ -174,8 +174,8 @@ export function MarginChart({ code, style }: MarginChartProps) {
         label: { backgroundColor: isLight ? '#f3f4f6' : '#1e293b', color: theme.text },
       },
       grid: [
-        { left: '6%', right: '8%', top: '6%', height: '60%' },
-        { left: '6%', right: '8%', top: '68%', height: '28%' },
+        { left: '6%', right: '8%', top: '5%', height: '56%' },
+        { left: '6%', right: '8%', top: '66%', height: '28%' },
       ],
       xAxis: [
         {
@@ -325,7 +325,7 @@ export function MarginChart({ code, style }: MarginChartProps) {
         style={{
           position: 'absolute',
           left: 'calc(6% + 4px)',
-          top: 'calc(68% + 4px)',
+          top: 'calc(66% + 8px)',
           fontSize: 11,
           color: emptyColor,
           pointerEvents: 'none',
