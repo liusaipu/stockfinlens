@@ -687,6 +687,15 @@ export function UnifiedChart({ code, name, quote: propQuote, initialExpanded, on
           xAxisIndex: 0,
           yAxisIndex: 0,
           cursor: 'default',
+          markPoint: {
+            symbol: 'circle',
+            symbolSize: 8,
+            label: { fontSize: 10, fontWeight: 600, formatter: (p: any) => fmt2(p.value) },
+            data: [
+              { type: 'max' as const, valueDim: 'highest', name: '最高', itemStyle: { color: colors.up }, label: { position: 'top', color: colors.up } },
+              { type: 'min' as const, valueDim: 'lowest', name: '最低', itemStyle: { color: colors.down }, label: { position: 'bottom', color: colors.down } },
+            ],
+          },
         },
         {
           name: '换手率',
