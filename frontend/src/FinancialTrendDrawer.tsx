@@ -67,12 +67,14 @@ export function FinancialTrendDrawer({ code, name, onClose }: Props) {
     const items = [...data.items].reverse()
     const years = items.map((i) => i.year)
 
+    const cashActive = activeKeys.includes('cashContent')
     const series = METRICS.filter((m) => activeKeys.includes(m.key)).map((m) => ({
       name: m.label,
       type: 'line' as const,
       smooth: true,
       symbol: 'circle',
       symbolSize: 6,
+      yAxisIndex: m.key === 'cashContent' ? 1 : 0,
       lineStyle: { width: 3, color: m.color },
       itemStyle: { color: m.color },
       data: items.map((i) => {
@@ -102,7 +104,7 @@ export function FinancialTrendDrawer({ code, name, onClose }: Props) {
         },
       },
       legend: { show: false },
-      grid: { left: 48, right: 24, top: 24, bottom: 32 },
+      grid: { left: 48, right: cashActive ? 64 : 24, top: 24, bottom: 32 },
       xAxis: {
         type: 'category',
         data: years,
@@ -110,12 +112,22 @@ export function FinancialTrendDrawer({ code, name, onClose }: Props) {
         axisLabel: { color: '#94a3b8' },
         axisTick: { show: false },
       },
-      yAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-        splitLine: { lineStyle: { color: 'rgba(148,163,184,0.1)' } },
-      },
+      yAxis: [
+        {
+          type: 'value',
+          axisLine: { show: false },
+          axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+          splitLine: { lineStyle: { color: 'rgba(148,163,184,0.1)' } },
+        },
+        {
+          type: 'value',
+          position: 'right',
+          show: cashActive,
+          axisLine: { show: false },
+          axisLabel: { color: '#8b5cf6', formatter: '{value}%' },
+          splitLine: { show: false },
+        },
+      ],
       series,
     }
 
