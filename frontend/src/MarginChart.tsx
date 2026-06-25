@@ -174,8 +174,8 @@ export function MarginChart({ code, style }: MarginChartProps) {
         label: { backgroundColor: isLight ? '#f3f4f6' : '#1e293b', color: theme.text },
       },
       grid: [
-        { left: '10%', right: '12%', top: '10%', height: '56%' },
-        { left: '10%', right: '12%', top: '70%', height: '22%' },
+        { left: '6%', right: '8%', top: '6%', height: '60%' },
+        { left: '6%', right: '8%', top: '68%', height: '28%' },
       ],
       xAxis: [
         {
@@ -276,7 +276,7 @@ export function MarginChart({ code, style }: MarginChartProps) {
       legend: {
         data: ['收盘价', '融资余额', '融券余额', '成交量'],
         textStyle: { color: theme.textSecondary },
-        top: 4,
+        top: 2,
       },
     }
 
@@ -324,8 +324,8 @@ export function MarginChart({ code, style }: MarginChartProps) {
       <div
         style={{
           position: 'absolute',
-          left: 'calc(10% + 4px)',
-          top: 'calc(70% + 6px)',
+          left: 'calc(6% + 4px)',
+          top: 'calc(68% + 4px)',
           fontSize: 11,
           color: emptyColor,
           pointerEvents: 'none',

@@ -32,7 +32,7 @@ export function MarginDrawer({ code, name, onClose }: Props) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20,
+        padding: 12,
       }}
       onClick={onClose}
     >
@@ -57,7 +57,7 @@ export function MarginDrawer({ code, name, onClose }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '12px 16px',
+            padding: '8px 12px',
             borderBottom: isLight ? '1px solid rgba(148,163,184,0.15)' : '1px solid rgba(148,163,184,0.1)',
           }}
         >
@@ -81,7 +81,7 @@ export function MarginDrawer({ code, name, onClose }: Props) {
           </button>
         </div>
 
-        <div style={{ flex: 1, padding: 12, overflow: 'hidden' }}>
+        <div style={{ flex: 1, padding: 8, overflow: 'hidden' }}>
           <MarginChart code={code} style={{ width: '100%', height: '100%', minHeight: 480 }} />
         </div>
 
