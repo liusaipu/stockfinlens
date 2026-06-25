@@ -1745,7 +1745,82 @@ func (a *App) GetModule4Status(symbol string) (bool, error) {
 	return compAnalysis != nil && compAnalysis.HasData && len(compAnalysis.Metrics) > 0, nil
 }
 
-// GetStockKlines 获取股票历史K线数据，优先读取本地缓存。
+// parseKlineDate 把 YYYY-MM-DD 格式的 K 线日期解析为 time.Time
+func parseKlineDate(date string) (time.Time, error) {
+	return time.Parse("2006-01-02", date)
+}
+
+// latestTradeDate 返回当前时刻下，A 股/港股"应该已存在的最近一个交易日"。
+// 简化规则：周末回退到周五；交易日 15:00 之前回退到上一交易日。
+func latestTradeDate(now time.Time) time.Time {
+	loc := now.Location()
+	y, m, d := now.Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, loc)
+	switch today.Weekday() {
+	case time.Saturday:
+		return today.AddDate(0, 0, -1)
+	case time.Sunday:
+		return today.AddDate(0, 0, -2)
+	}
+	// 15:00 收盘前，最新可用数据是上一交易日
+	if now.Hour() < 15 {
+		return today.AddDate(0, 0, -1)
+	}
+	return today
+}
+
+// latestWeeklyEnd 返回当前时刻下应该已存在的最近一周 K 线终点（周五）。
+func latestWeeklyEnd(now time.Time) time.Time {
+	loc := now.Location()
+	y, m, d := now.Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, loc)
+	// 15:00 收盘前，当前周还没结束，回退到上周五
+	offset := int(today.Weekday() - time.Friday)
+	if offset < 0 {
+		offset += 7
+	}
+	if now.Hour() < 15 && today.Weekday() == time.Friday {
+		offset += 7
+	}
+	return today.AddDate(0, 0, -offset)
+}
+
+// latestMonthlyEnd 返回当前时刻下应该已存在的最近一个月 K 线终点（上月最后一个交易日）。
+func latestMonthlyEnd(now time.Time) time.Time {
+	loc := now.Location()
+	y, m, d := now.Date()
+	firstDayOfMonth := time.Date(y, m, 1, 0, 0, 0, 0, loc)
+	lastDayOfPrevMonth := firstDayOfMonth.AddDate(0, 0, -1)
+	// 15:00 收盘前且今天就是上月最后一天，则仍回退
+	if d == 1 && now.Hour() < 15 {
+		lastDayOfPrevMonth = lastDayOfPrevMonth.AddDate(0, 0, -1)
+	}
+	return lastDayOfPrevMonth
+}
+
+// isKlineCacheStale 判断缓存 K 线是否已经滞后于当前应存在的最新周期。
+func isKlineCacheStale(data []downloader.KlineData, period string) bool {
+	if len(data) == 0 {
+		return true
+	}
+	latest, err := parseKlineDate(data[len(data)-1].Time)
+	if err != nil {
+		return true
+	}
+	now := time.Now()
+	var expected time.Time
+	switch period {
+	case "weekly":
+		expected = latestWeeklyEnd(now)
+	case "monthly":
+		expected = latestMonthlyEnd(now)
+	default:
+		expected = latestTradeDate(now)
+	}
+	return latest.Before(expected)
+}
+
+// GetStockKlines 获取股票历史K线数据，优先读取本地缓存；缓存缺失或滞后时自动刷新。
 // period 支持 "daily"(默认)、"weekly"、"monthly"。
 func (a *App) GetStockKlines(symbol string, period string) ([]downloader.KlineData, error) {
 	if period == "" {
@@ -1757,85 +1832,57 @@ func (a *App) GetStockKlines(symbol string, period string) ([]downloader.KlineDa
 
 	// 大盘指数（上证综指/深证成指/创业板指）走专用通道：绕过 SFL 与普通多源回退，
 	// 直接用最稳定的腾讯财经接口，避免 SFL 不支持指数导致后续源也失败。
-	if isIndexSymbol(symbol) {
-		parts := strings.Split(symbol, ".")
-		code := parts[0]
-		market := strings.ToUpper(parts[1])
-		debugLog("[GetStockKlines] %s is index, use dedicated FetchIndexKlines", symbol)
-		klist, err := downloader.FetchIndexKlines(a.ctx, market, code, 2500, period)
-		if err != nil {
-			debugLog("[GetStockKlines] %s index fetch error: %v", symbol, err)
-			return nil, err
-		}
-		if len(klist) > 0 {
-			last := klist[len(klist)-1]
-			debugLog("[GetStockKlines] %s index fetched %d klines, last={Time:%s Close:%.2f}", symbol, len(klist), last.Time, last.Close)
-		}
-		return klist, nil
-	}
+	cached, cacheErr := a.storage.LoadStockKlines(symbol, period)
+	hasCache := cacheErr == nil && len(cached) >= 100
+	stale := isKlineCacheStale(cached, period)
 
-	// 缓存命中阈值放宽到 100(基本是"非空检查"):港股新股(上市不到 8 年)总条数可能 < 2000,
-	// 旧的 375 条 A 股缓存也允许复用。分析时会写入更全的数据，自然刷新。
-	if cached, err := a.storage.LoadStockKlines(symbol, period); err == nil && len(cached) >= 100 {
-		// 检查缓存的K线是否有换手率，如果没有，尝试用 quote 补算
-		hasTurnover := false
-		for _, k := range cached {
-			if k.TurnoverRate > 0 {
-				hasTurnover = true
-				break
-			}
-		}
-		if !hasTurnover {
-			if quote, err := a.GetStockQuote(symbol); err == nil && quote != nil && quote.CirculatingMarketCap > 0 && quote.CurrentPrice > 0 {
-				circulatingShares := quote.CirculatingMarketCap / quote.CurrentPrice
-				for i := range cached {
-					cached[i].TurnoverRate = (cached[i].Volume * 100 / circulatingShares) * 100
+	if hasCache && !stale {
+		// 非指数：检查缓存的K线是否有换手率，如果没有，尝试用 quote 补算
+		if !isIndexSymbol(symbol) {
+			hasTurnover := false
+			for _, k := range cached {
+				if k.TurnoverRate > 0 {
+					hasTurnover = true
+					break
 				}
-				debugLog("[GetStockKlines] %s cache hit but no turnover, computed for %d klines", symbol, len(cached))
-			} else {
-				debugLog("[GetStockKlines] %s cache hit but no turnover and no quote available", symbol)
+			}
+			if !hasTurnover {
+				if quote, err := a.GetStockQuote(symbol); err == nil && quote != nil && quote.CirculatingMarketCap > 0 && quote.CurrentPrice > 0 {
+					circulatingShares := quote.CirculatingMarketCap / quote.CurrentPrice
+					for i := range cached {
+						cached[i].TurnoverRate = (cached[i].Volume * 100 / circulatingShares) * 100
+					}
+					debugLog("[GetStockKlines] %s cache hit but no turnover, computed for %d klines", symbol, len(cached))
+				} else {
+					debugLog("[GetStockKlines] %s cache hit but no turnover and no quote available", symbol)
+				}
 			}
 		}
-		debugLog("[GetStockKlines] %s period=%s cache hit, len=%d, first turnoverRate=%.2f", symbol, period, len(cached), cached[0].TurnoverRate)
+		debugLog("[GetStockKlines] %s period=%s cache hit fresh, len=%d, latest=%s", symbol, period, len(cached), cached[len(cached)-1].Time)
 		return cached, nil
-	} else if err != nil {
-		debugLog("[GetStockKlines] %s period=%s cache read error: %v", symbol, period, err)
-	} else {
-		debugLog("[GetStockKlines] %s period=%s cache miss or empty", symbol, period)
-	}
-	parts := strings.Split(symbol, ".")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("无效的股票代码格式: %s", symbol)
-	}
-	code := parts[0]
-	market := strings.ToUpper(parts[1])
-	var klist []downloader.KlineData
-	var err error
-	// SFL 启用时 DataRouter 内部会拉全量历史（忽略 limit）;非 SFL 兜底链路按 2500 条拉(约 10 年)
-	if a.dataRouter != nil {
-		klist, err = a.dataRouter.FetchKlines(a.ctx, market, code, 2500, period)
-	} else {
-		klist, err = downloader.FetchStockKlines(a.ctx, market, code, 2500, period)
 	}
 
-	// 远程全部失败时回退到 cache(哪怕过时 / 条数少也比看不到强;
-	// 典型场景:港股 tushare hk_daily 1次/分钟限速 + 其它源不支持港股)
-	if err != nil || len(klist) == 0 {
-		if cached, cErr := a.storage.LoadStockKlines(symbol, period); cErr == nil && len(cached) > 0 {
-			debugLog("[GetStockKlines] %s period=%s remote failed (err=%v, len=%d), falling back to cache (len=%d)", symbol, period, err, len(klist), len(cached))
-			return cached, nil
-		}
-		if err != nil {
-			debugLog("[GetStockKlines] %s period=%s FetchStockKlines error: %v (no cache fallback)", symbol, period, err)
-			return nil, err
-		}
+	if !hasCache {
+		debugLog("[GetStockKlines] %s period=%s no cache, auto refresh", symbol, period)
+	} else {
+		debugLog("[GetStockKlines] %s period=%s cache stale (latest=%s), auto refresh", symbol, period, cached[len(cached)-1].Time)
 	}
 
-	if len(klist) > 0 {
-		last := klist[len(klist)-1]
-		debugLog("[GetStockKlines] %s period=%s fetched %d klines, last={Time:%s Open:%.2f Close:%.2f High:%.2f Low:%.2f}", symbol, period, len(klist), last.Time, last.Open, last.Close, last.High, last.Low)
+	refreshed, err := a.RefreshStockKlines(symbol, period)
+	if err == nil && len(refreshed) > 0 {
+		return refreshed, nil
 	}
-	return klist, nil
+
+	// 刷新失败时回退到缓存（哪怕过时/条数少也比看不到强）
+	if hasCache {
+		debugLog("[GetStockKlines] %s period=%s refresh failed (err=%v), falling back to stale cache (len=%d)", symbol, period, err, len(cached))
+		return cached, nil
+	}
+	if err != nil {
+		debugLog("[GetStockKlines] %s period=%s refresh error and no cache: %v", symbol, period, err)
+		return nil, err
+	}
+	return nil, fmt.Errorf("无法获取 %s 的 K 线数据", symbol)
 }
 
 // GetIntradayMinutes 获取股票分时数据
