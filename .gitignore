@@ -69,6 +69,7 @@ temp/
 # Binary / large artifacts
 financial-analysis-18steps/
 *.zip
+/rebuild_membership
 
 # Generated analysis reports (user-specific data)
 *_深度投资分析报告_*.md

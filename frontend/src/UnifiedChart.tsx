@@ -10,6 +10,7 @@ type StockQuote = downloader.StockQuote
 
 interface Props {
   code: string
+  name?: string
   quote?: StockQuote
   // 挂载时即为全屏展开状态（用于"技术图"按钮触发的独立实例）
   initialExpanded?: boolean
@@ -43,7 +44,17 @@ const colors = {
   bbUpper: '#ef4444',
   bbMid: '#f59e0b',
   bbLower: '#10b981',
+  shIndex: '#8b5cf6',
+  szIndex: '#06b6d4',
+  cyIndex: '#ec4899',
 }
+
+// 大盘指数配置
+const INDEX_CONFIGS = [
+  { code: '000001.SH', label: '上证综指', color: colors.shIndex },
+  { code: '399001.SZ', label: '深圳成指', color: colors.szIndex },
+  { code: '399006.SZ', label: '创业板指', color: colors.cyIndex },
+]
 
 function calcEMA(arr: number[], period: number): (number | null)[] {
   const k = 2 / (period + 1)
@@ -227,6 +238,39 @@ function normalizeTime(time: string): string {
   return time
 }
 
+// 按当前周期聚合指数日线数据，使其与股票 data 的日期对齐
+function aggregateIndexForPeriod(indexDaily: KlineData[], period: 'daily' | 'weekly' | 'monthly'): KlineData[] {
+  if (period === 'daily') return indexDaily
+  if (indexDaily.length === 0) return []
+  return period === 'weekly' ? aggregateToWeekly(indexDaily) : aggregateToMonthly(indexDaily)
+}
+
+// 把指数收盘价按股票交易日对齐，使用独立右侧纵轴显示真实指数点位
+function buildIndexSeries(
+  data: KlineData[],
+  indexData: Record<string, KlineData[]>,
+  selectedIndices: Record<string, boolean>,
+  period: 'daily' | 'weekly' | 'monthly'
+): { name: string; color: string; data: (number | null)[] }[] {
+  if (data.length === 0) return []
+  const dateSet = new Set(data.map(d => d.time))
+
+  return INDEX_CONFIGS.filter(cfg => selectedIndices[cfg.code]).map(cfg => {
+    const aggregated = aggregateIndexForPeriod(indexData[cfg.code] || [], period)
+    const closeMap = new Map<string, number>()
+    aggregated.forEach(d => {
+      if (dateSet.has(d.time) && d.close > 0) closeMap.set(d.time, d.close)
+    })
+
+    const seriesData: (number | null)[] = []
+    data.forEach(d => {
+      const ic = closeMap.get(d.time)
+      seriesData.push(ic != null ? ic : null)
+    })
+    return { name: cfg.label, color: cfg.color, data: seriesData }
+  })
+}
+
 // 把当日实时行情合并进日线序列：若历史已有当日则覆盖，否则追加
 function mergeTodayQuote(data: KlineData[], quote: StockQuote | undefined): KlineData[] {
   if (!quote || quote.currentPrice <= 0 || !quote.quoteTime) return data
@@ -274,7 +318,7 @@ function saveMAConfig(config: MAConfig) {
   localStorage.setItem('unifiedChart_maConfig', JSON.stringify(config))
 }
 
-export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose }: Props) {
+export function UnifiedChart({ code, name, quote: propQuote, initialExpanded, onClose }: Props) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
   const [rawData, setRawData] = useState<KlineData[]>([])
@@ -285,6 +329,8 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
   const [period, setPeriod] = useState<'intraday' | 'daily' | 'weekly' | 'monthly'>('daily')
   const [maConfig, setMAConfig] = useState<MAConfig>(loadMAConfig)
   const [showSettings, setShowSettings] = useState(false)
+  const [indexData, setIndexData] = useState<Record<string, KlineData[]>>({})
+  const [selectedIndices, setSelectedIndices] = useState<Record<string, boolean>>({})
   const intradayBtnRef = useRef<HTMLButtonElement>(null)
   const maRowRef = useRef<HTMLDivElement>(null)
 
@@ -319,6 +365,36 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
       })
       .catch(() => setRawData([]))
       .finally(() => setLoading(false))
+  }, [code])
+
+  // 加载大盘指数数据（日线）
+  useEffect(() => {
+    if (!code) return
+    const loadIndices = async () => {
+      const result: Record<string, KlineData[]> = {}
+      await Promise.all(
+        INDEX_CONFIGS.map(async (cfg) => {
+          try {
+            let list = await GetStockKlines(cfg.code, 'daily')
+            if (!list || list.length === 0) {
+              console.warn(`[UnifiedChart] index ${cfg.code} empty from GetStockKlines, retry with RefreshStockKlines`)
+              list = await RefreshStockKlines(cfg.code, 'daily')
+            }
+            const normalized = (list || []).map((d) => ({
+              ...d,
+              time: normalizeTime(d.time),
+            }))
+            result[cfg.code] = normalized
+            console.log(`[UnifiedChart] index ${cfg.code} loaded ${normalized.length} bars`)
+          } catch (e) {
+            console.warn(`[UnifiedChart] index ${cfg.code} load failed`, e)
+            result[cfg.code] = []
+          }
+        })
+      )
+      setIndexData(result)
+    }
+    loadIndices()
   }, [code])
 
   // 自己获取行情（如果 propQuote 为 null/undefined）
@@ -358,6 +434,12 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
 
   // 指标计算：供图表 series 与左上角均线标签共用
   const indicators = useMemo(() => calculateIndicators(data, maConfig), [data, maConfig])
+
+  // 指数序列（周线/月线时先对指数日线做同样聚合），使用右侧独立纵轴显示真实点位
+  const indexSeries = useMemo(
+    () => buildIndexSeries(data, indexData, selectedIndices, period === 'intraday' ? 'daily' : period),
+    [data, indexData, selectedIndices, period]
+  )
 
   // 让 K 线图内部均线标签的 "均线" 二字与顶层 "分时" 按钮水平对齐
   useEffect(() => {
@@ -409,6 +491,15 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     }
   }, [])
 
+  const [isLightTheme, setIsLightTheme] = useState(false)
+  useEffect(() => {
+    const check = () => setIsLightTheme(document.body.classList.contains('light'))
+    check()
+    const observer = new MutationObserver(check)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
   // 数据/配置变化时只更新 option（notMerge 完整替换 series/grid 结构）
   useEffect(() => {
     const chart = chartInstanceRef.current
@@ -433,6 +524,9 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
     const xAxisLabelInterval = isExpanded ? Math.max(1, Math.floor(visibleSize / 6)) : Math.max(1, Math.floor(visibleSize / 6))
     // 数据不足可见窗口时，让坐标轴保持 visibleSize 个刻度位置，右侧自然留白，不拉宽 K 线
     const xAxisMax = Math.max(total, visibleSize) - 1
+
+    // 右侧边距固定 100px，避免选择/取消指数时图表整体跳动
+    const gridRight = 100
 
     const option: echarts.EChartsOption = {
       backgroundColor: 'transparent',
@@ -479,6 +573,17 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
             const color = p.color || '#94a3b8'
             leftItems.push(`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:${color}">● ${p.seriesName}</span><span>${fmt2(p.value)}</span></div>`)
           })
+
+          // 指数（右侧纵轴真实点位）
+          const indexParams = params.filter((p: any) => INDEX_CONFIGS.some(cfg => cfg.label === p.seriesName))
+          if (indexParams.length) {
+            if (leftItems.length) leftItems.push('<div style="border-top:1px solid rgba(148,163,184,0.12);margin:4px 0"></div>')
+            indexParams.forEach((p: any) => {
+              const cfg = INDEX_CONFIGS.find(c => c.label === p.seriesName)
+              const color = cfg?.color || '#94a3b8'
+              leftItems.push(`<div style="display:flex;justify-content:space-between;gap:18px"><span style="color:${color}">● ${p.seriesName}</span><span>${fmt2(p.value)}</span></div>`)
+            })
+          }
 
           const rightItems: string[] = []
           const turnover = params.find((p: any) => p.seriesName === '换手率')
@@ -539,32 +644,34 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
           moveOnMouseWheel: false, // shift+滚轮 平移（关掉，避免与缩放混淆）
         },
       ],
+      // 整体上移 18px，避免左上角 topbar 文字与左侧纵轴“股价”名称重叠
       grid: isExpanded ? [
-        { left: 75, right: 16, top: 38, height: '44%' },
-        { left: 75, right: 16, top: '50%', height: '11%' },
-        { left: 75, right: 16, top: '62%', height: '11%' },
-        { left: 75, right: 16, top: '74%', height: '11%' },
-        { left: 75, right: 16, top: '86%', height: '14%' },
+        { left: 75, right: gridRight, top: 56, height: '44%' },
+        { left: 75, right: gridRight, top: '50%', height: '11%' },
+        { left: 75, right: gridRight, top: '62%', height: '11%' },
+        { left: 75, right: gridRight, top: '74%', height: '11%' },
+        { left: 75, right: gridRight, top: '86%', height: '14%' },
       ] : [
-        { left: 75, right: 16, top: 38, height: 258 },
-        { left: 75, right: 16, top: 304, height: 50 },
-        { left: 75, right: 16, top: 362, height: 50 },
-        { left: 75, right: 16, top: 420, height: 50 },
-        { left: 75, right: 16, top: 478, height: 58 },
+        { left: 75, right: gridRight, top: 56, height: 240 },
+        { left: 75, right: gridRight, top: 322, height: 50 },
+        { left: 75, right: gridRight, top: 380, height: 50 },
+        { left: 75, right: gridRight, top: 438, height: 50 },
+        { left: 75, right: gridRight, top: 496, height: 58 },
       ],
       xAxis: [
         { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval }, splitLine: { show: false }, gridIndex: 0, axisPointer: { label: { show: false } } },
         { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 1, axisPointer: { label: { show: false } } },
         { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 2, axisPointer: { label: { show: false } } },
         { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { show: false }, splitLine: { show: false }, gridIndex: 3, axisPointer: { label: { show: false } } },
-        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval }, splitLine: { show: false }, gridIndex: 4, axisPointer: { label: { show: true, backgroundColor: '#3b82f6' } } },
+        { type: 'category', data: dates, boundaryGap: true, max: xAxisMax, axisLine: { onZero: false, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisLabel: { color: '#94a3b8', fontSize: 10, interval: xAxisLabelInterval, margin: 6 }, splitLine: { show: false }, gridIndex: 4, axisPointer: { label: { show: true, backgroundColor: '#3b82f6' } } },
       ],
       yAxis: [
-        { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, gridIndex: 0, position: 'left', axisLabel: { fontSize: 10, color: '#94a3b8', margin: 10 }, splitNumber: 5, name: 'K线', nameLocation: 'middle', nameRotate: 0, nameGap: 32, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right' }, axisPointer: { label: { show: true, formatter: (params: any) => fmt2(params.value) } } },
+        { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, gridIndex: 0, position: 'left', axisLabel: { fontSize: 10, color: '#94a3b8', margin: 10 }, splitNumber: 5, name: '股价', nameLocation: 'end', nameRotate: 0, nameGap: 8, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right', verticalAlign: 'top', lineHeight: 14 }, axisPointer: { label: { show: true, formatter: (params: any) => fmt2(params.value) } } },
         { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, gridIndex: 1, position: 'left', axisLabel: { show: false }, splitNumber: 2, name: '换手', nameLocation: 'middle', nameRotate: 0, nameGap: 32, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right' }, axisPointer: { label: { show: true, formatter: (params: any) => fmt2(params.value) + '%' } } },
         { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, gridIndex: 2, position: 'left', axisLabel: { show: false }, splitNumber: 3, name: 'MACD', nameLocation: 'middle', nameRotate: 0, nameGap: 32, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right' }, axisPointer: { label: { show: true, formatter: (params: any) => fmt3(params.value) } } },
         { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, min: 0, max: 100, gridIndex: 3, position: 'left', axisLabel: { show: false }, splitNumber: 2, name: 'RSI', nameLocation: 'middle', nameRotate: 0, nameGap: 32, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right' }, axisPointer: { label: { show: true, formatter: (params: any) => fmt1(params.value) } } },
         { scale: true, splitArea: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }, gridIndex: 4, position: 'left', axisLabel: { show: false }, splitNumber: 3, name: 'BOLL', nameLocation: 'middle', nameRotate: 0, nameGap: 32, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'right' }, axisPointer: { label: { show: true, formatter: (params: any) => fmt2(params.value) } } },
+        { scale: true, splitArea: { show: false }, splitLine: { show: false }, gridIndex: 0, position: 'right', splitNumber: 6, axisLabel: { show: true, inside: false, align: 'left', fontSize: 12, fontWeight: 600, color: indexSeries[0]?.color || '#94a3b8', margin: 8, formatter: (value: any) => fmt2(value) }, axisLine: { show: true, lineStyle: { color: 'rgba(148,163,184,0.2)' } }, axisPointer: { label: { show: true, formatter: (params: any) => fmt2(params.value) } }, name: '指数', nameLocation: 'end', nameRotate: 0, nameGap: 8, nameTextStyle: { color: '#94a3b8', fontSize: 11, align: 'left', verticalAlign: 'top', lineHeight: 14 } },
       ],
       series: [
         {
@@ -615,22 +722,37 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
         { name: '上轨', type: 'line', data: bbUpper, smooth: true, lineStyle: { color: colors.bbUpper }, symbol: 'none', xAxisIndex: 4, yAxisIndex: 4, connectNulls: false, cursor: 'default' },
         { name: '中轨', type: 'line', data: bbMid, smooth: true, lineStyle: { color: colors.bbMid, width: 2 }, symbol: 'none', xAxisIndex: 4, yAxisIndex: 4, connectNulls: false, cursor: 'default' },
         { name: '下轨', type: 'line', data: bbLower, smooth: true, lineStyle: { color: colors.bbLower }, symbol: 'none', xAxisIndex: 4, yAxisIndex: 4, connectNulls: false, cursor: 'default' },
+        ...indexSeries.map(s => ({
+          name: s.name,
+          type: 'line' as const,
+          data: s.data,
+          smooth: true,
+          lineStyle: { color: s.color, width: 2, type: 'dotted' as const },
+          itemStyle: { color: s.color },
+          symbol: 'none',
+          connectNulls: true,
+          z: 10,
+          xAxisIndex: 0,
+          yAxisIndex: 5,
+          cursor: 'default' as const,
+          endLabel: {
+            show: true,
+            formatter: '{a}',
+            color: s.color,
+            fontSize: 11,
+            offset: [12, 0],
+            backgroundColor: isLightTheme ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.7)',
+            padding: [2, 4],
+            borderRadius: 3,
+          },
+        })),
       ],
     }
 
     chart.setOption(option, true)
     // isExpanded 切换时容器尺寸变化（fixed 全屏 vs flex item），需要 resize 触发 echarts 重测画布
     chart.resize()
-  }, [data, isExpanded, maConfig])
-
-  const [isLightTheme, setIsLightTheme] = useState(false)
-  useEffect(() => {
-    const check = () => setIsLightTheme(document.body.classList.contains('light'))
-    check()
-    const observer = new MutationObserver(check)
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [])
+  }, [data, isExpanded, maConfig, indexSeries, isLightTheme])
 
   const fullscreenBg = isLightTheme ? '#f8fafc' : '#0f172a'
   const btnBg = isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(30,41,59,0.9)'
@@ -717,13 +839,13 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
         zIndex: isExpanded ? 9999 : 1,
         backgroundColor: isExpanded ? fullscreenBg : 'transparent',
       }} data-chart-panel>
-        {/* 左上角：提示文字 + 刷新按钮 + 周期选择 */}
+        {/* 左上角：提示文字 + 刷新按钮 + 周期选择 + 股票名称/代码 */}
         <div style={{
           position: 'absolute', top: 12, left: 12, zIndex: 10000,
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
           <span style={{ color: hintText, fontSize: 11, pointerEvents: 'none' }}>
-            {isExpanded ? '双击 / Esc 关闭' : '双击能扩展到全窗口'}
+            {isExpanded ? '双击 / Esc 关闭' : '双击扩展'}
           </span>
           <button onClick={handleRefresh} disabled={refreshing} title="重新拉取全量历史K线（绕过缓存）" style={{
             padding: '4px 10px', borderRadius: 4,
@@ -765,12 +887,56 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
               )
             })}
           </div>
+
+          {/* 大盘指数叠加开关 */}
+          {period !== 'intraday' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+              {INDEX_CONFIGS.map((cfg) => {
+                const active = !!selectedIndices[cfg.code]
+                return (
+                  <button
+                    key={cfg.code}
+                    onClick={() => setSelectedIndices(prev => {
+                      // 排他单选：再次点击已选中项则取消，否则只选中当前项
+                      if (prev[cfg.code]) return {}
+                      return { [cfg.code]: true }
+                    })}
+                    title={`${cfg.label}（右侧纵轴真实点位，单选）`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '3px 8px 3px 6px',
+                      borderRadius: 999,
+                      border: '1px solid',
+                      borderColor: active ? cfg.color : 'rgba(148,163,184,0.25)',
+                      background: active ? `${cfg.color}22` : btnBg,
+                      color: active ? cfg.color : btnText,
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      opacity: active ? 1 : 0.8,
+                    }}
+                  >
+                    <span style={{
+                      width: 10, height: 10, borderRadius: '50%',
+                      background: cfg.color,
+                      boxShadow: active ? `0 0 0 2px ${cfg.color}44` : 'none',
+                    }} />
+                    <span>{cfg.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* 股票名称/代码 */}
+          <span style={{ color: btnText, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+            {name ? `${name} (${code})` : code}
+          </span>
         </div>
 
         {/* K线图内部上方：均线数值标签 */}
         {period !== 'intraday' && (
           <div ref={maRowRef} style={{
-            position: 'absolute', top: 46, zIndex: 9999,
+            position: 'absolute', top: 64, zIndex: 9999,
             display: 'flex', alignItems: 'center', gap: 8,
             pointerEvents: 'none',
           }}>
@@ -795,10 +961,10 @@ export function UnifiedChart({ code, quote: propQuote, initialExpanded, onClose 
             onClick={() => setShowSettings(true)}
             title="均线设置"
             style={{
-              padding: '2px 7px', borderRadius: 4,
+              padding: '6px 10px', borderRadius: 4,
               border: '1px solid rgba(148,163,184,0.3)',
               background: btnBg, color: btnText,
-              fontSize: 15, cursor: 'pointer',
+              fontSize: 18, cursor: 'pointer',
               lineHeight: 1,
             }}
           >

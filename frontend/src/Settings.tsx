@@ -814,7 +814,7 @@ export function Settings({
                             <input
                               type="number"
                               min={1}
-                              max={72}
+                              max={720}
                               value={aiCfg.cache_ttl_hours}
                               onChange={(e) => setAiCfg({ ...aiCfg, cache_ttl_hours: parseInt(e.target.value, 10) || 6 })}
                             />

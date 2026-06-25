@@ -90,7 +90,7 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
         </div>
       )}
 
-      {loading && !report && (
+      {loading && (
         <div className="ai-research-loading">
           <div className="ai-research-spinner" />
           <div>{progress?.message || '正在搜索并分析相关信息，请稍候...'}</div>
@@ -132,7 +132,7 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
         </div>
       )}
 
-      {report && (
+      {report && !loading && (
         <div ref={contentRef} className="ai-research-content">
           <div className="ai-research-disclaimer">
             ⚠️ AI 分析仅供参考，请以上市公司公告和官方数据为准。

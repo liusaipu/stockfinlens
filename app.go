@@ -31,6 +31,15 @@ import (
 )
 
 // debugLog 直接写入日志文件，确保日志被记录
+func isIndexSymbol(symbol string) bool {
+	switch symbol {
+	case "000001.SH", "399001.SZ", "399006.SZ":
+		return true
+	default:
+		return false
+	}
+}
+
 func debugLog(format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 
@@ -1745,6 +1754,26 @@ func (a *App) GetStockKlines(symbol string, period string) ([]downloader.KlineDa
 	if a.storage == nil {
 		return nil, fmt.Errorf("存储未初始化")
 	}
+
+	// 大盘指数（上证综指/深证成指/创业板指）走专用通道：绕过 SFL 与普通多源回退，
+	// 直接用最稳定的腾讯财经接口，避免 SFL 不支持指数导致后续源也失败。
+	if isIndexSymbol(symbol) {
+		parts := strings.Split(symbol, ".")
+		code := parts[0]
+		market := strings.ToUpper(parts[1])
+		debugLog("[GetStockKlines] %s is index, use dedicated FetchIndexKlines", symbol)
+		klist, err := downloader.FetchIndexKlines(a.ctx, market, code, 2500, period)
+		if err != nil {
+			debugLog("[GetStockKlines] %s index fetch error: %v", symbol, err)
+			return nil, err
+		}
+		if len(klist) > 0 {
+			last := klist[len(klist)-1]
+			debugLog("[GetStockKlines] %s index fetched %d klines, last={Time:%s Close:%.2f}", symbol, len(klist), last.Time, last.Close)
+		}
+		return klist, nil
+	}
+
 	// 缓存命中阈值放宽到 100(基本是"非空检查"):港股新股(上市不到 8 年)总条数可能 < 2000,
 	// 旧的 375 条 A 股缓存也允许复用。分析时会写入更全的数据，自然刷新。
 	if cached, err := a.storage.LoadStockKlines(symbol, period); err == nil && len(cached) >= 100 {
@@ -1873,7 +1902,10 @@ func (a *App) RefreshStockKlines(symbol string, period string) ([]downloader.Kli
 
 	var klist []downloader.KlineData
 	var err error
-	if a.dataRouter != nil {
+	if isIndexSymbol(symbol) {
+		debugLog("[RefreshStockKlines] %s is index, use dedicated FetchIndexKlines", symbol)
+		klist, err = downloader.FetchIndexKlines(a.ctx, market, code, 2500, period)
+	} else if a.dataRouter != nil {
 		klist, err = a.dataRouter.FetchKlines(a.ctx, market, code, 2500, period)
 	} else {
 		klist, err = downloader.FetchStockKlines(a.ctx, market, code, 2500, period)
@@ -3438,6 +3470,69 @@ func (a *App) LoadAIResearchReport(symbol string) (*ai_researcher.AIResearchRepo
 		return nil, fmt.Errorf("加载 AI 投研缓存失败: %w", err)
 	}
 	return report, nil
+}
+
+// GetMarginHistory 获取指定股票的融资融券历史数据
+// forceRefresh 为 true 时跳过本地缓存，强制从东方财富重新拉取
+func (a *App) GetMarginHistory(symbol string, forceRefresh bool) ([]downloader.MarginData, error) {
+	fmt.Printf("[App.GetMarginHistory] symbol=%s forceRefresh=%v\n", symbol, forceRefresh)
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	if symbol == "" {
+		return nil, fmt.Errorf("股票代码不能为空")
+	}
+
+	// 1. 先尝试读取缓存
+	if !forceRefresh {
+		cached, err := a.storage.LoadMarginHistory(symbol)
+		if err != nil {
+			return nil, fmt.Errorf("加载融资融券缓存失败: %w", err)
+		}
+		if len(cached) > 0 {
+			fmt.Printf("[App.GetMarginHistory] %s cache hit, len=%d\n", symbol, len(cached))
+			return cached, nil
+		}
+	}
+
+	// 2. 从东方财富获取
+	list, err := downloader.FetchMarginHistory(symbol)
+	if err != nil {
+		fmt.Printf("[App.GetMarginHistory] %s fetch error: %v\n", symbol, err)
+		return nil, fmt.Errorf("获取融资融券数据失败: %w", err)
+	}
+	if len(list) == 0 {
+		fmt.Printf("[App.GetMarginHistory] %s no data\n", symbol)
+		return nil, fmt.Errorf("该股票暂无融资融券数据")
+	}
+
+	// 3. 保存缓存
+	if err := a.storage.SaveMarginHistory(symbol, list); err != nil {
+		fmt.Printf("[Margin] 保存 %s 历史缓存失败: %v\n", symbol, err)
+	}
+	fmt.Printf("[App.GetMarginHistory] %s fetched len=%d\n", symbol, len(list))
+	return list, nil
+}
+
+// GetLatestMargin 获取指定股票最新一日融资融券数据
+func (a *App) GetLatestMargin(symbol string) (*downloader.MarginData, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	if symbol == "" {
+		return nil, fmt.Errorf("股票代码不能为空")
+	}
+
+	list, err := a.GetMarginHistory(symbol, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(list) == 0 {
+		return nil, fmt.Errorf("该股票暂无融资融券数据")
+	}
+	// 历史数据按日期升序排列，最后一条为最新
+	latest := list[len(list)-1]
+	return &latest, nil
 }
 
 // reloadDataRouter 根据当前配置重新加载数据源路由

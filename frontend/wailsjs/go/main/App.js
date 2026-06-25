@@ -150,6 +150,14 @@ export function GetIntradayMinutes(arg1) {
   return window['go']['main']['App']['GetIntradayMinutes'](arg1);
 }
 
+export function GetLatestMargin(arg1) {
+  return window['go']['main']['App']['GetLatestMargin'](arg1);
+}
+
+export function GetMarginHistory(arg1, arg2) {
+  return window['go']['main']['App']['GetMarginHistory'](arg1, arg2);
+}
+
 export function GetMarketCacheStatus() {
   return window['go']['main']['App']['GetMarketCacheStatus']();
 }

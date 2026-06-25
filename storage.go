@@ -1244,3 +1244,87 @@ func (s *Storage) SaveAIResearchCache(symbol string, report *ai_researcher.AIRes
 	}
 	return os.WriteFile(path, data, 0644)
 }
+
+// MarginDailyDir 返回每日全市场融资融券数据目录
+func (s *Storage) MarginDailyDir() string {
+	return filepath.Join(s.dataDir, "data", "margin", "daily")
+}
+
+// MarginDailyPath 返回指定日期的全市场融资融券缓存路径
+func (s *Storage) MarginDailyPath(date string) string {
+	date = strings.ReplaceAll(date, "-", "")
+	return filepath.Join(s.MarginDailyDir(), date+".json")
+}
+
+// LoadMarginDaily 加载指定日期的全市场融资融券缓存
+func (s *Storage) LoadMarginDaily(date string) ([]downloader.MarginData, error) {
+	path := s.MarginDailyPath(date)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var list []downloader.MarginData
+	if err := json.Unmarshal(data, &list); err != nil {
+		return nil, fmt.Errorf("解析融资融券日缓存失败: %w", err)
+	}
+	return list, nil
+}
+
+// SaveMarginDaily 保存指定日期的全市场融资融券缓存
+func (s *Storage) SaveMarginDaily(date string, list []downloader.MarginData) error {
+	if len(list) == 0 {
+		return nil
+	}
+	dir := s.MarginDailyDir()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("创建融资融券缓存目录失败: %w", err)
+	}
+	path := s.MarginDailyPath(date)
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化融资融券日缓存失败: %w", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+// MarginHistoryPath 返回个股融资融券历史缓存路径
+func (s *Storage) MarginHistoryPath(symbol string) string {
+	return filepath.Join(s.dataDir, "data", symbol, "margin_history.json")
+}
+
+// LoadMarginHistory 加载个股融资融券历史缓存
+func (s *Storage) LoadMarginHistory(symbol string) ([]downloader.MarginData, error) {
+	path := s.MarginHistoryPath(symbol)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var list []downloader.MarginData
+	if err := json.Unmarshal(data, &list); err != nil {
+		return nil, fmt.Errorf("解析融资融券历史缓存失败: %w", err)
+	}
+	return list, nil
+}
+
+// SaveMarginHistory 保存个股融资融券历史缓存
+func (s *Storage) SaveMarginHistory(symbol string, list []downloader.MarginData) error {
+	if len(list) == 0 {
+		return nil
+	}
+	dir, err := s.EnsureStockDataDir(symbol)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "margin_history.json")
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化融资融券历史缓存失败: %w", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}

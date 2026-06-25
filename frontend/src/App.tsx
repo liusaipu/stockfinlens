@@ -5,6 +5,7 @@ import { UnifiedChart } from './UnifiedChart'
 import { FinancialTrendChart } from './FinancialTrendChart'
 import { FinancialTrendDrawer } from './FinancialTrendDrawer'
 import { AIResearchPanel } from './AIResearchPanel'
+import { MarginDrawer } from './MarginDrawer'
 import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
@@ -395,7 +396,7 @@ function App() {
   const [moneyflow, setMoneyflow] = useState<main.StockMoneyflowResult | null>(null)
   const [todayMoneyflowExpanded, setTodayMoneyflowExpanded] = useState(true)
   const [recentMoneyflowExpanded, setRecentMoneyflowExpanded] = useState(true)
-  const [moneyflowUpdatedAt, setMoneyflowUpdatedAt] = useState<number | null>(null)
+
   const [moneyflowRefreshing, setMoneyflowRefreshing] = useState(false)
   const [sflConfig, setSflConfig] = useState<main.SFLConfig | null>(null)
 
@@ -486,6 +487,7 @@ function App() {
   const [forceAnalyzeOpen, setForceAnalyzeOpen] = useState(false)
   const [lastAnalysisAt, setLastAnalysisAt] = useState('')
   const [trendDrawerCode, setTrendDrawerCode] = useState<string | null>(null)
+  const [marginDrawerCode, setMarginDrawerCode] = useState<string | null>(null)
   const [klineFullscreen, setKlineFullscreen] = useState(false)
   const [riskRadar, setRiskRadar] = useState<RiskRadarItem[] | null>(null)
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
@@ -1074,10 +1076,8 @@ function App() {
       const days = cfg?.moneyflow_days || 3
       const mf = await GetStockMoneyflow(code, days)
       setMoneyflow(mf || null)
-      setMoneyflowUpdatedAt(Date.now())
     } catch {
       setMoneyflow(null)
-      setMoneyflowUpdatedAt(null)
     }
   }, [])
 
@@ -2414,7 +2414,7 @@ function App() {
       const stockName = selectedStock?.name || ''
       // 图表占位代码块（fenced code block，有 language-xxx className）
       if (lang === 'chart-unified' && stockCode) {
-        return <UnifiedChart code={stockCode} quote={quote || undefined} />
+        return <UnifiedChart code={stockCode} name={stockName} quote={quote || undefined} />
       }
       if (lang === 'chart-financial-trend' && stockCode) {
         return <FinancialTrendChart code={stockCode} name={stockName} />
@@ -3126,63 +3126,7 @@ function App() {
                 <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedStock.name}</span>
                 <span className="stock-sub" style={{ fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedStock.code}</span>
               </h1>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8, flexShrink: 0 }}>
-                <button
-                  className="stock-info-refresh"
-                  onClick={() => setKlineFullscreen(true)}
-                  title="全窗口查看 K线 + 技术指标联动分析图"
-                  disabled={!selectedStock}
-                  style={{
-                    background: '#ef444420',
-                    border: '1px solid #ef444480',
-                    color: '#ef4444',
-                    padding: '3px 8px',
-                    borderRadius: 4,
-                    fontSize: 11,
-                    cursor: selectedStock ? 'pointer' : 'not-allowed',
-                    transition: 'all .15s ease',
-                    opacity: selectedStock ? 1 : 0.5,
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!selectedStock) return
-                    e.currentTarget.style.background = '#ef444435'
-                    e.currentTarget.style.borderColor = '#ef4444'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#ef444420'
-                    e.currentTarget.style.borderColor = '#ef444480'
-                  }}
-                >
-                  K线
-                </button>
-                <button
-                  className="stock-info-refresh"
-                  onClick={() => setTrendDrawerCode(selectedStock!.code)}
-                  title="查看近5年财务指标趋势"
-                  style={{
-                    background: '#10b98120',
-                    border: '1px solid #10b98180',
-                    color: '#10b981',
-                    padding: '3px 8px',
-                    borderRadius: 4,
-                    fontSize: 11,
-                    cursor: 'pointer',
-                    transition: 'all .15s ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#10b98135'
-                    e.currentTarget.style.borderColor = '#10b981'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#10b98120'
-                    e.currentTarget.style.borderColor = '#10b98180'
-                  }}
-                >
-                  财务趋势
-                </button>
-              </div>
+
             </div>
 
             <div className="info-panel-scroll">
@@ -3501,11 +3445,62 @@ function App() {
                             当日数据暂未更新
                           </div>
                         )}
-                        {moneyflowUpdatedAt && (
-                          <div style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', marginTop: 6, textAlign: 'right' }}>
-                            更新于 {new Date(moneyflowUpdatedAt).toLocaleTimeString('zh-CN', { hour12: false })}
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                          <button
+                            className="btn-text"
+                            onClick={() => setKlineFullscreen(true)}
+                            disabled={!selectedStock}
+                            style={{
+                              fontSize: 10,
+                              color: '#ef4444',
+                              padding: '2px 6px',
+                              borderRadius: 3,
+                              border: '1px solid rgba(239,68,68,0.4)',
+                              background: 'rgba(239,68,68,0.08)',
+                              cursor: selectedStock ? 'pointer' : 'not-allowed',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="全窗口查看 K线 + 技术指标联动分析图"
+                          >
+                            K线
+                          </button>
+                          <button
+                            className="btn-text"
+                            onClick={() => selectedStock && setMarginDrawerCode(selectedStock.code)}
+                            disabled={!selectedStock}
+                            style={{
+                              fontSize: 10,
+                              color: '#f59e0b',
+                              padding: '2px 6px',
+                              borderRadius: 3,
+                              border: '1px solid rgba(245,158,11,0.4)',
+                              background: 'rgba(245,158,11,0.08)',
+                              cursor: selectedStock ? 'pointer' : 'not-allowed',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="查看融资融券与股价叠加图"
+                          >
+                            融资融券
+                          </button>
+                          <button
+                            className="btn-text"
+                            onClick={() => setTrendDrawerCode(selectedStock!.code)}
+                            style={{
+                              fontSize: 10,
+                              color: '#10b981',
+                              padding: '2px 6px',
+                              borderRadius: 3,
+                              border: '1px solid rgba(16,185,129,0.4)',
+                              background: 'rgba(16,185,129,0.08)',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="查看近5年财务指标趋势"
+                          >
+                            财务趋势
+                          </button>
+                        </div>
+
                       </div>
                     )}
                   </div>
@@ -4793,12 +4788,22 @@ function App() {
         />
       )}
 
+      {marginDrawerCode && (
+        <MarginDrawer
+          code={marginDrawerCode}
+          name={selectedStock?.name}
+          onClose={() => setMarginDrawerCode(null)}
+        />
+      )}
+
+
 
 
       {/* 技术图全窗口（K线 + 技术指标联动） */}
       {klineFullscreen && selectedStock && (
         <UnifiedChart
           code={selectedStock.code}
+          name={selectedStock.name}
           quote={quote || undefined}
           initialExpanded
           onClose={() => setKlineFullscreen(false)}

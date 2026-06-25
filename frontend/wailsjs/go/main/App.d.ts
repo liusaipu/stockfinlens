@@ -80,6 +80,10 @@ export function GetIndustryTaskStatus():Promise<Record<string, any>>;
 
 export function GetIntradayMinutes(arg1:string):Promise<downloader.IntradayData>;
 
+export function GetLatestMargin(arg1:string):Promise<downloader.MarginData>;
+
+export function GetMarginHistory(arg1:string,arg2:boolean):Promise<Array<downloader.MarginData>>;
+
 export function GetMarketCacheStatus():Promise<Record<string, any>>;
 
 export function GetModule4Status(arg1:string):Promise<boolean>;

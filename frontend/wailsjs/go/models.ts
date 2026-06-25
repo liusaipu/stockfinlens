@@ -1175,6 +1175,50 @@ export namespace downloader {
 	        this.turnoverRate = source["turnoverRate"];
 	    }
 	}
+	export class MarginData {
+	    date: string;
+	    code: string;
+	    name: string;
+	    market: string;
+	    rzye: number;
+	    rqmcl: number;
+	    rqyl: number;
+	    rzrqye: number;
+	    rqye: number;
+	    rzmre: number;
+	    rzche: number;
+	    rzjme: number;
+	    rzyezb: number;
+	    spj: number;
+	    zdf: number;
+	    trade_market_code: string;
+	    trade_market: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MarginData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.date = source["date"];
+	        this.code = source["code"];
+	        this.name = source["name"];
+	        this.market = source["market"];
+	        this.rzye = source["rzye"];
+	        this.rqmcl = source["rqmcl"];
+	        this.rqyl = source["rqyl"];
+	        this.rzrqye = source["rzrqye"];
+	        this.rqye = source["rqye"];
+	        this.rzmre = source["rzmre"];
+	        this.rzche = source["rzche"];
+	        this.rzjme = source["rzjme"];
+	        this.rzyezb = source["rzyezb"];
+	        this.spj = source["spj"];
+	        this.zdf = source["zdf"];
+	        this.trade_market_code = source["trade_market_code"];
+	        this.trade_market = source["trade_market"];
+	    }
+	}
 	export class PolicyUpdateResult {
 	    success: boolean;
 	    path: string;

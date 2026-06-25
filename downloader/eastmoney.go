@@ -1198,6 +1198,59 @@ func FetchStockKlines(ctx context.Context, market, code string, limit int, perio
 	return nil, fmt.Errorf("所有K线数据源均不可用 (腾讯/网易/东财)")
 }
 
+// FetchIndexKlines 专门拉取大盘指数 K 线，绕过 SFL/网易/Yahoo 等可能不支持指数的源，
+// 直接走腾讯财经（sh000001/sz399001/sz399006 均支持）。
+// 注意：腾讯指数 K 线对 limit>2000 会返回空 schema，因此内部会限制为 2000。
+func FetchIndexKlines(ctx context.Context, market, code string, limit int, period string) ([]KlineData, error) {
+	if period == "" {
+		period = "daily"
+	}
+	// 腾讯指数接口 limit 超过 2000 会返回空/异常 schema
+	if limit > 2000 {
+		limit = 2000
+	}
+	fmt.Printf("[FetchIndexKlines] trying Tencent for %s.%s, limit=%d, period=%s\n", market, code, limit, period)
+	klines, err := fetchKlinesFromTencent(ctx, market, code, limit, period)
+	if err == nil && len(klines) > 0 {
+		fmt.Printf("[FetchIndexKlines] Tencent returned %d klines for %s.%s\n", len(klines), market, code)
+		return klines, nil
+	}
+	if err != nil {
+		fmt.Printf("[FetchIndexKlines] Tencent failed for %s.%s: %v\n", market, code, err)
+	}
+
+	// 兜底：东方财富指数 K 线（不复权，klt=101/102/103）
+	var secid string
+	switch strings.ToUpper(market) {
+	case "SH":
+		secid = "1." + code
+	case "SZ":
+		secid = "0." + code
+	default:
+		secid = "0." + code
+	}
+	klt := periodToEastMoneyKlt(period)
+	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?ut=fa5fd1943c7b386f172d6893dbfba10b&secid=%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116&klt=%s&fqt=0&beg=0&end=20500101&rtntype=6&lmt=%d", secid, klt, limit)
+	fmt.Printf("[FetchIndexKlines] trying EastMoney: %s\n", url)
+	body, err := httpGetWithReferer(ctx, url, "https://quote.eastmoney.com/")
+	if err == nil {
+		var resp struct {
+			Data struct {
+				Klines []string `json:"klines"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(body, &resp) == nil && len(resp.Data.Klines) > 0 {
+			fmt.Printf("[FetchIndexKlines] EastMoney returned %d klines, first=%s\n", len(resp.Data.Klines), resp.Data.Klines[0])
+			return parseEastMoneyKlines(resp.Data.Klines), nil
+		}
+	}
+	if err != nil {
+		fmt.Printf("[FetchIndexKlines] EastMoney failed for %s.%s: %v\n", market, code, err)
+	}
+
+	return nil, fmt.Errorf("指数 K 线数据源均不可用 (腾讯/东财)")
+}
+
 func parseEastMoneyKlines(lines []string) []KlineData {
 	var result []KlineData
 	if len(lines) == 0 {
