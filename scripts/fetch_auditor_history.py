@@ -116,6 +116,15 @@ ABNORMAL_KEYWORDS = [
     "辞任", "辞聘", "主动辞任", "被解聘",
 ]
 
+# 已知曾被证监会行政处罚或暂停证券业务的事务所名单
+# 格式：事务所简称 -> [(处罚开始日, 处罚结束日/预计结束日), ...]
+# 变更日期落在处罚期内或结束后 90 天内，视为公司被动更换，不列为风险
+PENALIZED_AUDITORS = {
+    "天职国际": [("2024-08-01", "2025-02-01")],
+    "普华永道": [("2024-09-01", "2025-03-01")],
+    "大华": [("2024-05-01", "2024-11-01")],
+}
+
 
 def infer_change_reason(title: str) -> str:
     """从标题推断变更原因"""
@@ -170,6 +179,33 @@ def is_before_annual_report(date_str: str) -> tuple:
         return False, ""
 
 
+def is_penalized_passive_change(old_auditor: str, change_date_str: str) -> bool:
+    """根据已知的受罚事务所名单，判断是否为被动更换
+    变更日期落在处罚期内或结束后 90 天内，视为被动更换
+    """
+    if not old_auditor or not change_date_str:
+        return False
+    try:
+        change_dt = datetime.strptime(change_date_str, "%Y-%m-%d")
+    except Exception:
+        return False
+
+    for key, periods in PENALIZED_AUDITORS.items():
+        # 支持简称和全名的互相包含匹配
+        if key not in old_auditor and old_auditor not in key:
+            continue
+        for start_str, end_str in periods:
+            try:
+                start_dt = datetime.strptime(start_str, "%Y-%m-%d")
+                end_dt = datetime.strptime(end_str, "%Y-%m-%d")
+                # 处罚期内 + 结束后 90 天缓冲期
+                if start_dt <= change_dt <= end_dt + timedelta(days=90):
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 def build_change_details(announcements: list) -> list:
     """从公告列表中构建结构化变更详情"""
     change_details = []
@@ -211,6 +247,11 @@ def build_change_details(announcements: list) -> list:
         if is_normal_flag and is_abnormal_flag:
             is_normal_flag = False
 
+        # 标题关键词判断 + 受罚事务所名单双重判定被动更换
+        is_passive_flag = is_passive_change(title)
+        if not is_passive_flag and old_auditor:
+            is_passive_flag = is_penalized_passive_change(old_auditor, date)
+
         change_details.append({
             "date": date,
             "old_auditor": old_auditor,
@@ -221,7 +262,7 @@ def build_change_details(announcements: list) -> list:
             "raw_title": title,
             "is_policy_compliance": is_policy_compliance_change(title),
             "is_abnormal": is_abnormal_flag,
-            "is_passive_change": is_passive_change(title),
+            "is_passive_change": is_passive_flag,
             "is_normal_rotation": is_normal_flag,
         })
     

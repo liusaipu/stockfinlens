@@ -6,6 +6,8 @@
 
 **基于 Wails + Go + React 的跨平台股票财报透视工具**
 
+集成 **AI 投研助手**：Tavily 联网搜索 + Kimi/DeepSeek 大模型，一键生成带信源的结构化投研报告。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.22-blue)](https://golang.org)
 [![Stars](https://img.shields.io/github/stars/liusaipu/stockfinlens?style=social)](https://github.com/liusaipu/stockfinlens/stargazers)
@@ -133,6 +135,7 @@ A-Score = 财务造假层(60%) + 破产风险层(20%) + 非财务信号层(20%)
 - 悲观/基准/乐观三情景输出具体内在价值与投资建议
 - 支持手动调整参数实时重算
 
+
 ### 🤖 ML 智能预测
 
 本地 ONNX 三引擎推理，无需联网：
@@ -141,6 +144,18 @@ A-Score = 财务造假层(60%) + 破产风险层(20%) + 非财务信号层(20%)
 - **财务引擎**（Engine B）：BiLSTM 财务序列趋势预测
 - **风险引擎**（Engine D）：LightGBM 事前风险预警
 - 预测结果带高/中/低置信度标识
+
+### 🧠 AI 投研助手
+
+一键生成结构化投研报告，覆盖 **基本面、行业景气、市场情绪、风险事件** 四个维度：
+
+- **联网搜索**：基于 Tavily 同时发起多维度查询，自动过滤低质量域名
+- **大模型提炼**：支持 Kimi / DeepSeek 等 OpenAI-compatible 接口，生成带结论与信源的结构化报告
+- **可配置参数**：模型、Base URL、Temperature、搜索深度、结果数量、时效范围、输出语言等均可自定义
+- **本地缓存**：按股票代码缓存搜索结果与报告，默认 6 小时，避免重复调用
+- **信源追溯**：每条结论均可展开查看原始网页来源与引用链接
+
+配置文件位置：`~/.config/stock-analyzer/ai_config.json`
 
 ---
 
@@ -272,6 +287,7 @@ wails build
 - [x] 技术形态识别与交易活跃度评分
 - [x] RIM 剩余收益模型估值
 - [x] ML 三引擎本地推理 (ONNX)
+- [x] AI 投研助手（Tavily 联网搜索 + Kimi/DeepSeek 大模型）
 - [x] Python 依赖自动检测与一键安装
 - [x] 数据源自动切换与质量修复
 - [x] 自动更新（GitHub Release 检测）

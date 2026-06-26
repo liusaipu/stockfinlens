@@ -10,7 +10,7 @@
 **StockFinLens（股票财报透镜）** 是一款基于 Wails v2 的跨平台桌面股票财报透视分析工具，支持 A 股与港股。它通过多层分析引擎（财报透镜财务透视、A-Score 风险评分、可比公司横向对比、ML 三引擎预测、RIM 估值、技术形态与交易活跃度分析等）生成深度 Markdown 分析报告。
 
 - **模块名**: `github.com/liusaipu/stockfinlens`
-- **当前版本**: `1.8.0`（唯一来源：`wails.json` 的 `info.productVersion`；前端 `Settings.tsx` 通过 Vite `define` 在构建期注入 `__APP_VERSION__`，**不再硬编码**）
+- **当前版本**: `1.8.1`（唯一来源：`wails.json` 的 `info.productVersion`；前端 `Settings.tsx` 通过 Vite `define` 在构建期注入 `__APP_VERSION__`，**不再硬编码**）
 - **本地数据目录**: `~/.config/stock-analyzer/`
 
 ## 技术栈
@@ -298,7 +298,7 @@ cd frontend && npm test
 
 ### 构建注意事项
 
-1. **版本号唯一来源**: `wails.json` 中的 `info.productVersion` 是应用版本的**唯一来源**。前端通过 `frontend/vite.config.ts` 在构建期读取并以 `define` 注入全局常量 `__APP_VERSION__`，`Settings.tsx` 直接引用该常量，**禁止重新硬编码**。构建脚本不再做一致性校验（版本自然一致）。当前版本为 `1.8.0`。
+1. **版本号唯一来源**: `wails.json` 中的 `info.productVersion` 是应用版本的**唯一来源**。前端通过 `frontend/vite.config.ts` 在构建期读取并以 `define` 注入全局常量 `__APP_VERSION__`，`Settings.tsx` 直接引用该常量，**禁止重新硬编码**。构建脚本不再做一致性校验（版本自然一致）。当前版本为 `1.8.1`。
 2. **前端 dist 重建**: 如果前端代码有变更，构建前必须确保 `frontend/dist` 是最新的。Wails `build` 在 `dist` 已存在时可能跳过前端构建，导致打包旧代码。`build-release.sh` 会强制先执行 `cd frontend && npm run build`。Windows 构建建议同样手动前置该步骤。
 3. **打包产物必须包含**: `ml_models/` 和 `scripts/` 目录。Go 后端在运行时会从可执行文件同级目录查找这些路径。
 4. **开发模式 vs 生产模式**: `main.go` 中 `readStockJSON()` 优先读取本地 `data/stocks.json`，打包后 fallback 到 `embed.FS`。

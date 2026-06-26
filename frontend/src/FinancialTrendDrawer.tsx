@@ -9,6 +9,16 @@ interface Props {
   onClose: () => void
 }
 
+function useEscClose(onClose: () => void) {
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handle)
+    return () => document.removeEventListener('keydown', handle)
+  }, [onClose])
+}
+
 type MetricKey = 'roe' | 'grossMargin' | 'revenueGrowth' | 'cashContent' | 'debtRatio'
 
 interface MetricConfig {
@@ -26,6 +36,7 @@ const METRICS: MetricConfig[] = [
 ]
 
 export function FinancialTrendDrawer({ code, name, onClose }: Props) {
+  useEscClose(onClose)
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
   const [data, setData] = useState<main.FinancialTrendsData | null>(null)
@@ -236,18 +247,6 @@ export function FinancialTrendDrawer({ code, name, onClose }: Props) {
               )}
             </div>
           )}
-        </div>
-
-        <div
-          style={{
-            padding: '10px 16px',
-            borderTop: '1px solid rgba(148,163,184,0.1)',
-            color: '#64748b',
-            fontSize: 12,
-            textAlign: 'center',
-          }}
-        >
-          数据来源：本地财报（最近5年）
         </div>
       </div>
     </div>

@@ -19,8 +19,19 @@ function useIsLightTheme(): boolean {
   return isLight
 }
 
+function useEscClose(onClose: () => void) {
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handle)
+    return () => document.removeEventListener('keydown', handle)
+  }, [onClose])
+}
+
 export function MarginDrawer({ code, name, onClose }: Props) {
   const isLight = useIsLightTheme()
+  useEscClose(onClose)
 
   return (
     <div
@@ -64,21 +75,6 @@ export function MarginDrawer({ code, name, onClose }: Props) {
           <div style={{ fontSize: 15, fontWeight: 600, color: isLight ? '#1f2937' : '#e2e8f0' }}>
             融资融券{name ? `-${name}` : ''}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: isLight ? '#64748b' : '#94a3b8',
-              fontSize: 20,
-              cursor: 'pointer',
-              lineHeight: 1,
-              padding: '0 4px',
-            }}
-            title="关闭"
-          >
-            ×
-          </button>
         </div>
 
         <div style={{ flex: 1, padding: 8, overflow: 'hidden' }}>

@@ -830,32 +830,41 @@ export function UnifiedChart({ code, name, quote: propQuote, initialExpanded, on
     saveMAConfig(newConfig)
   }
 
-  // 外层包装:isExpanded=true 时完全脱离正常布局(0×0 fixed),避免在 App.tsx 顶层挂载时
-  // 作为 flex item 挤压中栏宽度;子元素仍以自身 fixed 定位铺满 viewport。
+  // 外层包装:isExpanded=true 时作为弹出窗口居中显示，占当前软件窗口 80% 大小
   const outerStyle: CSSProperties = isExpanded
-    ? { position: 'fixed', top: 0, left: 0, width: 0, height: 0, overflow: 'visible', zIndex: 9999 }
+    ? {
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      }
     : { width: '100%', height: '560px', position: 'relative' }
 
   const overlayBg = isLightTheme ? 'rgba(243, 244, 246, 0.85)' : 'rgba(15, 23, 42, 0.85)'
 
   return (
-    <div style={outerStyle}>
-      <div style={{
-        width: isExpanded ? '100vw' : '100%',
-        height: isExpanded ? '100vh' : '100%',
-        position: isExpanded ? 'fixed' : 'relative',
-        top: 0, left: 0,
-        zIndex: isExpanded ? 9999 : 1,
-        backgroundColor: isExpanded ? fullscreenBg : 'transparent',
-      }} data-chart-panel>
+    <div
+      style={outerStyle}
+      onClick={() => { if (isExpanded) onClose?.() }}
+    >
+      <div
+        style={{
+          width: isExpanded ? '80vw' : '100%',
+          height: isExpanded ? '80vh' : '100%',
+          position: 'relative',
+          borderRadius: isExpanded ? 8 : 0,
+          boxShadow: isExpanded ? '0 25px 50px -12px rgba(0, 0, 0, 0.5)' : 'none',
+          overflow: 'hidden',
+          zIndex: isExpanded ? 10000 : 1,
+          backgroundColor: isExpanded ? fullscreenBg : 'transparent',
+        }}
+        data-chart-panel
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 左上角：提示文字 + 刷新按钮 + 周期选择 + 股票名称/代码 */}
         <div style={{
           position: 'absolute', top: 12, left: 12, zIndex: 10000,
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ color: hintText, fontSize: 11, pointerEvents: 'none' }}>
-            {isExpanded ? '双击 / Esc 关闭' : '双击扩展'}
-          </span>
           <button onClick={handleRefresh} disabled={refreshing} title="重新拉取全量历史K线（绕过缓存）" style={{
             padding: '4px 10px', borderRadius: 4,
             border: '1px solid rgba(148,163,184,0.3)',
@@ -970,14 +979,15 @@ export function UnifiedChart({ code, name, quote: propQuote, initialExpanded, on
             onClick={() => setShowSettings(true)}
             title="均线设置"
             style={{
-              padding: '6px 10px', borderRadius: 4,
+              padding: '4px 10px', borderRadius: 4,
               border: '1px solid rgba(148,163,184,0.3)',
               background: btnBg, color: btnText,
-              fontSize: 18, cursor: 'pointer',
-              lineHeight: 1,
+              fontSize: 12, cursor: 'pointer',
+              lineHeight: 1.3,
+              whiteSpace: 'nowrap',
             }}
           >
-            ⚙
+            均线设置
           </button>
         </div>
 

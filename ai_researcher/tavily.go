@@ -78,8 +78,9 @@ func (c *TavilyClient) Search(ctx context.Context, query string, includeDomains 
 			return result, nil
 		}
 		lastErr = err
-		// 400 等客户端错误不重试
-		if strings.Contains(err.Error(), "状态码 400") {
+		// 400 / 额度用完 等客户端错误不重试
+		if strings.Contains(err.Error(), "状态码 400") ||
+			strings.Contains(err.Error(), "额度已用完") {
 			return nil, err
 		}
 	}
@@ -131,7 +132,12 @@ func (c *TavilyClient) searchOnce(ctx context.Context, query string, includeDoma
 		return nil, fmt.Errorf("读取 Tavily 响应失败: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Tavily 返回错误状态码 %d: %s", resp.StatusCode, string(body))
+		bodyStr := string(body)
+		// 432 = 超出套餐额度，直接给出可阅读提示，避免无意义重试
+		if resp.StatusCode == 432 || strings.Contains(bodyStr, "exceeds your plan") || strings.Contains(bodyStr, "usage limit") {
+			return nil, fmt.Errorf("Tavily 搜索额度已用完（状态码 432），请升级套餐或更换 API Key")
+		}
+		return nil, fmt.Errorf("Tavily 返回错误状态码 %d: %s", resp.StatusCode, bodyStr)
 	}
 
 	var tavilyResp TavilyResponse

@@ -226,6 +226,7 @@ import {
   GetStockMoneyflow,
   ExportCurrentFinancialData,
   GetRiskRadar,
+  GetLatestMargin,
   UpdatePolicyLibrary,
   UpdateIndustryDatabase,
   GetIndustryDBMeta,
@@ -369,7 +370,7 @@ function App() {
       .catch((err: any) => {
         console.error('加载 AI 投研缓存失败:', err)
       })
-  }, [selectedCode, aiAnalyzingCode])
+  }, [selectedCode])
 
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeProgress, setAnalyzeProgress] = useState(0)
@@ -488,6 +489,7 @@ function App() {
   const [lastAnalysisAt, setLastAnalysisAt] = useState('')
   const [trendDrawerCode, setTrendDrawerCode] = useState<string | null>(null)
   const [marginDrawerCode, setMarginDrawerCode] = useState<string | null>(null)
+  const [marginTargetMap, setMarginTargetMap] = useState<Record<string, boolean>>({})
   const [klineFullscreen, setKlineFullscreen] = useState(false)
   const [riskRadar, setRiskRadar] = useState<RiskRadarItem[] | null>(null)
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
@@ -936,6 +938,19 @@ function App() {
         // 忽略加载失败的错误
       })
   }, [selectedStock, snapshots])
+
+  // 切换股票时检查是否为融资融券标的
+  useEffect(() => {
+    if (!selectedStock) return
+    if (marginTargetMap[selectedStock.code] !== undefined) return
+    GetLatestMargin(selectedStock.code)
+      .then(() => {
+        setMarginTargetMap((prev) => ({ ...prev, [selectedStock.code]: true }))
+      })
+      .catch(() => {
+        setMarginTargetMap((prev) => ({ ...prev, [selectedStock.code]: false }))
+      })
+  }, [selectedStock, marginTargetMap])
 
   // 自选股列表加载完成后，批量加载所有股票的快照（用于左栏警示灯持久显示）
   useEffect(() => {
@@ -1628,6 +1643,7 @@ function App() {
       return
     }
     setActiveReportTab('ai')
+    setAiReport(null)
     setAiReportLoading(true)
     setAiReportError(null)
     setAiProgress({ stage: 'init', message: '正在初始化...' })
@@ -1640,6 +1656,7 @@ function App() {
         setAiReport(result)
       }
     } catch (err: any) {
+      console.error('[AIResearch] 分析失败:', err)
       if (targetCode === selectedCodeRef.current) {
         setAiReportError(err?.message || 'AI 投研分析失败')
       }
@@ -3467,18 +3484,31 @@ function App() {
                           <button
                             className="btn-text"
                             onClick={() => selectedStock && setMarginDrawerCode(selectedStock.code)}
-                            disabled={!selectedStock}
+                            disabled={!selectedStock || marginTargetMap[selectedStock.code] !== true}
                             style={{
                               fontSize: 10,
-                              color: '#f59e0b',
+                              color: !selectedStock || marginTargetMap[selectedStock.code] !== true ? '#64748b' : '#f59e0b',
                               padding: '2px 6px',
                               borderRadius: 3,
-                              border: '1px solid rgba(245,158,11,0.4)',
-                              background: 'rgba(245,158,11,0.08)',
-                              cursor: selectedStock ? 'pointer' : 'not-allowed',
+                              border: !selectedStock || marginTargetMap[selectedStock.code] !== true
+                                ? '1px solid rgba(100,116,139,0.3)'
+                                : '1px solid rgba(245,158,11,0.4)',
+                              background: !selectedStock || marginTargetMap[selectedStock.code] !== true
+                                ? 'rgba(100,116,139,0.06)'
+                                : 'rgba(245,158,11,0.08)',
+                              cursor: !selectedStock || marginTargetMap[selectedStock.code] !== true ? 'not-allowed' : 'pointer',
                               whiteSpace: 'nowrap',
+                              opacity: !selectedStock || marginTargetMap[selectedStock.code] !== true ? 0.7 : 1,
                             }}
-                            title="查看融资融券与股价叠加图"
+                            title={
+                              !selectedStock
+                                ? '请先选择股票'
+                                : marginTargetMap[selectedStock.code] === false
+                                  ? '该股票不是融资融券标的'
+                                  : marginTargetMap[selectedStock.code] === undefined
+                                    ? '正在检查融资融券标的...'
+                                    : '查看融资融券与股价叠加图'
+                            }
                           >
                             融资融券
                           </button>

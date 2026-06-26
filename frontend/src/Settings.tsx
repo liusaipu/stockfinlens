@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import './Settings.css'
 import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection } from './api'
 import type { main, ai_researcher } from '../wailsjs/go/models'
+import { ClipboardGetText, ClipboardSetText } from '../wailsjs/runtime'
 import { UpdateModal } from './UpdateModal'
 
 export interface AppSettings {
@@ -83,6 +84,70 @@ interface SettingsProps {
   industryTask?: any
   // Python 依赖检测
   onCheckPythonDeps?: () => void
+}
+
+// 获取输入框选中的文本
+function getSelectedText(el: HTMLInputElement | HTMLTextAreaElement): string {
+  const start = el.selectionStart ?? 0
+  const end = el.selectionEnd ?? 0
+  return el.value.slice(start, end)
+}
+
+// 使用原生 value setter 设置值，确保 React controlled 组件能感知变更
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const descriptor =
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value') ||
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')
+  if (descriptor && descriptor.set) {
+    descriptor.set.call(el, value)
+  } else {
+    el.value = value
+  }
+}
+
+// 在光标位置插入文本，替换当前选区
+function insertTextAtCursor(el: HTMLInputElement | HTMLTextAreaElement, text: string) {
+  const start = el.selectionStart ?? 0
+  const end = el.selectionEnd ?? 0
+  const newValue = el.value.slice(0, start) + text + el.value.slice(end)
+  setNativeValue(el, newValue)
+  el.selectionStart = el.selectionEnd = start + text.length
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+// 删除当前选区文本
+function deleteSelectedText(el: HTMLInputElement | HTMLTextAreaElement) {
+  const start = el.selectionStart ?? 0
+  const end = el.selectionEnd ?? 0
+  if (start === end) return
+  const newValue = el.value.slice(0, start) + el.value.slice(end)
+  setNativeValue(el, newValue)
+  el.selectionStart = el.selectionEnd = start
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+// 写入剪贴板，优先使用 Wails 运行时，失败则回退到 Web API
+async function writeClipboard(text: string): Promise<void> {
+  try {
+    await ClipboardSetText(text)
+    return
+  } catch {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    }
+  }
+}
+
+// 读取剪贴板，优先使用 Wails 运行时，失败则回退到 Web API
+async function readClipboard(): Promise<string> {
+  try {
+    return await ClipboardGetText()
+  } catch {
+    if (navigator.clipboard?.readText) {
+      return await navigator.clipboard.readText()
+    }
+  }
+  return ''
 }
 
 export function Settings({ 
@@ -221,6 +286,68 @@ export function Settings({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // 设置面板打开期间，为所有 input/textarea 提供 Cmd/Ctrl + C/V/X 键盘剪贴板支持
+  useEffect(() => {
+    if (!isOpen) return
+
+    const isInputElement = (el: Element | null): el is HTMLInputElement | HTMLTextAreaElement => {
+      return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+    }
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      const target = document.activeElement
+      if (!isInputElement(target)) return
+
+      const isMod = e.metaKey || e.ctrlKey
+      if (!isMod) return
+
+      const key = e.key.toLowerCase()
+
+      if (key === 'v') {
+        e.preventDefault()
+        try {
+          const text = await readClipboard()
+          if (text) {
+            insertTextAtCursor(target, text)
+          }
+        } catch {
+          // ignore
+        }
+        return
+      }
+
+      if (key === 'c') {
+        const selected = getSelectedText(target)
+        if (selected) {
+          e.preventDefault()
+          try {
+            await writeClipboard(selected)
+          } catch {
+            // ignore
+          }
+        }
+        return
+      }
+
+      if (key === 'x') {
+        const selected = getSelectedText(target)
+        if (selected) {
+          e.preventDefault()
+          try {
+            await writeClipboard(selected)
+            deleteSelectedText(target)
+          } catch {
+            // ignore
+          }
+        }
+        return
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen])
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     const newSettings = { ...settings, [key]: value }
