@@ -14,7 +14,7 @@
 
 [English](./README_EN.md) | 简体中文
 
-![screenshot-dark](docs/screenshots/dark-mode.png)
+![screenshot-dark](docs/screenshots/main-dark-v1.8.1.png)
 
 </div>
 
