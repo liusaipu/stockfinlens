@@ -10,10 +10,11 @@ import (
 
 // Researcher AI 投研编排器
 type Researcher struct {
-	cfg    *AIConfig
-	cache  *CacheManager
-	tavily *TavilyClient
-	llm    *LLMClient
+	cfg     *AIConfig
+	cache   *CacheManager
+	storage cacheStorage
+	tavily  *TavilyClient
+	llm     *LLMClient
 }
 
 // NewResearcher 创建编排器
@@ -27,7 +28,8 @@ func NewResearcher(cfg *AIConfig, storage cacheStorage) (*Researcher, error) {
 	}
 
 	tavily := NewTavilyClient(
-		cfg.SearchAPIKey,
+		cfg.SearchAPIKeys,
+		cfg.ExhaustedSearchKeys,
 		cfg.SearchDepth,
 		cfg.MaxResults,
 		cfg.SearchRecencyDays,
@@ -41,10 +43,11 @@ func NewResearcher(cfg *AIConfig, storage cacheStorage) (*Researcher, error) {
 	)
 
 	return &Researcher{
-		cfg:    cfg,
-		cache:  NewCacheManager(storage),
-		tavily: tavily,
-		llm:    llm,
+		cfg:     cfg,
+		cache:   NewCacheManager(storage),
+		storage: storage,
+		tavily:  tavily,
+		llm:     llm,
 	}, nil
 }
 
@@ -77,6 +80,8 @@ func (r *Researcher) Research(ctx context.Context, symbol, name string, forceRef
 	emit("search", "正在搜索互联网公开信息...")
 	queries := BuildQueries(symbol, name, r.cfg.FocusRegions, r.cfg.EnableSocial, r.cfg.SearchRecencyDays)
 	results, err := r.tavily.SearchMulti(ctx, queries, IncludeDomains(), emit)
+	// 同步本轮新标记的超额 Key 到配置并持久化
+	r.syncExhaustedKeys()
 	if err != nil {
 		return nil, fmt.Errorf("搜索失败: %w", err)
 	}
@@ -131,23 +136,60 @@ func (r *Researcher) Research(ctx context.Context, symbol, name string, forceRef
 	return report, nil
 }
 
+// syncExhaustedKeys 把 TavilyClient 中新增的超额 Key 同步到 AIConfig 并持久化
+func (r *Researcher) syncExhaustedKeys() {
+	exhausted := r.tavily.GetExhaustedKeys()
+	if len(exhausted) == 0 {
+		return
+	}
+	changed := false
+	if r.cfg.ExhaustedSearchKeys == nil {
+		r.cfg.ExhaustedSearchKeys = make(map[string]string)
+	}
+	for k, month := range exhausted {
+		if r.cfg.ExhaustedSearchKeys[k] != month {
+			r.cfg.ExhaustedSearchKeys[k] = month
+			changed = true
+		}
+	}
+	if !changed {
+		return
+	}
+	if err := r.storage.SaveAIConfig(r.cfg); err != nil {
+		// 持久化失败只打印日志，不影响主流程
+		fmt.Printf("[AIResearch] 保存超额 Key 状态失败: %v\n", err)
+	}
+}
+
 // TestConnection 测试 LLM 和 Tavily 连接
 func (r *Researcher) TestConnection() (*TestConnectionResult, error) {
 	if !r.cfg.Enabled {
 		return &TestConnectionResult{Success: false, Message: "AI 投研功能未启用：请先打开上方「启用 AI 投研」开关，再填写 API Key 并测试连接"}, nil
 	}
 
-	// 先测试 Tavily
-	if err := r.tavily.Test(); err != nil {
-		return &TestConnectionResult{Success: false, Message: fmt.Sprintf("Tavily 搜索连接失败: %v", err)}, nil
+	// 先测试 Tavily，并收集每个 Key 的状态
+	keyStatuses := r.tavily.TestKeys()
+	hasUsableKey := false
+	for _, s := range keyStatuses {
+		if s.Status == "ok" {
+			hasUsableKey = true
+			break
+		}
+	}
+	if !hasUsableKey {
+		msg := "Tavily 搜索连接失败: 未配置可用 Key"
+		if len(keyStatuses) > 0 {
+			msg = fmt.Sprintf("Tavily 搜索连接失败: %s", formatKeyStatuses(keyStatuses))
+		}
+		return &TestConnectionResult{Success: false, Message: msg, SearchKeyStatuses: keyStatuses}, nil
 	}
 
 	// 再测试 LLM
 	if err := r.llm.Test(); err != nil {
-		return &TestConnectionResult{Success: false, Message: fmt.Sprintf("LLM 连接失败: %v", err)}, nil
+		return &TestConnectionResult{Success: false, Message: fmt.Sprintf("LLM 连接失败: %v", err), SearchKeyStatuses: keyStatuses}, nil
 	}
 
-	return &TestConnectionResult{Success: true, Message: "连接成功"}, nil
+	return &TestConnectionResult{Success: true, Message: "连接成功", SearchKeyStatuses: keyStatuses}, nil
 }
 
 // llmOutput LLM 返回的 JSON 结构

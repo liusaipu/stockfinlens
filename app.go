@@ -3414,16 +3414,13 @@ func (a *App) SaveAIConfig(cfg ai_researcher.AIConfig) error {
 }
 
 // TestAIConnection 测试 AI 投研连接（LLM + 搜索引擎）
-func (a *App) TestAIConnection() (*ai_researcher.TestConnectionResult, error) {
+// cfg 直接取自前端当前表单，避免读取 storage 中的旧配置
+func (a *App) TestAIConnection(cfg ai_researcher.AIConfig) (*ai_researcher.TestConnectionResult, error) {
 	if a.storage == nil {
 		return nil, fmt.Errorf("存储未初始化")
 	}
-	cfg, err := a.storage.LoadAIConfig()
-	if err != nil {
-		return nil, fmt.Errorf("加载 AI 配置失败: %w", err)
-	}
 	cfg.Normalize()
-	researcher, err := ai_researcher.NewResearcher(cfg, a.storage)
+	researcher, err := ai_researcher.NewResearcher(&cfg, a.storage)
 	if err != nil {
 		return &ai_researcher.TestConnectionResult{Success: false, Message: err.Error()}, nil
 	}

@@ -342,8 +342,8 @@ export function SkipVersion(arg1) {
   return window['go']['main']['App']['SkipVersion'](arg1);
 }
 
-export function TestAIConnection() {
-  return window['go']['main']['App']['TestAIConnection']();
+export function TestAIConnection(arg1) {
+  return window['go']['main']['App']['TestAIConnection'](arg1);
 }
 
 export function UpdateIndustryDatabase() {

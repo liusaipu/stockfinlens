@@ -176,7 +176,7 @@ export function SetRiskSensitivity(arg1:string):Promise<void>;
 
 export function SkipVersion(arg1:string):Promise<void>;
 
-export function TestAIConnection():Promise<ai_researcher.TestConnectionResult>;
+export function TestAIConnection(arg1:ai_researcher.AIConfig):Promise<ai_researcher.TestConnectionResult>;
 
 export function UpdateIndustryDatabase():Promise<downloader.IndustryUpdateResult>;
 

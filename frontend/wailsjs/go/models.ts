@@ -12,10 +12,12 @@ export namespace ai_researcher {
 	    top_p: number;
 	    search_provider: string;
 	    search_api_key: string;
+	    search_api_keys: string[];
 	    search_depth: string;
 	    search_timeout: number;
 	    max_results: number;
 	    search_recency_days: number;
+	    exhausted_search_keys: Record<string, string>;
 	    focus_regions: string[];
 	    output_language: string;
 	    enable_social: boolean;
@@ -38,10 +40,12 @@ export namespace ai_researcher {
 	        this.top_p = source["top_p"];
 	        this.search_provider = source["search_provider"];
 	        this.search_api_key = source["search_api_key"];
+	        this.search_api_keys = source["search_api_keys"];
 	        this.search_depth = source["search_depth"];
 	        this.search_timeout = source["search_timeout"];
 	        this.max_results = source["max_results"];
 	        this.search_recency_days = source["search_recency_days"];
+	        this.exhausted_search_keys = source["exhausted_search_keys"];
 	        this.focus_regions = source["focus_regions"];
 	        this.output_language = source["output_language"];
 	        this.enable_social = source["enable_social"];
@@ -126,9 +130,26 @@ export namespace ai_researcher {
 	}
 	
 	
+	export class TavilyKeyStatus {
+	    key: string;
+	    status: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TavilyKeyStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.status = source["status"];
+	        this.message = source["message"];
+	    }
+	}
 	export class TestConnectionResult {
 	    success: boolean;
 	    message: string;
+	    search_key_statuses: TavilyKeyStatus[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TestConnectionResult(source);
@@ -138,7 +159,26 @@ export namespace ai_researcher {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.success = source["success"];
 	        this.message = source["message"];
+	        this.search_key_statuses = this.convertValues(source["search_key_statuses"], TavilyKeyStatus);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

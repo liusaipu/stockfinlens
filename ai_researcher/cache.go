@@ -12,6 +12,7 @@ import (
 type cacheStorage interface {
 	LoadAIResearchCache(symbol string) (*AIResearchReport, error)
 	SaveAIResearchCache(symbol string, report *AIResearchReport) error
+	SaveAIConfig(cfg *AIConfig) error
 }
 
 // CacheManager 管理 AI 投研缓存

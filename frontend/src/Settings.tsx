@@ -177,11 +177,21 @@ export function Settings({
 
   // AI 投研配置状态
   const [aiCfg, setAiCfg] = useState<ai_researcher.AIConfig | null>(null)
+  const [searchKeyInput, setSearchKeyInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiTestStatus, setAiTestStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
+  const [aiTestStatus, setAiTestStatus] = useState<{type: 'success' | 'error' | null, message: string, keyStatuses?: ai_researcher.TavilyKeyStatus[]}>({type: null, message: ''})
   const [aiSaving, setAiSaving] = useState(false)
   const [showLLMKey, setShowLLMKey] = useState(false)
   const [showSearchKey, setShowSearchKey] = useState(false)
+
+  // 解析 Tavily Key 输入字符串为数组
+  const parseSearchKeys = (input: string): string[] => {
+    return input
+      .split(/[\n,，\s]+/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0)
+      .slice(0, 5)
+  }
 
   // 检查更新状态
   const [updateChecking, setUpdateChecking] = useState(false)
@@ -202,12 +212,13 @@ export function Settings({
     })
     GetAIConfig().then((cfg) => {
       setAiCfg(cfg)
+      setSearchKeyInput((cfg.search_api_keys || [cfg.search_api_key]).filter(Boolean).join('\n'))
     }).catch(() => {
       setAiCfg({
         enabled: false, llm_provider: 'deepseek', llm_api_key: '', llm_base_url: 'https://api.deepseek.com/v1',
         llm_model: 'deepseek-chat', llm_timeout: 90, temperature: 0.2, max_tokens: 4096, top_p: 1.0,
-        search_provider: 'tavily', search_api_key: '', search_depth: 'advanced', search_timeout: 180, max_results: 10,
-        search_recency_days: 90, focus_regions: ['us', 'jp'], output_language: 'zh-CN', enable_social: true,
+        search_provider: 'tavily', search_api_key: '', search_api_keys: [], search_depth: 'advanced', search_timeout: 180, max_results: 10,
+        search_recency_days: 90, exhausted_search_keys: {}, focus_regions: ['us', 'jp'], output_language: 'zh-CN', enable_social: true,
         cache_ttl_hours: 6
       } as ai_researcher.AIConfig)
     })
@@ -245,32 +256,47 @@ export function Settings({
 
   const handleTestAI = useCallback(async () => {
     if (!aiCfg) return
-    setAiTestStatus({type: null, message: ''})
+    // 即使未触发 onBlur，也先根据当前输入框内容解析 Key
+    const keys = parseSearchKeys(searchKeyInput)
+    const updatedCfg = {...aiCfg, search_api_keys: keys, search_api_key: keys[0] || ''}
+    setAiCfg(updatedCfg)
+    setSearchKeyInput(keys.join('\n'))
+
+    setAiTestStatus({type: null, message: '', keyStatuses: []})
     setAiLoading(true)
     try {
-      // 测试前自动保存当前表单配置，避免用户打开开关后未保存导致测试失败
-      await SaveAIConfig(aiCfg)
-      const result = await TestAIConnection()
-      setAiTestStatus({type: result.success ? 'success' : 'error', message: result.message || (result.success ? '连接成功' : '连接失败')})
+      // 测试前自动保存当前表单配置
+      await SaveAIConfig(updatedCfg)
+      const result = await TestAIConnection(updatedCfg)
+      setAiTestStatus({
+        type: result.success ? 'success' : 'error',
+        message: result.message || (result.success ? '连接成功' : '连接失败'),
+        keyStatuses: result.search_key_statuses || [],
+      })
     } catch (err: any) {
       setAiTestStatus({type: 'error', message: err?.message || '连接测试失败'})
     } finally {
       setAiLoading(false)
     }
-  }, [aiCfg])
+  }, [aiCfg, searchKeyInput])
 
   const handleSaveAI = useCallback(async () => {
     if (!aiCfg) return
+    // 即使未触发 onBlur，也先根据当前输入框内容解析 Key
+    const keys = parseSearchKeys(searchKeyInput)
+    const updatedCfg = {...aiCfg, search_api_keys: keys, search_api_key: keys[0] || ''}
     setAiSaving(true)
     try {
-      await SaveAIConfig(aiCfg)
+      await SaveAIConfig(updatedCfg)
+      setAiCfg(updatedCfg)
+      setSearchKeyInput(keys.join('\n'))
       setAiTestStatus({type: 'success', message: '配置已保存'})
     } catch (err: any) {
       setAiTestStatus({type: 'error', message: err?.message || '保存失败'})
     } finally {
       setAiSaving(false)
     }
-  }, [aiCfg])
+  }, [aiCfg, searchKeyInput])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -303,6 +329,13 @@ export function Settings({
       if (!isMod) return
 
       const key = e.key.toLowerCase()
+
+      if (key === 'a') {
+        e.preventDefault()
+        target.selectionStart = 0
+        target.selectionEnd = target.value.length
+        return
+      }
 
       if (key === 'v') {
         e.preventDefault()
@@ -805,12 +838,28 @@ export function Settings({
                         <div className="settings-item" style={{ marginTop: 8 }}>
                           <label>Tavily API Key</label>
                           <div style={{ position: 'relative', marginTop: 4 }}>
-                            <input
-                              type={showSearchKey ? 'text' : 'password'}
-                              value={aiCfg.search_api_key}
-                              onChange={(e) => setAiCfg({ ...aiCfg, search_api_key: e.target.value })}
-                              placeholder="tvly-..."
-                              style={{ width: '100%', paddingRight: 32 }}
+                            <textarea
+                              value={searchKeyInput}
+                              onChange={(e) => setSearchKeyInput(e.target.value)}
+                              onBlur={(e) => {
+                                const keys = parseSearchKeys(e.target.value)
+                                setSearchKeyInput(keys.join('\n'))
+                                setAiCfg({
+                                  ...aiCfg,
+                                  search_api_keys: keys,
+                                  search_api_key: keys[0] || '',
+                                })
+                              }}
+                              placeholder={`tvly-...\n支持最多5个key，换行或者逗号分隔`}
+                              rows={4}
+                              spellCheck={false}
+                              style={{
+                                width: '100%',
+                                padding: '8px 32px 8px 8px',
+                                resize: 'vertical',
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                              }}
                             />
                             <button
                               type="button"
@@ -818,8 +867,7 @@ export function Settings({
                               style={{
                                 position: 'absolute',
                                 right: 6,
-                                top: '50%',
-                                transform: 'translateY(-50%)',
+                                top: 10,
                                 background: 'transparent',
                                 border: 'none',
                                 cursor: 'pointer',
@@ -832,8 +880,11 @@ export function Settings({
                               {showSearchKey ? '🙈' : '👁️'}
                             </button>
                           </div>
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                            在 tavily.com 注册后生成，每月有免费额度
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>支持最多5个key，换行或者逗号分隔，自动轮换使用</span>
+                            <span style={{ color: (aiCfg.search_api_keys?.length || 0) > 0 ? '#22c55e' : '#94a3b8' }}>
+                              已配置 {(aiCfg.search_api_keys?.length || 0)} 个 Key
+                            </span>
                           </div>
                         </div>
 
@@ -959,12 +1010,31 @@ export function Settings({
                           </div>
                         )}
 
+                        {/* 逐个 Tavily Key 验证结果 */}
+                        {aiTestStatus.keyStatuses && aiTestStatus.keyStatuses.length > 0 && (
+                          <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.6 }}>
+                            <div style={{ color: '#94a3b8', marginBottom: 4 }}>Tavily Key 验证结果：</div>
+                            {aiTestStatus.keyStatuses.map((s, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontFamily: 'monospace', color: '#e2e8f0' }}>{s.key}</span>
+                                <span style={{
+                                  color: s.status === 'ok' ? '#22c55e' : s.status === 'exhausted' ? '#f59e0b' : '#ef4444',
+                                  fontWeight: 500,
+                                }}>
+                                  {s.status === 'ok' ? '✅ 可用' : s.status === 'exhausted' ? '⚠️ 额度用完' : s.status === 'invalid' ? '❌ 无效' : '❌ 错误'}
+                                </span>
+                                <span style={{ color: '#64748b' }}>{s.message}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                           <button
                             className="settings-data-btn"
                             onClick={handleTestAI}
-                            disabled={aiLoading || !aiCfg.enabled || !aiCfg.llm_api_key || !aiCfg.search_api_key}
-                            title={!aiCfg.enabled ? '请先启用 AI 投研' : !aiCfg.llm_api_key || !aiCfg.search_api_key ? '请填写 LLM 和 Tavily API Key' : '测试连接'}
+                            disabled={aiLoading || !aiCfg.enabled || !aiCfg.llm_api_key || (aiCfg.search_api_keys?.length || 0) === 0}
+                            title={!aiCfg.enabled ? '请先启用 AI 投研' : !aiCfg.llm_api_key || (aiCfg.search_api_keys?.length || 0) === 0 ? '请填写 LLM 和 Tavily API Key' : '测试连接'}
                             style={{ whiteSpace: 'nowrap' }}
                           >
                             {aiLoading ? '测试中...' : '🔍 测试连接'}

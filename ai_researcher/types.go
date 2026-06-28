@@ -44,8 +44,9 @@ type SearchItem struct {
 
 // TestConnectionResult 连接测试结果
 type TestConnectionResult struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success           bool              `json:"success"`
+	Message           string            `json:"message"`
+	SearchKeyStatuses []TavilyKeyStatus `json:"search_key_statuses"` // 每个 Tavily Key 的验证状态
 }
 
 // ProgressFunc 进度回调函数类型

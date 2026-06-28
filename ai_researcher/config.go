@@ -1,6 +1,10 @@
 package ai_researcher
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // AIConfig AI 投研功能配置
 // 由用户在 Settings 中配置，持久化到 ~/.config/stock-analyzer/ai_config.json
@@ -20,12 +24,16 @@ type AIConfig struct {
 	TopP        float64 `json:"top_p"`
 
 	// 搜索引擎配置（首期仅支持 tavily）
-	SearchProvider    string `json:"search_provider"` // "tavily"
-	SearchAPIKey      string `json:"search_api_key"`
-	SearchDepth       string `json:"search_depth"`        // "basic" | "advanced"
-	SearchTimeout     int    `json:"search_timeout"`      // 秒，Tavily 请求超时
-	MaxResults        int    `json:"max_results"`
-	SearchRecencyDays int    `json:"search_recency_days"` // 例如 90
+	SearchProvider    string   `json:"search_provider"` // "tavily"
+	SearchAPIKey      string   `json:"search_api_key"`             // 兼容旧配置：单 Key
+	SearchAPIKeys     []string `json:"search_api_keys"`            // 多 Key 备用（最多 5 个）
+	SearchDepth       string   `json:"search_depth"`               // "basic" | "advanced"
+	SearchTimeout     int      `json:"search_timeout"`             // 秒，Tavily 请求超时
+	MaxResults        int      `json:"max_results"`
+	SearchRecencyDays int      `json:"search_recency_days"`        // 例如 90
+
+	// 本月已额度用尽的 Tavily Key（key -> "YYYY-MM"），下月自动重试
+	ExhaustedSearchKeys map[string]string `json:"exhausted_search_keys"`
 
 	// 业务偏好
 	FocusRegions   []string `json:"focus_regions"`   // ["us","jp","eu","hk"]
@@ -94,6 +102,39 @@ func (c *AIConfig) Normalize() {
 	if c.SearchProvider == "" {
 		c.SearchProvider = "tavily"
 	}
+	// 兼容旧配置：如果单 Key 存在但多 Key 为空，则迁移到多 Key 列表
+	if c.SearchAPIKey != "" {
+		found := false
+		for _, k := range c.SearchAPIKeys {
+			if k == c.SearchAPIKey {
+				found = true
+				break
+			}
+		}
+		if !found {
+			c.SearchAPIKeys = append([]string{c.SearchAPIKey}, c.SearchAPIKeys...)
+		}
+	}
+	// 清理空 Key 并限制最多 5 个
+	var keys []string
+	seen := make(map[string]bool)
+	for _, k := range c.SearchAPIKeys {
+		k = strings.TrimSpace(k)
+		if k != "" && !seen[k] {
+			seen[k] = true
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) > 5 {
+		keys = keys[:5]
+	}
+	c.SearchAPIKeys = keys
+	// 保持单 Key 字段与多 Key 列表第一个一致，便于旧代码/前端过渡
+	if len(c.SearchAPIKeys) > 0 {
+		c.SearchAPIKey = c.SearchAPIKeys[0]
+	} else {
+		c.SearchAPIKey = ""
+	}
 	if c.SearchDepth == "" {
 		c.SearchDepth = "advanced"
 	}
@@ -115,6 +156,16 @@ func (c *AIConfig) Normalize() {
 	if len(c.FocusRegions) == 0 {
 		c.FocusRegions = []string{"us", "jp"}
 	}
+	// 清理过期的超额 Key 标记（ Tavily 每月 1 日重置额度）
+	if c.ExhaustedSearchKeys == nil {
+		c.ExhaustedSearchKeys = make(map[string]string)
+	}
+	currentMonth := time.Now().Format("2006-01")
+	for k, month := range c.ExhaustedSearchKeys {
+		if month != currentMonth {
+			delete(c.ExhaustedSearchKeys, k)
+		}
+	}
 }
 
 // Validate 校验配置是否可用
@@ -134,7 +185,9 @@ func (c *AIConfig) Validate() error {
 	if c.LLMModel == "" {
 		return fmt.Errorf("LLM 模型未配置")
 	}
-	if c.SearchAPIKey == "" {
+	// 同时兼容 SearchAPIKeys 数组和旧的 SearchAPIKey 单字段
+	hasKey := len(c.SearchAPIKeys) > 0 || c.SearchAPIKey != ""
+	if !hasKey {
 		return fmt.Errorf("搜索引擎 API Key 未配置")
 	}
 	return nil

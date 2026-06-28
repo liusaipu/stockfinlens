@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,11 +16,14 @@ const tavilyAPIURL = "https://api.tavily.com/search"
 
 // TavilyClient Tavily 搜索客户端
 type TavilyClient struct {
-	apiKey      string
-	depth       string
-	maxResults  int
-	recencyDays int
-	httpClient  *http.Client
+	apiKeys       []string
+	exhaustedKeys map[string]string // key -> "YYYY-MM"
+	currentIdx    int
+	mu            sync.Mutex
+	depth         string
+	maxResults    int
+	recencyDays   int
+	httpClient    *http.Client
 }
 
 // TavilyResponse Tavily API 响应结构
@@ -36,7 +40,7 @@ type TavilyResponse struct {
 }
 
 // NewTavilyClient 创建 Tavily 客户端
-func NewTavilyClient(apiKey, depth string, maxResults, recencyDays int, timeoutSeconds int) *TavilyClient {
+func NewTavilyClient(apiKeys []string, exhaustedKeys map[string]string, depth string, maxResults, recencyDays int, timeoutSeconds int) *TavilyClient {
 	if depth != "basic" && depth != "advanced" {
 		depth = "advanced"
 	}
@@ -46,50 +50,124 @@ func NewTavilyClient(apiKey, depth string, maxResults, recencyDays int, timeoutS
 	if timeoutSeconds <= 0 {
 		timeoutSeconds = 60
 	}
+	if exhaustedKeys == nil {
+		exhaustedKeys = make(map[string]string)
+	}
 	return &TavilyClient{
-		apiKey:      apiKey,
-		depth:       depth,
-		maxResults:  maxResults,
-		recencyDays: recencyDays,
-		httpClient:  &http.Client{Timeout: time.Duration(timeoutSeconds) * time.Second},
+		apiKeys:       apiKeys,
+		exhaustedKeys: exhaustedKeys,
+		currentIdx:    0,
+		depth:         depth,
+		maxResults:    maxResults,
+		recencyDays:   recencyDays,
+		httpClient:    &http.Client{Timeout: time.Duration(timeoutSeconds) * time.Second},
 	}
 }
 
-// Search 执行单次搜索查询，带 3 次重试
+// pickKey 轮询选择一个 Key，跳过本月已超额的 Key
+func (c *TavilyClient) pickKey() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.apiKeys) == 0 {
+		return ""
+	}
+	// 优先选择未超额的 Key
+	for i := 0; i < len(c.apiKeys); i++ {
+		idx := (c.currentIdx + i) % len(c.apiKeys)
+		key := c.apiKeys[idx]
+		if !c.isKeyExhaustedLocked(key) {
+			c.currentIdx = (idx + 1) % len(c.apiKeys)
+			return key
+		}
+	}
+	// 所有 Key 都超额时，仍按轮询返回（避免无 Key 可用）
+	key := c.apiKeys[c.currentIdx]
+	c.currentIdx = (c.currentIdx + 1) % len(c.apiKeys)
+	return key
+}
+
+// isKeyExhaustedLocked 判断 Key 在本月是否已超额（调用前必须持有锁）
+func (c *TavilyClient) isKeyExhaustedLocked(key string) bool {
+	if key == "" {
+		return true
+	}
+	month, ok := c.exhaustedKeys[key]
+	if !ok {
+		return false
+	}
+	return month == time.Now().Format("2006-01")
+}
+
+// MarkKeyExhausted 标记 Key 本月已超额
+func (c *TavilyClient) MarkKeyExhausted(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if key != "" {
+		c.exhaustedKeys[key] = time.Now().Format("2006-01")
+	}
+}
+
+// GetExhaustedKeys 返回当前超额 Key 映射（key -> 月份）
+func (c *TavilyClient) GetExhaustedKeys() map[string]string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make(map[string]string, len(c.exhaustedKeys))
+	for k, v := range c.exhaustedKeys {
+		out[k] = v
+	}
+	return out
+}
+
+// Search 执行单次搜索查询，带 3 次重试，并在多个 Key 之间轮换
 func (c *TavilyClient) Search(ctx context.Context, query string, includeDomains []string, progress ProgressFunc) (*SearchResult, error) {
-	if c.apiKey == "" {
+	if len(c.apiKeys) == 0 {
 		return nil, fmt.Errorf("Tavily API Key 为空")
 	}
 
+	// 记录本轮已经尝试过耗尽/无效的 Key，避免重复尝试
+	triedKeys := make(map[string]bool)
 	var lastErr error
-	for attempt := 0; attempt < 3; attempt++ {
-		if attempt > 0 {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(time.Duration(attempt) * time.Second):
+
+	for keyRound := 0; keyRound < len(c.apiKeys); keyRound++ {
+		apiKey := c.pickKey()
+		if apiKey == "" || triedKeys[apiKey] {
+			continue
+		}
+		triedKeys[apiKey] = true
+
+		for attempt := 0; attempt < 3; attempt++ {
+			if attempt > 0 {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Duration(attempt) * time.Second):
+				}
+			}
+			if progress != nil {
+				progress("search", fmt.Sprintf("正在搜索: %s", query))
+			}
+			result, err := c.searchOnce(ctx, query, includeDomains, apiKey)
+			if err == nil {
+				return result, nil
+			}
+			lastErr = err
+			// 400 不重试；额度用完则直接换下一个 Key
+			if strings.Contains(err.Error(), "状态码 400") {
+				return nil, err
+			}
+			if strings.Contains(err.Error(), "额度已用完") || strings.Contains(err.Error(), "状态码 432") {
+				c.MarkKeyExhausted(apiKey)
+				break
 			}
 		}
-		if progress != nil {
-			progress("search", fmt.Sprintf("正在搜索: %s", query))
-		}
-		result, err := c.searchOnce(ctx, query, includeDomains)
-		if err == nil {
-			return result, nil
-		}
-		lastErr = err
-		// 400 / 额度用完 等客户端错误不重试
-		if strings.Contains(err.Error(), "状态码 400") ||
-			strings.Contains(err.Error(), "额度已用完") {
-			return nil, err
-		}
 	}
-	return nil, fmt.Errorf("Tavily 搜索重试 3 次后仍失败: %w", lastErr)
+
+	return nil, fmt.Errorf("Tavily 搜索重试后仍失败（已尝试 %d 个 Key）: %w", len(triedKeys), lastErr)
 }
 
-func (c *TavilyClient) searchOnce(ctx context.Context, query string, includeDomains []string) (*SearchResult, error) {
+func (c *TavilyClient) searchOnce(ctx context.Context, query string, includeDomains []string, apiKey string) (*SearchResult, error) {
 	reqBody := map[string]interface{}{
-		"api_key":             c.apiKey,
+		"api_key":             apiKey,
 		"query":               query,
 		"search_depth":        c.depth,
 		"max_results":         c.maxResults,
@@ -209,8 +287,67 @@ func (c *TavilyClient) SearchMulti(ctx context.Context, queries []string, includ
 	return results, nil
 }
 
-// Test 测试 Tavily 连接是否可用
+// TavilyKeyStatus 单个 Tavily Key 的测试结果
+type TavilyKeyStatus struct {
+	Key     string `json:"key"`     // 脱敏后的 Key 前缀
+	Status  string `json:"status"`  // "ok" | "exhausted" | "invalid" | "error"
+	Message string `json:"message"` // 详细说明
+}
+
+// Test 测试 Tavily 连接是否可用（只要有一个 Key 可用即成功）
 func (c *TavilyClient) Test() error {
-	_, err := c.Search(context.Background(), "test", nil, nil)
-	return err
+	statuses := c.TestKeys()
+	for _, s := range statuses {
+		if s.Status == "ok" {
+			return nil
+		}
+	}
+	if len(statuses) == 0 {
+		return fmt.Errorf("未配置 Tavily API Key")
+	}
+	return fmt.Errorf("所有 Tavily Key 均不可用: %s", formatKeyStatuses(statuses))
+}
+
+// TestKeys 逐个测试每个 Tavily Key，返回状态列表
+func (c *TavilyClient) TestKeys() []TavilyKeyStatus {
+	var statuses []TavilyKeyStatus
+	for _, key := range c.apiKeys {
+		if key == "" {
+			continue
+		}
+		mask := maskAPIKey(key)
+		_, err := c.searchOnce(context.Background(), "test", nil, key)
+		if err == nil {
+			statuses = append(statuses, TavilyKeyStatus{Key: mask, Status: "ok", Message: "可用"})
+			continue
+		}
+		errStr := err.Error()
+		status := "error"
+		msg := errStr
+		switch {
+		case strings.Contains(errStr, "额度已用完") || strings.Contains(errStr, "状态码 432"):
+			status = "exhausted"
+			msg = "额度已用完"
+		case strings.Contains(errStr, "状态码 401") || strings.Contains(errStr, "Unauthorized") || strings.Contains(errStr, "missing or invalid API key"):
+			status = "invalid"
+			msg = "Key 无效或已过期"
+		}
+		statuses = append(statuses, TavilyKeyStatus{Key: mask, Status: status, Message: msg})
+	}
+	return statuses
+}
+
+func maskAPIKey(key string) string {
+	if len(key) <= 8 {
+		return key
+	}
+	return key[:4] + "****" + key[len(key)-4:]
+}
+
+func formatKeyStatuses(statuses []TavilyKeyStatus) string {
+	parts := make([]string, 0, len(statuses))
+	for _, s := range statuses {
+		parts = append(parts, fmt.Sprintf("%s(%s)", s.Key, s.Message))
+	}
+	return strings.Join(parts, ", ")
 }
