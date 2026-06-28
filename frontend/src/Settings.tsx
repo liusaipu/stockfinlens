@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import './Settings.css'
 import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection } from './api'
 import type { main, ai_researcher } from '../wailsjs/go/models'
-import { ClipboardGetText, ClipboardSetText } from '../wailsjs/runtime'
+import { ClipboardGetText, ClipboardSetText } from '../wailsjs/go/main/App'
 import { UpdateModal } from './UpdateModal'
 
 export interface AppSettings {
@@ -95,9 +95,8 @@ function getSelectedText(el: HTMLInputElement | HTMLTextAreaElement): string {
 
 // 使用原生 value setter 设置值，确保 React controlled 组件能感知变更
 function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
-  const descriptor =
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value') ||
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')
+  const proto = el instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype
+  const descriptor = Object.getOwnPropertyDescriptor(proto, 'value')
   if (descriptor && descriptor.set) {
     descriptor.set.call(el, value)
   } else {
@@ -126,28 +125,63 @@ function deleteSelectedText(el: HTMLInputElement | HTMLTextAreaElement) {
   el.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-// 写入剪贴板，优先使用 Wails 运行时，失败则回退到 Web API
+// 写入剪贴板：Go 后端 -> navigator.clipboard -> execCommand
 async function writeClipboard(text: string): Promise<void> {
+  // 1. Go 后端（跨平台最可靠）
   try {
     await ClipboardSetText(text)
     return
-  } catch {
+  } catch (e) {
+    console.warn('[Settings] Go ClipboardSetText failed:', e)
+  }
+
+  // 2. Web Clipboard API
+  try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text)
+      return
     }
+  } catch (e) {
+    console.warn('[Settings] navigator.clipboard.writeText failed:', e)
   }
+
+  // 3. execCommand 兜底
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    if (ok) return
+  } catch (e) {
+    console.warn('[Settings] execCommand copy failed:', e)
+  }
+
+  throw new Error('无法写入剪贴板')
 }
 
-// 读取剪贴板，优先使用 Wails 运行时，失败则回退到 Web API
+// 读取剪贴板：Go 后端 -> navigator.clipboard
 async function readClipboard(): Promise<string> {
+  // 1. Go 后端（跨平台最可靠）
   try {
     return await ClipboardGetText()
-  } catch {
+  } catch (e) {
+    console.warn('[Settings] Go ClipboardGetText failed:', e)
+  }
+
+  // 2. Web Clipboard API
+  try {
     if (navigator.clipboard?.readText) {
       return await navigator.clipboard.readText()
     }
+  } catch (e) {
+    console.warn('[Settings] navigator.clipboard.readText failed:', e)
   }
-  return ''
+
+  throw new Error('无法读取剪贴板')
 }
 
 export function Settings({ 
@@ -183,6 +217,7 @@ export function Settings({
   const [aiSaving, setAiSaving] = useState(false)
   const [showLLMKey, setShowLLMKey] = useState(false)
   const [showSearchKey, setShowSearchKey] = useState(false)
+  const [clipboardError, setClipboardError] = useState<string | null>(null)
 
   // 解析 Tavily Key 输入字符串为数组
   const parseSearchKeys = (input: string): string[] => {
@@ -344,8 +379,9 @@ export function Settings({
           if (text) {
             insertTextAtCursor(target, text)
           }
-        } catch {
-          // ignore
+          setClipboardError(null)
+        } catch (e: any) {
+          setClipboardError(`粘贴失败: ${e?.message || '未知错误'}`)
         }
         return
       }
@@ -356,8 +392,9 @@ export function Settings({
           e.preventDefault()
           try {
             await writeClipboard(selected)
-          } catch {
-            // ignore
+            setClipboardError(null)
+          } catch (e: any) {
+            setClipboardError(`复制失败: ${e?.message || '未知错误'}`)
           }
         }
         return
@@ -370,9 +407,21 @@ export function Settings({
           try {
             await writeClipboard(selected)
             deleteSelectedText(target)
-          } catch {
-            // ignore
+            setClipboardError(null)
+          } catch (e: any) {
+            setClipboardError(`剪切失败: ${e?.message || '未知错误'}`)
           }
+        }
+        return
+      }
+
+      if (key === 'z') {
+        e.preventDefault()
+        try {
+          const cmd = e.shiftKey ? 'redo' : 'undo'
+          document.execCommand(cmd)
+        } catch (e: any) {
+          setClipboardError(`撤销失败: ${e?.message || '未知错误'}`)
         }
         return
       }
@@ -435,6 +484,12 @@ export function Settings({
             <button className={activeTab === 'ai' ? 'active' : ''} onClick={() => setActiveTab('ai')}>AI 投研</button>
             <button className={activeTab === 'about' ? 'active' : ''} onClick={() => setActiveTab('about')}>关于</button>
           </div>
+
+          {clipboardError && (
+            <div className="settings-action-status" style={{ padding: '8px 16px', background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
+              <span className="status-error">{clipboardError}</span>
+            </div>
+          )}
 
           {activeTab === 'appearance' && (
             <div className="settings-section">

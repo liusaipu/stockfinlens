@@ -26,6 +26,10 @@ export function CheckForUpdate():Promise<updater.UpdateInfo>;
 
 export function CheckPythonDependencies():Promise<main.PythonEnvResult>;
 
+export function ClipboardGetText():Promise<string>;
+
+export function ClipboardSetText(arg1:string):Promise<void>;
+
 export function ConfirmDialog(arg1:string,arg2:string):Promise<boolean>;
 
 export function DeleteReport(arg1:string,arg2:string):Promise<void>;

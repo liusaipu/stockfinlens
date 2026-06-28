@@ -391,7 +391,11 @@ body.light .settings-data-desc {
   color: #e6e6e6;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  position: relative;
 }
 
 .settings-data-btn:hover {

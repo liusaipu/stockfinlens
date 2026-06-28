@@ -42,6 +42,14 @@ export function CheckPythonDependencies() {
   return window['go']['main']['App']['CheckPythonDependencies']();
 }
 
+export function ClipboardGetText() {
+  return window['go']['main']['App']['ClipboardGetText']();
+}
+
+export function ClipboardSetText(arg1) {
+  return window['go']['main']['App']['ClipboardSetText'](arg1);
+}
+
 export function ConfirmDialog(arg1, arg2) {
   return window['go']['main']['App']['ConfirmDialog'](arg1, arg2);
 }

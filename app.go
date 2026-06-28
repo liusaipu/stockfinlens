@@ -28,6 +28,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/xuri/excelize/v2"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/atotto/clipboard"
 )
 
 // debugLog 直接写入日志文件，确保日志被记录
@@ -3387,6 +3389,18 @@ func (a *App) SaveSFLConfig(cfg SFLConfig) error {
 	// 配置变更后重新加载数据源路由
 	a.reloadDataRouter()
 	return nil
+}
+
+// ========== 剪贴板 Wails 绑定 ==========
+
+// ClipboardSetText 写入系统剪贴板（跨平台，供前端输入框快捷键使用）
+func (a *App) ClipboardSetText(text string) error {
+	return clipboard.WriteAll(text)
+}
+
+// ClipboardGetText 读取系统剪贴板（跨平台，供前端输入框快捷键使用）
+func (a *App) ClipboardGetText() (string, error) {
+	return clipboard.ReadAll()
 }
 
 // ========== AI 投研配置 Wails 绑定 ==========
