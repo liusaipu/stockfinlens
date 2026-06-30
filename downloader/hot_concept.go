@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -65,8 +69,101 @@ const (
 	// 历史踩坑：曾把 emFSIndustry 设为 t:1，结果 _concept_membership.json 里 sub_industry 全是省份板块（药明康德误判成"青海板块"）。
 	emFSConcept        = "m:90+t:3"
 	emFSIndustry       = "m:90+t:2"
-	hotConceptCacheVer = 6 // 缓存版本号，字段映射/去重逻辑变更时递增使旧缓存失效
+	hotConceptCacheVer = 7 // 缓存版本号，字段映射/去重逻辑变更时递增使旧缓存失效
 )
+
+// conceptCodeCache 全量概念名称->code 映射缓存，避免每次重复拉取。
+var conceptCodeCache = struct {
+	sync.RWMutex
+	m    map[string]string
+	last time.Time
+}{m: make(map[string]string)}
+
+const conceptCodeCacheTTL = 24 * time.Hour
+
+// fetchAllConceptBoardCodes 拉取东方财富全部概念板块（m:90+t:3），建立名称->code 映射。
+func fetchAllConceptBoardCodes(ctx context.Context) (map[string]string, error) {
+	conceptCodeCache.RLock()
+	if len(conceptCodeCache.m) > 0 && time.Since(conceptCodeCache.last) < conceptCodeCacheTTL {
+		cp := make(map[string]string, len(conceptCodeCache.m))
+		for k, v := range conceptCodeCache.m {
+			cp[k] = v
+		}
+		conceptCodeCache.RUnlock()
+		return cp, nil
+	}
+	conceptCodeCache.RUnlock()
+
+	url := fmt.Sprintf(
+		"https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=1000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=%s&fields=f12,f14&_=%d",
+		emFSConcept,
+		time.Now().UnixMilli(),
+	)
+	body, err := httpGetEastMoney(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	body = stripJSONP(body)
+
+	var resp struct {
+		Data struct {
+			Diff []struct {
+				Code string `json:"f12"`
+				Name string `json:"f14"`
+			} `json:"diff"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, err
+	}
+
+	m := make(map[string]string, len(resp.Data.Diff))
+	for _, d := range resp.Data.Diff {
+		code := d.Code
+		if code != "" && !strings.HasPrefix(code, "BK") {
+			code = "BK" + code
+		}
+		if d.Name != "" && code != "" {
+			m[d.Name] = code
+		}
+	}
+
+	conceptCodeCache.Lock()
+	conceptCodeCache.m = m
+	conceptCodeCache.last = time.Now()
+	conceptCodeCache.Unlock()
+
+	fmt.Printf("[HotConcept] 全量概念映射已更新，共 %d 条\n", len(m))
+	return m, nil
+}
+
+// hotConceptNameBlacklist 市场热点概念黑名单：过滤风格/指数/地域/价格等宽泛或非概念板块。
+var hotConceptNameBlacklist = []string{
+	"风格", "百元股", "高价股", "低价股", "大盘股", "中盘股", "小盘股", "微盘股",
+	"创业板", "科创板", "北交所", "沪深300", "上证50", "中证500", "中证1000",
+	"ST板块", "次新股", "新股", "融资融券", "沪股通", "深股通", "港股通",
+	"证金持股", "基金重仓", "社保重仓", "QFII重仓", "信托重仓", "保险重仓",
+	"券商重仓", "机构重仓", "股东增持", "员工持股", "股权激励", "送转潜力",
+	"高送转", "摘帽预期", "重组预期", "股权转让", "壳资源", "预盈预增",
+	"预亏预减", "长江三角", "珠三角", "京津冀", "成渝特区", "深圳特区",
+	"上海本地", "北京本地", "广东板块", "江苏板块", "浙江板块", "山东板块",
+	"福建板块", "湖南板块", "湖北板块", "四川板块", "安徽板块", "河北板块",
+	"河南板块", "江西板块", "东北板块", "西北板块", "西南板块", "华南板块",
+	"华北板块", "华东板块", "华中板块",
+}
+
+// isHotConceptBlacklisted 判断概念名是否在黑名单中
+func isHotConceptBlacklisted(name string) bool {
+	if name == "" {
+		return true
+	}
+	for _, kw := range hotConceptNameBlacklist {
+		if strings.Contains(name, kw) {
+			return true
+		}
+	}
+	return false
+}
 
 // sflHotConceptClient 用于热点概念降级的数据源客户端（由 app.go 设置）
 var sflHotConceptClient *SFLClient
@@ -268,19 +365,123 @@ func FetchHotConceptHistory(dataDir string, days int) ([]HotConceptHistoryItem, 
 	return result, nil
 }
 
+// resolveConceptCodeByName 通过东方财富搜索 API 用概念名称反查板块 code。
+// 热点榜单返回的 code 有时与成分股接口不通用，用名称反查可解决“创新药”等空数据问题。
+func resolveConceptCodeByName(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("概念名称为空")
+	}
+	encoded := url.QueryEscape(name)
+	reqURL := fmt.Sprintf("http://searchapi.eastmoney.com/api/suggest/get?input=%s&type=14&count=5&_=%d", encoded, time.Now().UnixMilli())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", defaultUA)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var sug struct {
+		Quan struct {
+			Items []struct {
+				Code string `json:"Code"`
+				Name string `json:"Name"`
+				Type int    `json:"Type"`
+			} `json:"items"`
+		} `json:"Quan"`
+	}
+	if err := json.Unmarshal(body, &sug); err != nil {
+		return "", err
+	}
+	for _, item := range sug.Quan.Items {
+		if item.Type == 14 && strings.TrimSpace(item.Name) == name {
+			code := item.Code
+			if code != "" && !strings.HasPrefix(code, "BK") {
+				code = "BK" + code
+			}
+			return code, nil
+		}
+	}
+	return "", fmt.Errorf("未找到概念 '%s' 对应的 code", name)
+}
+
 // FetchConceptConstituents 获取某概念板块的成分股列表（按涨跌幅截 top 50，用于热点概念展示）
-func FetchConceptConstituents(ctx context.Context, conceptCode string) ([]ConceptConstituent, error) {
-	result, err := fetchConceptConstituentsRaw(ctx, conceptCode, 200)
+func FetchConceptConstituents(ctx context.Context, conceptCode string, conceptName string) ([]ConceptConstituent, error) {
+	fmt.Printf("[HotConcept] 开始获取成分股 code=%s name=%s\n", conceptCode, conceptName)
+	result, err := fetchConceptConstituentsRaw(ctx, conceptCode, 100)
+	if err == nil && len(result) > 0 {
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].ChangePct > result[j].ChangePct
+		})
+		if len(result) > 10 {
+			result = result[:10]
+		}
+		return result, nil
+	}
+	if err != nil {
+		fmt.Printf("[HotConcept] 原 code 获取成分股失败 code=%s name=%s: %v\n", conceptCode, conceptName, err)
+	} else {
+		fmt.Printf("[HotConcept] 原 code 成分股为空 code=%s name=%s，尝试按名称反查\n", conceptCode, conceptName)
+	}
+	// fallback 1：用全量概念映射表按名称查找正确 code
+	if conceptName != "" {
+		codeMap, mapErr := fetchAllConceptBoardCodes(ctx)
+		if mapErr == nil {
+			if mapped, ok := codeMap[conceptName]; ok && mapped != "" && mapped != conceptCode {
+				fmt.Printf("[HotConcept] 全量映射反查成功 name=%s -> code=%s，再次尝试\n", conceptName, mapped)
+				result, err = fetchConceptConstituentsRaw(ctx, mapped, 100)
+				if err == nil && len(result) > 0 {
+					sort.Slice(result, func(i, j int) bool {
+						return result[i].ChangePct > result[j].ChangePct
+					})
+					if len(result) > 10 {
+						result = result[:10]
+					}
+					return result, nil
+				}
+				if err != nil {
+					fmt.Printf("[HotConcept] 映射 code 仍失败 code=%s name=%s: %v\n", mapped, conceptName, err)
+				}
+			} else {
+				fmt.Printf("[HotConcept] 全量映射中未找到 name=%s 或 code 相同\n", conceptName)
+			}
+		} else {
+			fmt.Printf("[HotConcept] 获取全量概念映射失败: %v\n", mapErr)
+		}
+	}
+
+	// fallback 2：用搜索 suggest API 兜底
+	if conceptName != "" {
+		resolved, resolveErr := resolveConceptCodeByName(ctx, conceptName)
+		if resolveErr == nil && resolved != "" && resolved != conceptCode {
+			fmt.Printf("[HotConcept] 搜索反查成功 name=%s -> code=%s，再次尝试\n", conceptName, resolved)
+			result, err = fetchConceptConstituentsRaw(ctx, resolved, 100)
+			if err == nil && len(result) > 0 {
+				sort.Slice(result, func(i, j int) bool {
+					return result[i].ChangePct > result[j].ChangePct
+				})
+				if len(result) > 10 {
+					result = result[:10]
+				}
+				return result, nil
+			}
+			if err != nil {
+				fmt.Printf("[HotConcept] 搜索反查 code 仍失败 code=%s name=%s: %v\n", resolved, conceptName, err)
+			}
+		} else if resolveErr != nil {
+			fmt.Printf("[HotConcept] 搜索反查失败 name=%s: %v\n", conceptName, resolveErr)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].ChangePct > result[j].ChangePct
-	})
-	if len(result) > 50 {
-		result = result[:50]
-	}
-	return result, nil
+	return nil, fmt.Errorf("该概念暂无成分股数据")
 }
 
 // FetchAllConceptConstituents 获取某板块的全量成分股（不排序、不截断，用于反查表构建）
@@ -346,7 +547,7 @@ func fetchConceptConstituentsPaginated(ctx context.Context, conceptCode string, 
 // fetchConstituentsOnePage 拉取成分股单页，返回 (本页数据, total, err)
 func fetchConstituentsOnePage(ctx context.Context, conceptCode string, pn, pageSize int) ([]ConceptConstituent, int, error) {
 	url := fmt.Sprintf(
-		"http://push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&_=%d",
+		"https://push2.eastmoney.com/api/qt/clist/get?pn=%d&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f130,f136,f115,f152&_=%d",
 		pn, pageSize, conceptCode, time.Now().UnixMilli(),
 	)
 	body, err := httpGetEastMoney(ctx, url)
@@ -424,7 +625,7 @@ func fetchConceptConstituentsRaw(ctx context.Context, conceptCode string, pageSi
 	}
 
 	url := fmt.Sprintf(
-		"http://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152&_=%d",
+		"https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:%s&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f130,f136,f115,f152&_=%d",
 		pageSize,
 		conceptCode,
 		time.Now().UnixMilli(),
@@ -542,19 +743,25 @@ func stripJSONP(body []byte) []byte {
 }
 
 // httpGetEastMoney 东财专用 HTTP GET：多个 CDN 节点轮询，统一使用共享 client。
+// 注意：轮询节点过多会触发东财反爬/限流，因此只尝试少量 CDN，并带简单退避。
 func httpGetEastMoney(ctx context.Context, url string) ([]byte, error) {
-	// 尝试多个东财CDN节点
 	urls := []string{url}
-	// 如果原始URL包含 push2.eastmoney.com，额外尝试 31-50 号CDN
+	// 如果原始URL包含 push2.eastmoney.com，额外尝试 3 个 CDN 节点（而非原来的 20 个）
 	if strings.Contains(url, "push2.eastmoney.com") {
-		for i := 31; i <= 50; i++ {
+		for _, i := range []int{31, 32, 33} {
 			urls = append(urls, strings.Replace(url, "push2.eastmoney.com", fmt.Sprintf("%d.push2.eastmoney.com", i), 1))
 		}
 	}
 
-	for _, u := range urls {
+	var lastErr error
+	for idx, u := range urls {
+		if idx > 0 {
+			// CDN 节点之间休眠，避免触发限流
+			time.Sleep(200 * time.Millisecond)
+		}
 		rctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		body, err := HTTPGet(rctx, u,
+		// 成分股接口 EOF 频发，禁用 keep-alive 避免复用失效连接
+		body, err := HTTPGetNoKeepAlive(rctx, u,
 			WithReferer("https://quote.eastmoney.com/"),
 			WithHeader("Accept", "*/*"),
 		)
@@ -562,6 +769,11 @@ func httpGetEastMoney(ctx context.Context, url string) ([]byte, error) {
 		if err == nil && len(body) > 0 {
 			return body, nil
 		}
+		lastErr = err
+		fmt.Printf("[httpGetEastMoney] CDN 节点 %d 请求失败: %v\n", idx, err)
+	}
+	if lastErr != nil {
+		return nil, fmt.Errorf("所有CDN节点请求失败: %w", lastErr)
 	}
 	return nil, fmt.Errorf("所有CDN节点请求失败")
 }
@@ -619,6 +831,9 @@ func fetchConceptBoardFromEastMoney(ctx context.Context) ([]HotConcept, error) {
 			TopStockCode: parseString(item["f205"]),
 		}
 		if c.Code == "" {
+			continue
+		}
+		if isHotConceptBlacklisted(c.Name) {
 			continue
 		}
 		concepts = append(concepts, c)

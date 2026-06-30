@@ -1263,11 +1263,11 @@ function App() {
     }
   }, [quickAnalysisCacheDate])
 
-  const loadConceptConstituents = useCallback(async (code: string) => {
+  const loadConceptConstituents = useCallback(async (code: string, name: string) => {
     if (!code) return
     try {
-      console.log('[Constituents] loading for', code)
-      const list = await FetchHotConceptConstituents(code)
+      console.log('[Constituents] loading for', code, name)
+      const list = await FetchHotConceptConstituents(code, name)
       console.log('[Constituents] loaded', list?.length, 'stocks for', code)
       setConceptConstituents((prev) => ({ ...prev, [code]: list || [] }))
       // 计算成分股主力净流入加总，用于替代板块指数f62
@@ -3016,9 +3016,9 @@ function App() {
       {/* 中栏：股票信息 & 操作 */}
       <section className="info-panel">
         {hotPanelOpen ? (
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', padding: '10px 16px 16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', padding: '10px 0 16px' }}>
             {/* 热点详情面板 */}
-            <div className="stock-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, padding: '8px 0' }}>
+            <div className="stock-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, padding: '8px 16px' }}>
               <span
                 style={{ fontSize: 18, color: '#3b82f6', cursor: 'pointer', padding: '0 4px' }}
                 title="返回自选股票"
@@ -3029,6 +3029,7 @@ function App() {
               >
                 ←
               </span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>热点概念</span>
               <button
                 className="btn-text"
                 onClick={loadHotConcepts}
@@ -3039,17 +3040,17 @@ function App() {
             </div>
 
             {hotConceptError && (
-              <div style={{ padding: '8px 0', color: '#ef4444', fontSize: 13, flexShrink: 0 }}>{hotConceptError}</div>
+              <div style={{ padding: '8px 16px', color: '#ef4444', fontSize: 13, flexShrink: 0 }}>{hotConceptError}</div>
             )}
 
             {hotConcepts.length > 0 ? (
-              <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, paddingRight: 4 }}>
+              <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 {/* 表头 */}
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 70px 70px 50px',
                   gap: 4,
-                  padding: '6px 8px',
+                  padding: '6px 16px',
                   fontSize: 11,
                   color: 'var(--text-muted)',
                   borderBottom: '1px solid rgba(148,163,184,0.15)',
@@ -3083,11 +3084,11 @@ function App() {
                       onClick={() => {
                         setSelectedHotConceptCode(c.code)
                         if (!conceptConstituents[c.code]) {
-                          loadConceptConstituents(c.code)
+                          loadConceptConstituents(c.code, c.name)
                         }
                       }}
                       style={{
-                        padding: '6px 8px',
+                        padding: '6px 16px',
                         borderBottom: '1px solid rgba(148,163,184,0.06)',
                         background: isActive ? 'rgba(59,130,246,0.08)' : 'transparent',
                         borderRadius: isActive ? 4 : 0,

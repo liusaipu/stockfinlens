@@ -35,8 +35,67 @@ func TestAIConfigNormalize(t *testing.T) {
 	if cfg.LLMBaseURL != "https://api.moonshot.cn/v1" {
 		t.Errorf("Kimi BaseURL 应为 moonshot，实际是 %s", cfg.LLMBaseURL)
 	}
-	if cfg.LLMModel != "moonshot-v1-8k" {
+	if cfg.LLMModel != "kimi-k2.6" {
 		t.Errorf("Kimi 默认模型错误: %s", cfg.LLMModel)
+	}
+}
+
+func TestAIConfigNormalizeKimiCode(t *testing.T) {
+	cfg := &AIConfig{
+		LLMProvider: "kimi-code",
+	}
+	cfg.Normalize()
+
+	if cfg.LLMBaseURL != "https://api.kimi.com/coding/v1" {
+		t.Errorf("Kimi Code BaseURL 错误: %s", cfg.LLMBaseURL)
+	}
+	if cfg.LLMModel != "kimi-k2.6" {
+		t.Errorf("Kimi Code 默认模型错误: %s", cfg.LLMModel)
+	}
+}
+
+func TestNormalizeTemperature(t *testing.T) {
+	if got := normalizeTemperature("kimi-k2.6", 0.2); got != 0.6 {
+		t.Errorf("kimi-k2.6 temperature 应强制为 0.6（instant 模式），实际 %v", got)
+	}
+	if got := normalizeTemperature("kimi-k2.5", 0.2); got != 0.6 {
+		t.Errorf("kimi-k2.5 temperature 应强制为 0.6（instant 模式），实际 %v", got)
+	}
+	if got := normalizeTemperature("kimi-k2.7-code", 0.2); got != 1.0 {
+		t.Errorf("kimi-k2.7-code temperature 应强制为 1.0（thinking 模式），实际 %v", got)
+	}
+	if got := normalizeTemperature("deepseek-v4-pro", 0.2); got != 1.0 {
+		t.Errorf("deepseek-v4-pro temperature 应强制为 1.0，实际 %v", got)
+	}
+	if got := normalizeTopP("kimi-k2.6", 1.0); got != 0.95 {
+		t.Errorf("kimi-k2.6 top_p 应强制为 0.95，实际 %v", got)
+	}
+	if got := normalizeTopP("deepseek-v4-pro", 1.0); got != 1.0 {
+		t.Errorf("deepseek top_p 应保持原值，实际 %v", got)
+	}
+	if got := normalizeTemperature("deepseek-v4-pro", 0.2); got != 1.0 {
+		t.Errorf("deepseek-v4-pro temperature 应强制为 1.0，实际 %v", got)
+	}
+	if got := normalizeTemperature("deepseek-v4-flash", 0.2); got != 1.0 {
+		t.Errorf("deepseek-v4-flash temperature 应强制为 1.0，实际 %v", got)
+	}
+	if got := normalizeTopP("deepseek-v4-pro", 0.5); got != 1.0 {
+		t.Errorf("deepseek-v4-pro top_p 应强制为 1.0，实际 %v", got)
+	}
+	if !disableThinkingForModel("kimi-k2.6") {
+		t.Error("kimi-k2.6 应禁用 thinking")
+	}
+	if !disableThinkingForModel("kimi-k2.5") {
+		t.Error("kimi-k2.5 应禁用 thinking")
+	}
+	if !disableThinkingForModel("deepseek-v4-pro") {
+		t.Error("deepseek-v4-pro 应禁用 thinking")
+	}
+	if !disableThinkingForModel("deepseek-v4-flash") {
+		t.Error("deepseek-v4-flash 应禁用 thinking")
+	}
+	if disableThinkingForModel("kimi-k2.7-code") {
+		t.Error("kimi-k2.7-code 不应默认禁用 thinking")
 	}
 }
 

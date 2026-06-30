@@ -187,6 +187,12 @@ func (c *TavilyClient) searchOnce(ctx context.Context, query string, includeDoma
 	if len(includeDomains) > 0 {
 		reqBody["include_domains"] = includeDomains
 	}
+	// Tavily 的 exclude_domains 必须是合法域名后缀（如 example.com），不能是关键词。
+	// 垃圾站点过滤改为在本地解析结果时通过 isQualitySource 完成。
+	excludes := ValidExcludeDomains()
+	if len(excludes) > 0 {
+		reqBody["exclude_domains"] = excludes
+	}
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {

@@ -32,8 +32,12 @@ func SystemPrompt(language string) string {
    - 分析「全球产业映射与预期差」时，必须回答：海外发生了什么产业级突破或龙头动向？该事件对国内产业链/该公司是利好还是利空？市场是否已经充分定价？是否存在预期差？
    - 如果信息不足，明确说明"信息有限"，不要编造。
 5. 所有结论必须基于提供的搜索结果，不要编造数据。
-6. 输出严格为 JSON 格式，不要包含 markdown 代码块、注释或额外说明。
-7. 语言：%s。
+6. 来源引用要求：
+   - sources 数组中只保留高可信度来源（证监会/交易所官网、主流财经媒体、上市公司公告、知名国际媒体/科技媒体、主流券商研报）。
+   - 不要引用色情、赌博、 counterfeit、广告推广、无关社交媒体 spam、分类信息站等低质量来源。
+   - 如果搜索结果中没有可信来源支撑某个结论，宁可不列出该来源，也不要编造 URL。
+7. 输出严格为 JSON 格式，不要包含 markdown 代码块、注释或额外说明。
+8. 语言：%s。
 
 JSON Schema：
 {
@@ -196,6 +200,62 @@ func IncludeDomains() []string {
 		"reddit.com",
 		"twitter.com",
 		"x.com",
+	}
+}
+
+// SpamDomainKeywords 返回用于本地过滤的域名/URL 垃圾关键词。
+func SpamDomainKeywords() []string {
+	return []string{
+		"escort",
+		"massage",
+		"dating",
+		"casino",
+		"poker",
+		"lottery",
+		"bet365",
+		"counterfeit",
+		"replica",
+		"fake-",
+		"knockoff",
+		"directory",
+		"classifieds",
+		"backpage",
+	}
+}
+
+// ValidExcludeDomains 返回可传给 Tavily exclude_domains 参数的合法域名。
+// Tavily 要求必须是带有效后缀的域名（如 example.com），不能是关键词。
+func ValidExcludeDomains() []string {
+	return []string{
+		// 已知低质量/聚合/广告域名，可随实际 case 持续补充
+	}
+}
+
+// SpamKeywords 返回用于过滤搜索结果的垃圾关键词。
+func SpamKeywords() []string {
+	return []string{
+		"兼职上门",
+		"小姐",
+		"外围",
+		"高端上门",
+		"薇信",
+		"微信",
+		"高仿",
+		"A货",
+		"复刻",
+		"原单",
+		"一比一",
+		"精仿",
+		"顶级高仿",
+		"赌",
+		"博彩",
+		"彩票",
+		"六合彩",
+		"百家乐",
+		"色情",
+		"援交",
+		"约炮",
+		"成人",
 	}
 }
 

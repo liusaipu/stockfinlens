@@ -251,7 +251,7 @@ export function Settings({
     }).catch(() => {
       setAiCfg({
         enabled: false, llm_provider: 'deepseek', llm_api_key: '', llm_base_url: 'https://api.deepseek.com/v1',
-        llm_model: 'deepseek-chat', llm_timeout: 90, temperature: 0.2, max_tokens: 4096, top_p: 1.0,
+        llm_model: 'deepseek-v4-pro', llm_timeout: 90, temperature: 0.2, max_tokens: 4096, top_p: 1.0,
         search_provider: 'tavily', search_api_key: '', search_api_keys: [], search_depth: 'advanced', search_timeout: 180, max_results: 10,
         search_recency_days: 90, exhausted_search_keys: {}, focus_regions: ['us', 'jp'], output_language: 'zh-CN', enable_social: true,
         cache_ttl_hours: 6
@@ -798,8 +798,9 @@ export function Settings({
                             onChange={(e) => {
                               const provider = e.target.value
                               const defaults: Record<string, { base_url: string; model: string }> = {
-                                kimi: { base_url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
-                                deepseek: { base_url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+                                kimi: { base_url: 'https://api.moonshot.cn/v1', model: 'kimi-k2.6' },
+                                'kimi-code': { base_url: 'https://api.kimi.com/coding/v1', model: 'kimi-k2.6' },
+                                deepseek: { base_url: 'https://api.deepseek.com/v1', model: 'deepseek-v4-pro' },
                               }
                               setAiCfg({
                                 ...aiCfg,
@@ -812,6 +813,7 @@ export function Settings({
                           >
                             <option value="deepseek">DeepSeek</option>
                             <option value="kimi">Kimi（Moonshot 开放平台）</option>
+                            <option value="kimi-code">Kimi Code（kimi.com/code）</option>
                           </select>
                         </div>
 
@@ -860,15 +862,43 @@ export function Settings({
 
                         <div className="settings-item" style={{ marginTop: 8 }}>
                           <label>模型名称</label>
-                          <input
-                            type="text"
-                            value={aiCfg.llm_model}
-                            onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
-                            placeholder="deepseek-chat / moonshot-v1-8k"
-                            style={{ width: '100%', marginTop: 4 }}
-                          />
+                          {aiCfg.llm_provider === 'deepseek' ? (
+                            <select
+                              value={aiCfg.llm_model}
+                              onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
+                              style={{ width: '100%', marginTop: 4, padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
+                            >
+                              <option value="deepseek-v4-pro">deepseek-v4-pro（默认推荐）</option>
+                              <option value="deepseek-v4-flash">deepseek-v4-flash（更快更便宜）</option>
+                              <option value="deepseek-chat">deepseek-chat（旧版，2026-07-24 停用）</option>
+                              <option value="deepseek-reasoner">deepseek-reasoner（旧版推理，2026-07-24 停用）</option>
+                            </select>
+                          ) : aiCfg.llm_provider === 'kimi' || aiCfg.llm_provider === 'kimi-code' ? (
+                            <select
+                              value={aiCfg.llm_model}
+                              onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
+                              style={{ width: '100%', marginTop: 4, padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
+                            >
+                              <option value="kimi-k2.6">kimi-k2.6（默认推荐）</option>
+                              <option value="kimi-k2.5">kimi-k2.5</option>
+                              <option value="kimi-k2.7-code">kimi-k2.7-code（编程专用）</option>
+                              <option value="kimi-k2.7-code-highspeed">kimi-k2.7-code-highspeed（高速版）</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={aiCfg.llm_model}
+                              onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
+                              placeholder="模型名称"
+                              style={{ width: '100%', marginTop: 4 }}
+                            />
+                          )}
                           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                            可手动输入，例如 DeepSeek V3 / R1 或未来新模型名
+                            {aiCfg.llm_provider === 'deepseek'
+                              ? 'DeepSeek V4 新模型：pro 质量更高，flash 速度更快、成本更低'
+                              : aiCfg.llm_provider === 'kimi' || aiCfg.llm_provider === 'kimi-code'
+                                ? 'Kimi K2 系列新模型：k2.6 综合能力最强，k2.7-code 更适合代码场景；Kimi Code 端点会自动处理 temperature'
+                                : '可手动输入模型名'}
                           </div>
                         </div>
 
@@ -1105,7 +1135,7 @@ export function Settings({
                         </div>
 
                         <div style={{ marginTop: 12, fontSize: 11, color: '#64748b', lineHeight: 1.5 }}>
-                          💡 提示：DeepSeek 目前公开模型为 deepseek-chat（V3）和 deepseek-reasoner（R1）。<br />
+                          💡 提示：DeepSeek 推荐 deepseek-v4-pro / deepseek-v4-flash（旧名称 2026-07-24 停用）；Kimi / Kimi Code 推荐 kimi-k2.6 / kimi-k2.5。Kimi Code 请从 kimi.com/code 申请 Key。<br />
                           ⚠️ AI 分析仅供参考，所有结论请以上市公司公告和官方数据为准。
                         </div>
                       </>

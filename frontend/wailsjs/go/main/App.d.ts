@@ -58,7 +58,7 @@ export function ExportReportImage(arg1:string,arg2:string):Promise<void>;
 
 export function ExportReportPDF(arg1:string,arg2:string):Promise<void>;
 
-export function FetchHotConceptConstituents(arg1:string):Promise<Array<downloader.ConceptConstituent>>;
+export function FetchHotConceptConstituents(arg1:string,arg2:string):Promise<Array<downloader.ConceptConstituent>>;
 
 export function FetchHotConceptHistory(arg1:number):Promise<Array<downloader.HotConceptHistoryItem>>;
 

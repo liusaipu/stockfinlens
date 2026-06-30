@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -87,10 +88,14 @@ func (r *Researcher) Research(ctx context.Context, symbol, name string, forceRef
 	}
 	emit("search", fmt.Sprintf("搜索完成，共获取 %d 条结果", len(results)))
 
-	// 3. 去重、汇总来源
+	// 3. 过滤低质量/垃圾搜索结果，避免污染 LLM 输入和参考来源
+	results = filterSearchResults(results)
+	emit("search", fmt.Sprintf("过滤后剩余 %d 条有效结果", countSearchItems(results)))
+
+	// 4. 去重、汇总来源
 	sources := collectSources(results)
 
-	// 4. 调用 LLM
+	// 5. 调用 LLM
 	emit("llm", "正在调用大模型生成投研报告...")
 	systemPrompt := SystemPrompt(r.cfg.OutputLanguage)
 	userPrompt := UserPrompt(symbol, name, r.cfg.FocusRegions, r.cfg.EnableSocial, results)
@@ -198,8 +203,25 @@ type llmOutput struct {
 	Sources  []ResearchSource  `json:"sources"`
 }
 
+// sanitizeJSON 修复 LLM 生成的 JSON 中常见的转义错误。
+// 主要处理反斜杠后跟实际换行/回车的情况，以及移除对象/数组末尾多余的逗号。
+func sanitizeJSON(s string) string {
+	// 反斜杠后直接跟真实换行/回车：转成合法的 \n
+	s = strings.ReplaceAll(s, "\\\r\n", "\\n")
+	s = strings.ReplaceAll(s, "\\\n", "\\n")
+	s = strings.ReplaceAll(s, "\\\r", "\\n")
+	// 移除 trailing comma：",}" -> "}" 和 ",]" -> "]"
+	s = trailingCommaRegex.ReplaceAllString(s, "$1")
+	return s
+}
+
+var trailingCommaRegex = regexp.MustCompile(`,(\s*[}\]])`)
+
 func parseLLMOutput(content string) (*llmOutput, error) {
 	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, fmt.Errorf("LLM 输出为空")
+	}
 	// 去掉可能的 markdown 代码块
 	if strings.HasPrefix(content, "```json") {
 		content = strings.TrimPrefix(content, "```json")
@@ -210,10 +232,35 @@ func parseLLMOutput(content string) (*llmOutput, error) {
 		content = strings.TrimSpace(content)
 	}
 
+	// 如果直接解析失败，尝试从文本中提取第一个 { ... } JSON 对象
+	extractJSON := func(s string) string {
+		start := strings.Index(s, "{")
+		end := strings.LastIndex(s, "}")
+		if start >= 0 && end > start {
+			return s[start : end+1]
+		}
+		return s
+	}
+
 	var out llmOutput
 	if err := json.Unmarshal([]byte(content), &out); err != nil {
+		candidate := extractJSON(content)
+		if candidate != content {
+			if err2 := json.Unmarshal([]byte(candidate), &out); err2 == nil {
+				goto validate
+			}
+		}
+		// 尝试修复 LLM 常见 JSON 转义错误后再解析
+		fixed := sanitizeJSON(content)
+		if fixed != content {
+			if err2 := json.Unmarshal([]byte(fixed), &out); err2 == nil {
+				goto validate
+			}
+		}
 		return nil, err
 	}
+
+validate:
 
 	// 确保至少有一个 section
 	if len(out.Sections) == 0 {
@@ -236,12 +283,44 @@ func parseLLMOutput(content string) (*llmOutput, error) {
 	return &out, nil
 }
 
+// filterSearchResults 对每个查询返回的结果做垃圾过滤。
+func filterSearchResults(results []SearchResult) []SearchResult {
+	out := make([]SearchResult, 0, len(results))
+	for _, r := range results {
+		filtered := make([]SearchItem, 0, len(r.Items))
+		for _, item := range r.Items {
+			if isQualitySource(item) {
+				filtered = append(filtered, item)
+			}
+		}
+		if len(filtered) > 0 {
+			out = append(out, SearchResult{
+				Query:   r.Query,
+				Items:   filtered,
+				RawJSON: r.RawJSON,
+			})
+		}
+	}
+	return out
+}
+
+func countSearchItems(results []SearchResult) int {
+	n := 0
+	for _, r := range results {
+		n += len(r.Items)
+	}
+	return n
+}
+
 func collectSources(results []SearchResult) []ResearchSource {
 	seen := make(map[string]bool)
 	var sources []ResearchSource
 	for _, r := range results {
 		for _, item := range r.Items {
 			if item.URL == "" || seen[item.URL] {
+				continue
+			}
+			if !isQualitySource(item) {
 				continue
 			}
 			seen[item.URL] = true
@@ -253,6 +332,29 @@ func collectSources(results []SearchResult) []ResearchSource {
 		}
 	}
 	return sources
+}
+
+// isQualitySource 判断单条搜索结果是否可信。
+func isQualitySource(item SearchItem) bool {
+	// 1. Tavily 相关度分数过低则丢弃
+	if item.Score > 0 && item.Score < 0.35 {
+		return false
+	}
+	// 2. 标题或摘要含垃圾关键词则丢弃
+	combined := strings.ToLower(item.Title + " " + item.Content + " " + item.URL)
+	for _, kw := range SpamKeywords() {
+		if strings.Contains(combined, strings.ToLower(kw)) {
+			return false
+		}
+	}
+	// 3. 排除黑名单域名关键词
+	host := strings.ToLower(item.URL)
+	for _, d := range SpamDomainKeywords() {
+		if strings.Contains(host, strings.ToLower(d)) {
+			return false
+		}
+	}
+	return true
 }
 
 func mergeSources(llmSources, searchSources []ResearchSource) []ResearchSource {

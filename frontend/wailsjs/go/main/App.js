@@ -106,8 +106,8 @@ export function ExportReportPDF(arg1, arg2) {
   return window['go']['main']['App']['ExportReportPDF'](arg1, arg2);
 }
 
-export function FetchHotConceptConstituents(arg1) {
-  return window['go']['main']['App']['FetchHotConceptConstituents'](arg1);
+export function FetchHotConceptConstituents(arg1, arg2) {
+  return window['go']['main']['App']['FetchHotConceptConstituents'](arg1, arg2);
 }
 
 export function FetchHotConceptHistory(arg1) {

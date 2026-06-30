@@ -2912,8 +2912,8 @@ func (a *App) FetchHotConceptHistory(days int) ([]downloader.HotConceptHistoryIt
 }
 
 // FetchHotConceptConstituents 获取指定概念板块的成分股列表
-func (a *App) FetchHotConceptConstituents(conceptCode string) ([]downloader.ConceptConstituent, error) {
-	cons, err := downloader.FetchConceptConstituents(a.ctx, conceptCode)
+func (a *App) FetchHotConceptConstituents(conceptCode string, conceptName string) ([]downloader.ConceptConstituent, error) {
+	cons, err := downloader.FetchConceptConstituents(a.ctx, conceptCode, conceptName)
 	if err != nil {
 		return nil, fmt.Errorf("获取成分股失败: %w", err)
 	}

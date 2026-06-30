@@ -12,7 +12,7 @@ type AIConfig struct {
 	Enabled bool `json:"enabled"`
 
 	// LLM 第一层：连接层（用户必填）
-	LLMProvider string `json:"llm_provider"` // "kimi" | "deepseek"
+	LLMProvider string `json:"llm_provider"` // "kimi" | "kimi-code" | "deepseek"
 	LLMAPIKey   string `json:"llm_api_key"`
 	LLMBaseURL  string `json:"llm_base_url"`
 	LLMModel    string `json:"llm_model"`
@@ -48,7 +48,7 @@ func DefaultAIConfig() *AIConfig {
 		Enabled:           false,
 		LLMProvider:       "deepseek",
 		LLMBaseURL:        "https://api.deepseek.com/v1",
-		LLMModel:          "deepseek-chat",
+		LLMModel:          "deepseek-v4-pro",
 		LLMTimeout:        90,
 		Temperature:       0.2,
 		MaxTokens:         4096,
@@ -70,8 +70,9 @@ var ProviderDefaults = map[string]struct {
 	BaseURL string
 	Model   string
 }{
-	"kimi":     {BaseURL: "https://api.moonshot.cn/v1", Model: "moonshot-v1-8k"},
-	"deepseek": {BaseURL: "https://api.deepseek.com/v1", Model: "deepseek-chat"},
+	"kimi":      {BaseURL: "https://api.moonshot.cn/v1", Model: "kimi-k2.6"},
+	"kimi-code": {BaseURL: "https://api.kimi.com/coding/v1", Model: "kimi-k2.6"},
+	"deepseek":  {BaseURL: "https://api.deepseek.com/v1", Model: "deepseek-v4-pro"},
 }
 
 // Normalize 补全缺失的默认值并校验
