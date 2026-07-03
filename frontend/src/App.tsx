@@ -1969,6 +1969,26 @@ function App() {
     }
   }
 
+  const handleCopyAIResearchTxt = async () => {
+    if (!aiReport) return
+    try {
+      await navigator.clipboard.writeText(reportToTxt(aiReport))
+      alert('已复制 TXT 格式到剪贴板')
+    } catch (err: any) {
+      alert('复制 TXT 失败: ' + String(err))
+    }
+  }
+
+  const handleCopyAIResearchMd = async () => {
+    if (!aiReport) return
+    try {
+      await navigator.clipboard.writeText(reportToMd(aiReport))
+      alert('已复制 Markdown 格式到剪贴板')
+    } catch (err: any) {
+      alert('复制 Markdown 失败: ' + String(err))
+    }
+  }
+
   const handleExportAIResearchPdf = async () => {
     if (!selectedStock || !aiReport || !aiReportContentRef.current) return
     try {
@@ -4474,10 +4494,28 @@ function App() {
                           className="download-dropdown-item"
                           onClick={() => {
                             setAiExportMenuOpen(false)
+                            handleCopyAIResearchTxt()
+                          }}
+                        >
+                          <span>📋</span> 拷贝 TXT 到剪贴板
+                        </div>
+                        <div
+                          className="download-dropdown-item"
+                          onClick={() => {
+                            setAiExportMenuOpen(false)
                             handleExportAIResearchMd()
                           }}
                         >
                           <span>📄</span> Markdown 格式
+                        </div>
+                        <div
+                          className="download-dropdown-item"
+                          onClick={() => {
+                            setAiExportMenuOpen(false)
+                            handleCopyAIResearchMd()
+                          }}
+                        >
+                          <span>📋</span> 拷贝 Markdown 到剪贴板
                         </div>
                         <div
                           className="download-dropdown-item"
