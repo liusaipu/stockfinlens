@@ -2,49 +2,109 @@
 """
 Fetch RIM external data via akshare for A-share stocks.
 Input: {"symbol": "300054"} via stdin
-Output: JSON with eps_forecast, rf, beta_fallback, etc.
+Output: JSON with eps_forecast, rf, beta, rm_rf, etc.
 """
 import sys
 import json
 import math
+import re
+from datetime import datetime, timedelta
 
 try:
     import akshare as ak
-except ImportError:
-    print(json.dumps({"error": "akshare not installed"}), file=sys.stderr)
+    import pandas as pd
+    import numpy as np
+except ImportError as ie:
+    print(json.dumps({"error": f"missing dependency: {ie}"}), file=sys.stderr)
     sys.exit(1)
 
 
-def fetch(symbol: str):
-    result = {"symbol": symbol}
-    # 1. EPS forecast
-    try:
-        df = ak.stock_profit_forecast_em(symbol="")
-        row = df[df["代码"] == symbol]
-        if len(row) == 0:
-            result["eps_forecast"] = None
-        else:
-            r = row.iloc[0]
-            forecast = {}
-            # Map columns like 2024预测每股收益 -> year
-            for col in r.index:
-                if "预测每股收益" in col:
-                    year = col.replace("预测每股收益", "").strip()
-                    try:
-                        val = float(r[col])
-                        if not math.isnan(val):
-                            forecast[year] = val
-                    except (ValueError, TypeError):
-                        pass
-            result["eps_forecast"] = forecast
-    except Exception as e:
-        result["eps_forecast_error"] = str(e)
-        result["eps_forecast"] = None
+def _extract_eps_forecast(row) -> dict:
+    """从一行 DataFrame 中提取预测每股收益，兼容 '2024预测每股收益' / '2024年预测每股收益' 等列名。"""
+    forecast = {}
+    for col in row.index:
+        col_str = str(col)
+        m = re.search(r"(\d{4})\s*年?\s*预测每股收益", col_str)
+        if m:
+            year = m.group(1)
+            try:
+                val = float(row[col])
+                if not math.isnan(val) and val != 0:
+                    forecast[year] = val
+            except (ValueError, TypeError):
+                pass
+    return forecast
 
-    # 2. Risk-free rate (China 10-year bond yield) - try fast interfaces first
-    rf = 0.0183
+
+def _fetch_eps_forecast_em(symbol: str):
+    """东方财富盈利预测：获取全市场数据后本地筛选目标股票。"""
+    try:
+        df = ak.stock_profit_forecast_em()
+        if df is None or len(df) == 0:
+            return None, "empty response from stock_profit_forecast_em"
+        if "代码" not in df.columns:
+            return None, "missing 代码 column in profit forecast"
+        code_col = df["代码"].astype(str).str.strip()
+        row = df[code_col == symbol]
+        if len(row) > 0:
+            return _extract_eps_forecast(row.iloc[0]), None
+        return None, f"symbol {symbol} not found in profit forecast, rows={len(df)}"
+    except Exception as e:
+        return None, str(e)
+
+
+def _fetch_eps_forecast_ths(symbol: str):
+    """同花顺盈利预测作为 fallback。"""
+    try:
+        df = ak.stock_profit_forecast_ths(symbol=symbol, indicator="业绩预测详表-详细指标预测")
+        if df is None or len(df) == 0:
+            return None, "empty response from stock_profit_forecast_ths"
+        # 同花顺返回列名不固定，尝试匹配常见 EPS 列
+        forecast = {}
+        for col in df.columns:
+            col_str = str(col)
+            m = re.search(r"(\d{4}).*(?:基本)?每股收益", col_str)
+            if m:
+                year = m.group(1)
+                try:
+                    val = float(df[col].iloc[0])
+                    if not math.isnan(val) and val != 0:
+                        forecast[year] = val
+                except (ValueError, TypeError):
+                    pass
+        if forecast:
+            return forecast, None
+        return None, "no eps forecast columns found in ths response"
+    except Exception as e:
+        return None, str(e)
+
+
+def fetch(symbol: str):
+    result = {"symbol": symbol, "fetch_time": datetime.now().isoformat()}
+    today = datetime.now()
+    start_dt = today - timedelta(days=365)
+    start_date = start_dt.strftime("%Y%m%d")
+    end_date = today.strftime("%Y%m%d")
+
+    # 1. EPS forecast: 东财主源 + 同花顺 fallback
+    eps_forecast, eps_err = _fetch_eps_forecast_em(symbol)
+    eps_source = "eastmoney"
+    if not eps_forecast:
+        eps_forecast, eps_err = _fetch_eps_forecast_ths(symbol)
+        eps_source = "ths"
+    if eps_forecast:
+        result["eps_forecast"] = eps_forecast
+        result["eps_forecast_source"] = eps_source
+        result["eps_forecast_count"] = len(eps_forecast)
+    else:
+        result["eps_forecast"] = None
+        result["eps_forecast_error"] = eps_err or "unknown error"
+        result["eps_forecast_source"] = None
+        result["eps_forecast_count"] = 0
+
+    # 2. Risk-free rate (China 10-year bond yield)
+    rf = 0.0
     rf_date = ""
-    # Fast path: bond_zh_yield single-page interface
     try:
         bond_df = ak.bond_zh_yield(symbol="国债收益率10年", period="日", start_date="", end_date="")
         if len(bond_df) > 0:
@@ -52,7 +112,6 @@ def fetch(symbol: str):
             rf_date = str(bond_df.index[-1]) if hasattr(bond_df, "index") else str(bond_df.iloc[-1].get("日期", ""))
     except Exception:
         pass
-    # Fallback path
     if rf <= 0:
         try:
             bond_df = ak.bond_zh_us_rate()
@@ -61,6 +120,9 @@ def fetch(symbol: str):
             rf_date = str(rf_row["日期"])
         except Exception as e:
             result["rf_error"] = str(e)
+    if rf <= 0:
+        rf = 0.0183
+        rf_date = ""
     result["rf"] = rf
     result["rf_date"] = rf_date
 
@@ -77,10 +139,9 @@ def fetch(symbol: str):
         result["total_shares"] = 0
         result["market_cap"] = 0
 
-    # 4. PB from daily indicator (try multiple interfaces)
+    # 4. PB from daily indicator
     pb = 0.0
     try:
-        # akshare indicator interface varies by version, try common ones
         df_pb = ak.stock_zh_a_spot_em()
         row_pb = df_pb[df_pb["代码"] == symbol]
         if len(row_pb) > 0:
@@ -89,9 +150,45 @@ def fetch(symbol: str):
         pass
     result["pb"] = pb if pb > 0 else 0
 
-    # 5. Fallback beta and market risk premium
-    result["beta"] = 0.98
-    result["rm_rf"] = 0.0517
+    # 5. Beta: 个股日收益率 vs 沪深300 日收益率，近1年
+    beta = 0.98
+    beta_date = ""
+    try:
+        stock_df = ak.stock_zh_a_hist(symbol=symbol, period="daily", start_date=start_date, end_date=end_date, adjust="hfq")
+        index_df = ak.index_zh_a_hist(symbol="000300", period="daily", start_date=start_date, end_date=end_date)
+        if len(stock_df) > 30 and len(index_df) > 30:
+            stock_df["ret"] = stock_df["收盘"].pct_change()
+            index_df["ret"] = index_df["收盘"].pct_change()
+            merged = pd.merge(stock_df[["日期", "ret"]], index_df[["日期", "ret"]], on="日期", suffixes=("_s", "_m")).dropna()
+            if len(merged) > 30:
+                stock_ret = merged["ret_s"].values
+                market_ret = merged["ret_m"].values
+                cov = np.cov(stock_ret, market_ret)[0, 1]
+                var = np.var(market_ret)
+                if var > 0:
+                    beta = float(cov / var)
+                    beta_date = str(merged["日期"].iloc[-1])
+    except Exception as e:
+        result["beta_error"] = str(e)
+    result["beta"] = beta
+    result["beta_date"] = beta_date
+
+    # 6. Market risk premium (Rm-Rf): 用沪深300 PE 倒数作为盈利收益率，再减去 Rf 得到隐含风险溢价
+    rm_rf = 0.0517
+    rm_rf_date = ""
+    try:
+        pe_df = ak.index_value_name_funddb(name="沪深300")
+        if len(pe_df) > 0:
+            last = pe_df.iloc[-1]
+            pe = float(last.get("市盈率", 0))
+            if pe > 0:
+                # 隐含股权风险溢价 = 盈利收益率 - 无风险利率
+                rm_rf = max(0.02, (1.0 / pe) - rf)
+                rm_rf_date = str(last.get("日期", ""))
+    except Exception as e:
+        result["rm_rf_error"] = str(e)
+    result["rm_rf"] = rm_rf
+    result["rm_rf_date"] = rm_rf_date
 
     return result
 

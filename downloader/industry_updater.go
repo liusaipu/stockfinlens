@@ -29,6 +29,12 @@ func updateIndustryScriptPath() string {
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
+		// macOS .app bundle: scripts 在 Contents/Resources 内部
+		resourcesDir := filepath.Join(exeDir, "..", "Resources")
+		p = filepath.Join(resourcesDir, "scripts", "update_industry_database.py")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
 	}
 	_, b, _, _ := runtime.Caller(0)
 	base := filepath.Dir(b)

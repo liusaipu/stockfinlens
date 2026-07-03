@@ -425,10 +425,17 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		if idx := strings.Index(symbol, "."); idx > 0 {
 			pureCode = symbol[:idx]
 		}
-		// 先读缓存
+		// 先读缓存；仅当缓存包含不少于 3 年 EPS 预测时才使用，否则重新拉取
 		if cached, err := a.storage.LoadRIMCache(symbol); err == nil && cached != nil {
-			extRIM = cached
-		} else {
+			epsCount := cached.EPSForecastCount
+			if epsCount == 0 {
+				epsCount = len(cached.EPSForecast)
+			}
+			if epsCount >= 3 {
+				extRIM = cached
+			}
+		}
+		if extRIM == nil {
 			wg.Add(1)
 			go func() {
 				defer func() {
@@ -600,8 +607,11 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		rimData = &analyzer.RIMData{}
 		if extRIM != nil {
 			rimData.Rf = extRIM.Rf
+			rimData.RfDate = extRIM.RfDate
 			rimData.Beta = extRIM.Beta
+			rimData.BetaDate = extRIM.BetaDate
 			rimData.RmRf = extRIM.RmRf
+			rimData.RmRfDate = extRIM.RmRfDate
 			rimData.EPSRaw = extRIM.EPSForecast
 		} else {
 			// 使用默认参数（即使外部数据获取失败也尝试计算）

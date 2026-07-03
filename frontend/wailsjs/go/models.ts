@@ -598,8 +598,11 @@ export namespace analyzer {
 	    error?: string;
 	    epsRaw?: Record<string, number>;
 	    rf: number;
+	    rfDate?: string;
 	    beta: number;
+	    betaDate?: string;
 	    rmRf: number;
+	    rmRfDate?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new RIMData(source);
@@ -613,8 +616,11 @@ export namespace analyzer {
 	        this.error = source["error"];
 	        this.epsRaw = source["epsRaw"];
 	        this.rf = source["rf"];
+	        this.rfDate = source["rfDate"];
 	        this.beta = source["beta"];
+	        this.betaDate = source["betaDate"];
 	        this.rmRf = source["rmRf"];
+	        this.rmRfDate = source["rmRfDate"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

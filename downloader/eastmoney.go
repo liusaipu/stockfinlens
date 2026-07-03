@@ -999,6 +999,12 @@ func fetchHKProfileScriptPath() string {
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
+		// macOS .app bundle: scripts 在 Contents/Resources 内部
+		resourcesDir := filepath.Join(exeDir, "..", "Resources")
+		p = filepath.Join(resourcesDir, "scripts", "fetch_hk_profile.py")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
 	}
 	_, b, _, _ := runtime.Caller(0)
 	base := filepath.Dir(b)
@@ -1013,7 +1019,11 @@ func fetchHKProfileScriptPath() string {
 func fetchHKProfileFromPython(code string) (*hkProfileResult, error) {
 	script := fetchHKProfileScriptPath()
 	python := resolvePythonExecutable()
-	cmd := exec.Command(python, script, code)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, python, script, code)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
 
 	// Windows: 隐藏 CMD 窗口
@@ -1049,6 +1059,12 @@ func fetchHKFinancialsScriptPath() string {
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
+		// macOS .app bundle: scripts 在 Contents/Resources 内部
+		resourcesDir := filepath.Join(exeDir, "..", "Resources")
+		p = filepath.Join(resourcesDir, "scripts", "fetch_hk_financials.py")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
 	}
 	_, b, _, _ := runtime.Caller(0)
 	base := filepath.Dir(b)
@@ -1063,7 +1079,11 @@ func fetchHKFinancialsScriptPath() string {
 func fetchHKFinancialsFromPython(code string, maxYears int) (*FinancialReportData, error) {
 	script := fetchHKFinancialsScriptPath()
 	python := resolvePythonExecutable()
-	cmd := exec.Command(python, script, code, fmt.Sprintf("%d", maxYears))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, python, script, code, fmt.Sprintf("%d", maxYears))
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
 
 	setHideWindow(cmd)

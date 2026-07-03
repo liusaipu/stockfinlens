@@ -205,3 +205,17 @@ ml_models/
 2. **引擎 A 随后**：需要补充舆情采集与分钟级量价数据清洗。
 3. **Go 端集成**：两个 ONNX 模型统一通过 C API 加载推理。
 4. **前端展示**：Markdown 报告中嵌入 HTML/SVG 可视化结果。
+
+---
+
+## 附录：当前运行时模型清单
+
+| 引擎 | 模型 | 输入维度 | 输出 | 运行时格式 |
+|------|------|----------|------|------------|
+| Engine A | SentimentPriceFusion Transformer | text_seq[16,32] + price_seq[16,24] | 方向(down/flat/up) + 异常概率 | ONNX (`sentiment_price_fusion.onnx`) |
+| Engine B | FinancialLSTM (BiLSTM+Self-Attention) | financial_seq[8,N_features] | ROE方向/营收方向/M-Score方向 + 健康分 | ONNX (`financial_lstm.onnx`) + scaler.pkl |
+| Engine D | GradientBoostingClassifier | 25 维风险向量 | 风险标签/概率/等级 + top-3 因子 | pickle (`engine_d_model.pkl`) |
+
+- **Engine A/B**: 运行时通过 `onnxruntime` 的 `CPUExecutionProvider` 推理。
+- **Engine D**: 通过 `pickle.load()` 加载模型；若加载失败则优雅降级为基于规则的风险评估。
+- **特征维度注意**: `engine_d_risk/feature_engineering.py` 定义了 26 个特征（含 `cfo_change_count_2y`），但训练脚本与推理入口实际使用 25 维，`cfo_change` 相关特征被静默丢弃。新增特征时需同步训练与推理代码。

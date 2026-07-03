@@ -13,19 +13,26 @@ import (
 
 // RIMExternalData Python脚本返回的原始数据
 type RIMExternalData struct {
-	Symbol           string             `json:"symbol"`
-	EPSForecast      map[string]float64 `json:"eps_forecast"`
-	EPSForecastError string             `json:"eps_forecast_error,omitempty"`
-	Rf               float64            `json:"rf"`
-	RfDate           string             `json:"rf_date,omitempty"`
-	RfError          string             `json:"rf_error,omitempty"`
-	Price            float64            `json:"price"`
-	TotalShares      float64            `json:"total_shares"`
-	MarketCap        float64            `json:"market_cap"`
-	PB               float64            `json:"pb"`
-	Beta             float64            `json:"beta"`
-	RmRf             float64            `json:"rm_rf"`
-	Error            string             `json:"error,omitempty"`
+	Symbol            string             `json:"symbol"`
+	EPSForecast       map[string]float64 `json:"eps_forecast"`
+	EPSForecastError  string             `json:"eps_forecast_error,omitempty"`
+	EPSForecastSource string             `json:"eps_forecast_source,omitempty"`
+	EPSForecastCount  int                `json:"eps_forecast_count,omitempty"`
+	FetchTime         string             `json:"fetch_time,omitempty"`
+	Rf                float64            `json:"rf"`
+	RfDate            string             `json:"rf_date,omitempty"`
+	RfError           string             `json:"rf_error,omitempty"`
+	Price             float64            `json:"price"`
+	TotalShares       float64            `json:"total_shares"`
+	MarketCap         float64            `json:"market_cap"`
+	PB                float64            `json:"pb"`
+	Beta              float64            `json:"beta"`
+	BetaDate          string             `json:"beta_date,omitempty"`
+	BetaError         string             `json:"beta_error,omitempty"`
+	RmRf              float64            `json:"rm_rf"`
+	RmRfDate          string             `json:"rm_rf_date,omitempty"`
+	RmRfError         string             `json:"rm_rf_error,omitempty"`
+	Error             string             `json:"error,omitempty"`
 }
 
 // findProjectRootByMarker 从 binary 所在目录向上查找项目根目录（通过指定标记文件）

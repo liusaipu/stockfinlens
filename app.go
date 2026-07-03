@@ -431,6 +431,12 @@ func fallbackIndustryScriptPath() string {
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
+		// macOS .app bundle: scripts 在 Contents/Resources 内部
+		resourcesDir := filepath.Join(exeDir, "..", "Resources")
+		p = filepath.Join(resourcesDir, "scripts", "fetch_all_industry_data.py")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
 	}
 	// 开发模式：从项目根目录查找
 	base := filepath.Join(".", "scripts", "fetch_all_industry_data.py")
@@ -1376,9 +1382,13 @@ func (a *App) DownloadReports(symbol string, maxYears int) (*DownloadResult, err
 	var err error
 	var sourceName string
 
+	// 设置整体下载超时，避免前端 Wails 绑定长时间挂死
+	ctx, cancel := context.WithTimeout(a.ctx, 25*time.Second)
+	defer cancel()
+
 	// 1. 优先尝试 DataRouter（StockFinLens 数据源）
-	if a.dataRouter != nil && market != "HK" {
-		tfd, tErr := a.dataRouter.FetchFinancialData(a.ctx, market, code, maxYears)
+	if a.dataRouter != nil {
+		tfd, tErr := a.dataRouter.FetchFinancialData(ctx, market, code, maxYears)
 		if tErr == nil && tfd != nil {
 			data = a.dataRouter.ConvertToFinancialReportData(tfd, symbol)
 			if data != nil && len(data.Years) > 0 {
@@ -1392,7 +1402,7 @@ func (a *App) DownloadReports(symbol string, maxYears int) (*DownloadResult, err
 
 	// 2. Fallback 到原有下载链（东方财富）
 	if data == nil {
-		data, err = downloader.DownloadFinancialReports(a.ctx, market, code, maxYears)
+		data, err = downloader.DownloadFinancialReports(ctx, market, code, maxYears)
 		if err != nil {
 			return nil, fmt.Errorf("下载财报失败: %w", err)
 		}
@@ -1409,9 +1419,9 @@ func (a *App) DownloadReports(symbol string, maxYears int) (*DownloadResult, err
 		var altData *downloader.FinancialReportData
 		var altSourceName string
 
-		if sourceName == "东方财富" && a.dataRouter != nil && market != "HK" {
+		if sourceName == "东方财富" && a.dataRouter != nil {
 			// 主源是东财，尝试 StockFinLens
-			tfd, tErr := a.dataRouter.FetchFinancialData(a.ctx, market, code, maxYears)
+			tfd, tErr := a.dataRouter.FetchFinancialData(ctx, market, code, maxYears)
 			if tErr == nil && tfd != nil {
 				altData = a.dataRouter.ConvertToFinancialReportData(tfd, symbol)
 				if altData != nil && len(altData.Years) > 0 {
@@ -1420,7 +1430,7 @@ func (a *App) DownloadReports(symbol string, maxYears int) (*DownloadResult, err
 			}
 		} else if sourceName == "StockFinLens" {
 			// 主源是 StockFinLens，尝试东财
-			altData, _ = downloader.DownloadFinancialReports(a.ctx, market, code, maxYears)
+			altData, _ = downloader.DownloadFinancialReports(ctx, market, code, maxYears)
 			if altData != nil && len(altData.Years) > 0 {
 				altSourceName = "东方财富"
 			}
@@ -1461,7 +1471,7 @@ func (a *App) DownloadReports(symbol string, maxYears int) (*DownloadResult, err
 			}
 		}
 		if allZero && hasDividendField {
-			if dividendMap, err := downloader.FetchCashFlowDividendFromEastMoney(a.ctx, market, code, len(data.Years)); err == nil && len(dividendMap) > 0 {
+			if dividendMap, err := downloader.FetchCashFlowDividendFromEastMoney(ctx, market, code, len(data.Years)); err == nil && len(dividendMap) > 0 {
 				if _, ok := data.CashFlow["分配股利、利润或偿付利息支付的现金"]; !ok {
 					data.CashFlow["分配股利、利润或偿付利息支付的现金"] = make(map[string]float64)
 				}
@@ -1483,7 +1493,7 @@ func (a *App) DownloadReports(symbol string, maxYears int) (*DownloadResult, err
 	}
 
 	// 多源校验
-	validation, _ := downloader.ValidateWithDatacenter(a.ctx, market, code, data)
+	validation, _ := downloader.ValidateWithDatacenter(ctx, market, code, data)
 
 	// 归档历史版本（使用Windows安全的时间格式）
 	_ = a.storage.ArchiveStockData(symbol, HistoryMeta{
@@ -3686,6 +3696,11 @@ func (a *App) GetStockMoneyflow(symbol string, days int) (*StockMoneyflowResult,
 	code := parts[0]
 	market := strings.ToUpper(parts[1])
 
+	// 港股暂无标准资金流向接口，直接给出友好提示
+	if market == "HK" {
+		return &StockMoneyflowResult{Symbol: symbol, HasData: false, Summary: "港股暂无资金流向数据"}, nil
+	}
+
 	// 扩大查询范围：确保即使当日有数据，也能补足 days 条历史数据
 	end := time.Now().Format("20060102")
 	start := time.Now().AddDate(0, 0, -(days+1)*3).Format("20060102")
@@ -3697,7 +3712,7 @@ func (a *App) GetStockMoneyflow(symbol string, days int) (*StockMoneyflowResult,
 	}
 	if len(items) == 0 {
 		fmt.Printf("[GetStockMoneyflow] %s %s-%s empty result\n", symbol, start, end)
-		return &StockMoneyflowResult{Symbol: symbol, HasData: false, Summary: "暂无资金流向数据（API返回空）"}, nil
+		return &StockMoneyflowResult{Symbol: symbol, HasData: false, Summary: "暂无资金流向数据"}, nil
 	}
 
 	today := time.Now().Format("20060102")

@@ -29,6 +29,9 @@ type eastMoneyMoneyflowResp struct {
 // secid 格式: 0.code(深圳), 1.code(上海)
 // 返回数据按日期升序排列，需反转
 func fetchMoneyflowFromEastMoney(ctx context.Context, market, code, startDate, endDate string) ([]SFLMoneyflowItem, error) {
+	if strings.ToUpper(market) == "HK" {
+		return nil, fmt.Errorf("东方财富资金流向接口暂不支持港股")
+	}
 	secid := toEastMoneySecid(market, code)
 	url := fmt.Sprintf(
 		"https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?"+

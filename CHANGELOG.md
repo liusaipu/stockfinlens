@@ -1,5 +1,27 @@
 # Changelog
 
+## [v1.8.5] - 2026-07-02
+
+### 修复 (Fixes)
+- **修复 macOS 打包后 Python 脚本路径硬编码问题**
+  - 多个 `scripts/` 下脚本路径解析函数（港股财报、港股资料、行业更新、政策更新、行业数据补全）未检查 macOS `.app` bundle 的 `Contents/Resources` 目录，导致打包后在用户机器上报 `can't open file /Users/lobster/...`。
+  - 统一补充 `Contents/Resources` 路径回退。
+- **修复港股财报下载超时**
+  - 港股被显式排除在 StockFinLens Pro 数据源之外，只能走 akshare Python 脚本，且脚本无超时控制，导致前端长时间挂死后报"网络超时"。
+  - 解除港股 SFL 数据源排除，让港股财报优先走 StockFinLens Pro；同时给 `fetch_hk_financials.py` / `fetch_hk_profile.py` 调用增加 20 秒超时，给 `DownloadReports` 整体增加 25 秒超时。
+- **修复港股资金流向错误提示**
+  - tushare `moneyflow`/`moneyflow_dc` 与东方财富资金流向接口均不支持港股，三个源失败后把东财 EOF 技术错误暴露给用户。
+  - 改为 `DataRouter.FetchMoneyflow` 对港股直接返回空数据，`GetStockMoneyflow` 返回"港股暂无资金流向数据"，首页近 3 日资金流向卡片不再显示技术错误。
+- **增强 RIM EPS 预测数据健壮性**
+  - `fetch_rim_data.py` 改进列名匹配（兼容 `2024预测每股收益` / `2024年预测每股收益`），增加同花顺盈利预测 fallback，输出 `eps_forecast_source` / `eps_forecast_count` / `fetch_time` 元数据。
+  - RIM 缓存校验更严格：EPS 预测年数少于 3 年时视为无效缓存，强制重新拉取。
+
+### 文档 (Docs)
+- **拆分压缩 `AGENTS.md`**
+  - `AGENTS.md` 从 573 行压缩到约 90 行，仅保留 AI 助手核心约束。
+  - 详细内容拆分到 `docs/ARCHITECTURE.md`、`docs/TECH_STACK.md`、`docs/TESTING.md`、`docs/RELEASE.md`。
+  - `docs/ML_PREDICTION_DESIGN.md` 追加当前运行时模型清单附录。
+
 ## [v1.6.8] - 2026-06-17
 
 ### 修复 (Fixes)

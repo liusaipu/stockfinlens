@@ -452,6 +452,11 @@ type moneyflowSource struct {
 // FetchMoneyflow 获取个股资金流向，按优先级路由
 // 支持多源 fallback 与结果合并，避免单一源数据缺失（如 SFL 有历史但缺当日）
 func (r *DataRouter) FetchMoneyflow(ctx context.Context, market, code, startDate, endDate string) ([]SFLMoneyflowItem, error) {
+	// 港股暂无标准资金流向接口（tushare moneyflow/moneyflow_dc 与东财均不支持），避免无意义请求
+	if strings.ToUpper(market) == "HK" {
+		return nil, nil
+	}
+
 	var sources []moneyflowSource
 
 	// SFL（如果启用）：优先使用 moneyflow_dc（东方财富口径），失败或不足时回退到标准 moneyflow

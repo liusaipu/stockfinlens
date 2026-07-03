@@ -135,14 +135,17 @@ type MLPredictionData struct {
 
 // RIMData 剩余收益模型数据
 type RIMData struct {
-	HasData bool               `json:"hasData"`
-	Params  RIMParams          `json:"params"`
-	Result  *RIMResult         `json:"result,omitempty"`
-	Error   string             `json:"error,omitempty"`
-	EPSRaw  map[string]float64 `json:"epsRaw,omitempty"`
-	Rf      float64            `json:"rf"`
-	Beta    float64            `json:"beta"`
-	RmRf    float64            `json:"rmRf"`
+	HasData  bool               `json:"hasData"`
+	Params   RIMParams          `json:"params"`
+	Result   *RIMResult         `json:"result,omitempty"`
+	Error    string             `json:"error,omitempty"`
+	EPSRaw   map[string]float64 `json:"epsRaw,omitempty"`
+	Rf       float64            `json:"rf"`
+	RfDate   string             `json:"rfDate,omitempty"`
+	Beta     float64            `json:"beta"`
+	BetaDate string             `json:"betaDate,omitempty"`
+	RmRf     float64            `json:"rmRf"`
+	RmRfDate string             `json:"rmRfDate,omitempty"`
 }
 
 // MoneyflowItem 单日资金流向数据

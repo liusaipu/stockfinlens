@@ -507,7 +507,10 @@ function App() {
   const [showRIMModal, setShowRIMModal] = useState(false)
   const [rimBeta, setRimBeta] = useState(0.98)
   const [rimRf, setRimRf] = useState(1.83)
+  const [rimRfDate, setRimRfDate] = useState('')
   const [rimRmRf, setRimRmRf] = useState(5.17)
+  const [rimRmRfDate, setRimRmRfDate] = useState('')
+  const [rimBetaDate, setRimBetaDate] = useState('')
   const [rimG, setRimG] = useState(5.0)
   const [rimEPS, setRimEPS] = useState<(number | string)[]>(['0', '0', '0', '0', '0', '0'])
   const [rimBPS0, setRimBPS0] = useState(0)
@@ -1688,7 +1691,10 @@ function App() {
     if (rim && rim.hasData) {
       setRimBeta(rim.beta ?? 0.98)
       setRimRf((rim.rf ?? 0.0183) * 100)
+      setRimRfDate(rim.rfDate ?? '')
       setRimRmRf((rim.rmRf ?? 0.0517) * 100)
+      setRimRmRfDate(rim.rmRfDate ?? '')
+      setRimBetaDate(rim.betaDate ?? '')
       setRimG((rim.params?.GTerminal ?? 0.05) * 100)
       setRimBPS0(rim.params?.BPS0 ?? 0)
       setRimPrice(rim.params?.CurrentPrice ?? 0)
@@ -1705,8 +1711,11 @@ function App() {
     } else if (quote) {
       // 从行情推算默认值
       setRimBeta(0.98)
+      setRimRfDate('')
       setRimRf(1.83)
+      setRimRmRfDate('')
       setRimRmRf(5.17)
+      setRimBetaDate('')
       setRimG(5.0)
       setRimBPS0(quote.pb > 0 ? quote.currentPrice / quote.pb : 0)
       setRimPrice(quote.currentPrice)
@@ -4750,9 +4759,14 @@ function App() {
           <div className="modal-content rim-modal" onClick={(e) => e.stopPropagation()}>
             <h4>调整 RIM 估值参数</h4>
             <div className="rim-form">
-              <div className="rim-hint" style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                💡 默认参数基准：2025年4月市场数据，建议根据当前市场环境调整
+              <div className="rim-hint" style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                💡 默认参数来源：Rf（中国10年期国债收益率）、Beta（近1年个股 vs 沪深300）、Rm-Rf（沪深300隐含风险溢价），建议根据当前市场环境调整
               </div>
+              {(rimRfDate || rimBetaDate || rimRmRfDate) && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                  数据日期：{[rimRfDate && `Rf ${rimRfDate}`, rimBetaDate && `Beta ${rimBetaDate}`, rimRmRfDate && `Rm-Rf ${rimRmRfDate}`].filter(Boolean).join(' / ')}
+                </div>
+              )}
               <div className="rim-row">
                 <label>Beta</label>
                 <input type="number" step={0.01} value={rimBeta} onChange={(e) => setRimBeta(Number(e.target.value))} />
