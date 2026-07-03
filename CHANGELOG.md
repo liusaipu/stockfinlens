@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.8.6] - 2026-07-03
+
+### 修复 (Fixes)
+- **修复 RIM EPS 预测数据源错误导致估值失真**
+  - v1.8.5 修改后东财 `stock_profit_forecast_em` 返回子集不再包含部分股票（如中科三环 000970），导致 fallback 到低质量外推 EPS。
+  - 改为优先从同花顺 `stock_profit_forecast_ths(indicator="业绩预测详表-详细指标预测")` 获取 BPS 与 ROE，推导 EPS = BPS × ROE。
+  - 东财与同花顺双源获取，选择预测年数更多的结果；同时兼容代码列带/不带市场后缀。
+
 ## [v1.8.5] - 2026-07-02
 
 ### 修复 (Fixes)

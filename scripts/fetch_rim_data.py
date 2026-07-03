@@ -45,38 +45,93 @@ def _fetch_eps_forecast_em(symbol: str):
         if "代码" not in df.columns:
             return None, "missing 代码 column in profit forecast"
         code_col = df["代码"].astype(str).str.strip()
-        row = df[code_col == symbol]
+        # 同时匹配 "000970" / "000970.SZ" / "000970.SH"
+        matches = (code_col == symbol) | code_col.str.startswith(f"{symbol}.")
+        row = df[matches]
         if len(row) > 0:
             return _extract_eps_forecast(row.iloc[0]), None
-        return None, f"symbol {symbol} not found in profit forecast, rows={len(df)}"
+        return None, f"symbol {symbol} not found in profit forecast, rows={len(df)}, samples={list(code_col.head(3))}"
     except Exception as e:
         return None, str(e)
 
 
+def _parse_number(val):
+    """解析可能带 % 或中文单位的数值字符串。"""
+    if val is None:
+        return 0.0
+    s = str(val).strip().replace(",", "")
+    if s.endswith("%"):
+        try:
+            return float(s[:-1]) / 100
+        except (ValueError, TypeError):
+            return 0.0
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _fetch_eps_forecast_ths(symbol: str):
-    """同花顺盈利预测作为 fallback。"""
+    """同花顺盈利预测。该接口的'业绩预测详表-详细指标预测'没有直接 EPS，但有每股净资产和净资产收益率，可推导 EPS = BPS * ROE。"""
     try:
         df = ak.stock_profit_forecast_ths(symbol=symbol, indicator="业绩预测详表-详细指标预测")
         if df is None or len(df) == 0:
             return None, "empty response from stock_profit_forecast_ths"
-        # 同花顺返回列名不固定，尝试匹配常见 EPS 列
+
+        # 查找每股净资产(BPS)和净资产收益率(ROE)行
+        bps_row = None
+        roe_row = None
+        indicators = []
+        for _, row in df.iterrows():
+            indicator_name = str(row.get("预测指标", ""))
+            indicators.append(indicator_name)
+            if "每股净资产" in indicator_name:
+                bps_row = row
+            elif "净资产收益率" in indicator_name and "净资产收益率" not in indicator_name.replace("净资产收益率", ""):
+                roe_row = row
+            elif indicator_name.strip() == "净资产收益率":
+                roe_row = row
+
+        if bps_row is None or roe_row is None:
+            return None, f"ths missing bps or roe row, indicators={indicators}"
+
         forecast = {}
         for col in df.columns:
             col_str = str(col)
-            m = re.search(r"(\d{4}).*(?:基本)?每股收益", col_str)
+            m = re.search(r"预测(\d{4})-平均", col_str)
             if m:
                 year = m.group(1)
-                try:
-                    val = float(df[col].iloc[0])
-                    if not math.isnan(val) and val != 0:
-                        forecast[year] = val
-                except (ValueError, TypeError):
-                    pass
+                bps_val = _parse_number(bps_row[col])
+                roe_val = _parse_number(roe_row[col])
+                if bps_val > 0 and roe_val > 0:
+                    forecast[year] = bps_val * roe_val
+
         if forecast:
             return forecast, None
-        return None, "no eps forecast columns found in ths response"
+        return None, f"no eps forecast derived from ths bps*roe, bps={bps_row.to_dict()}, roe={roe_row.to_dict()}"
     except Exception as e:
         return None, str(e)
+
+
+def _select_eps_forecast(em_forecast, em_err, ths_forecast, ths_err):
+    """
+    从东财和同花顺的 EPS 预测中选择更优数据。
+    策略：优先预测年数更多的；年数相同时优先同花顺（用户验证过与同花顺一致）。
+    """
+    em_count = len(em_forecast) if em_forecast else 0
+    ths_count = len(ths_forecast) if ths_forecast else 0
+
+    if em_count == 0 and ths_count == 0:
+        err_parts = []
+        if em_err:
+            err_parts.append(f"eastmoney: {em_err}")
+        if ths_err:
+            err_parts.append(f"ths: {ths_err}")
+        return None, None, "; ".join(err_parts) if err_parts else "no forecast from any source"
+
+    if ths_count >= em_count:
+        return ths_forecast, "ths", None
+    return em_forecast, "eastmoney", None
 
 
 def fetch(symbol: str):
@@ -86,21 +141,24 @@ def fetch(symbol: str):
     start_date = start_dt.strftime("%Y%m%d")
     end_date = today.strftime("%Y%m%d")
 
-    # 1. EPS forecast: 东财主源 + 同花顺 fallback
-    eps_forecast, eps_err = _fetch_eps_forecast_em(symbol)
-    eps_source = "eastmoney"
-    if not eps_forecast:
-        eps_forecast, eps_err = _fetch_eps_forecast_ths(symbol)
-        eps_source = "ths"
+    # 1. EPS forecast: 同时获取东财和同花顺，选择更优数据
+    em_forecast, em_err = _fetch_eps_forecast_em(symbol)
+    ths_forecast, ths_err = _fetch_eps_forecast_ths(symbol)
+    eps_forecast, eps_source, eps_err = _select_eps_forecast(em_forecast, em_err, ths_forecast, ths_err)
+
     if eps_forecast:
         result["eps_forecast"] = eps_forecast
         result["eps_forecast_source"] = eps_source
         result["eps_forecast_count"] = len(eps_forecast)
+        result["eps_forecast_em_count"] = len(em_forecast) if em_forecast else 0
+        result["eps_forecast_ths_count"] = len(ths_forecast) if ths_forecast else 0
     else:
         result["eps_forecast"] = None
         result["eps_forecast_error"] = eps_err or "unknown error"
         result["eps_forecast_source"] = None
         result["eps_forecast_count"] = 0
+        result["eps_forecast_em_count"] = len(em_forecast) if em_forecast else 0
+        result["eps_forecast_ths_count"] = len(ths_forecast) if ths_forecast else 0
 
     # 2. Risk-free rate (China 10-year bond yield)
     rf = 0.0
