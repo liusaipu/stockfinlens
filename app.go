@@ -2209,7 +2209,17 @@ func (a *App) DeleteReport(symbol, filename string) error {
 	if a.storage == nil {
 		return fmt.Errorf("存储未初始化")
 	}
-	return a.storage.DeleteReport(symbol, filename)
+	if err := a.storage.DeleteReport(symbol, filename); err != nil {
+		return err
+	}
+	// 同步清理该股票的 RIM 外部数据缓存，避免旧 EPS 预测等数据影响重新分析
+	rimPath := a.storage.RIMCachePath(symbol)
+	if err := os.Remove(rimPath); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("[DeleteReport] 清理 %s RIM 缓存失败: %v\n", symbol, err)
+	} else if err == nil {
+		fmt.Printf("[DeleteReport] 已清理 %s RIM 缓存\n", symbol)
+	}
+	return nil
 }
 
 // LoadAnalysisSnapshot 加载指定股票的最新分析快照（用于恢复亮点与风险面板）
