@@ -1116,6 +1116,7 @@ function App() {
   useEffect(() => { refreshMoneyflowRef.current = refreshMoneyflow }, [refreshMoneyflow])
   useEffect(() => {
     if (!todayMoneyflowExpanded || !selectedCode) return
+    if (selectedCode.endsWith('.HK')) return // 港股暂无真实资金流向数据，跳过自动刷新
     const tryFetch = () => {
       if (document.visibilityState !== 'visible') return
       if (!isLocalTradingHours()) return
@@ -3283,8 +3284,8 @@ function App() {
                 </div>
               </div>
             </div>
-            {/* 近3日资金流向（独立卡片，与基本信息紧凑挨着） */}
-            {(moneyflow?.has_data && moneyflow.items && moneyflow.items.length > 0) || (moneyflow && !moneyflow.has_data && moneyflow.summary) ? (
+            {/* 近3日资金流向（独立卡片，与基本信息紧凑挨着）；港股暂无真实资金流向数据，直接隐藏 */}
+            {!selectedStock?.code?.endsWith('.HK') && ((moneyflow?.has_data && moneyflow.items && moneyflow.items.length > 0) || (moneyflow && !moneyflow.has_data && moneyflow.summary)) ? (
             <div className="stock-info-card">
               {moneyflow?.has_data && moneyflow.items && moneyflow.items.length > 0 ? (
                 <div>
