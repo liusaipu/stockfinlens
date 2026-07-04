@@ -3506,114 +3506,119 @@ function App() {
             </div>
             ) : null}
 
-            {/* K线 / 融资融券 / 财务趋势 快捷按钮（独立于资金流向卡片，港股也能使用 K线/财务趋势） */}
+            {/* K线 / 融资融券 / 财务趋势 快捷按钮 */}
             {selectedStock && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                <button
-                  className="btn-text"
-                  onClick={() => setKlineFullscreen(true)}
-                  disabled={!selectedStock}
-                  style={{
-                    fontSize: 10,
-                    color: '#ef4444',
-                    padding: '2px 6px',
-                    borderRadius: 3,
-                    border: '1px solid rgba(239,68,68,0.4)',
-                    background: 'rgba(239,68,68,0.08)',
-                    cursor: selectedStock ? 'pointer' : 'not-allowed',
-                    whiteSpace: 'nowrap',
-                  }}
-                  title="全窗口查看 K线 + 技术指标联动分析图"
-                >
-                  K线
-                </button>
-                <button
-                  className="btn-text"
-                  onClick={() => selectedStock && setMarginDrawerCode(selectedStock.code)}
-                  disabled={!selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true}
-                  style={{
-                    fontSize: 10,
-                    color: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? '#64748b' : '#f59e0b',
-                    padding: '2px 6px',
-                    borderRadius: 3,
-                    border: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true
-                      ? '1px solid rgba(100,116,139,0.3)'
-                      : '1px solid rgba(245,158,11,0.4)',
-                    background: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true
-                      ? 'rgba(100,116,139,0.06)'
-                      : 'rgba(245,158,11,0.08)',
-                    cursor: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? 'not-allowed' : 'pointer',
-                    whiteSpace: 'nowrap',
-                    opacity: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? 0.7 : 1,
-                  }}
-                  title={
-                    !selectedStock
-                      ? '请先选择股票'
-                      : selectedStock.code.endsWith('.HK')
-                        ? '港股暂不支持融资融券'
-                        : marginTargetMap[selectedStock.code] === false
-                          ? '该股票不是融资融券标的'
-                          : marginTargetMap[selectedStock.code] === undefined
-                            ? '正在检查融资融券标的...'
-                            : '查看融资融券与股价叠加图'
-                  }
-                >
-                  融资融券
-                </button>
-                <button
-                  className="btn-text"
-                  onClick={() => setTrendDrawerCode(selectedStock!.code)}
-                  style={{
-                    fontSize: 10,
-                    color: '#10b981',
-                    padding: '2px 6px',
-                    borderRadius: 3,
-                    border: '1px solid rgba(16,185,129,0.4)',
-                    background: 'rgba(16,185,129,0.08)',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                  title="查看近5年财务指标趋势"
-                >
-                  财务趋势
-                </button>
+              <div className="stock-info-card">
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn-text"
+                    onClick={() => setKlineFullscreen(true)}
+                    disabled={!selectedStock}
+                    style={{
+                      fontSize: 10,
+                      color: '#ef4444',
+                      padding: '2px 6px',
+                      borderRadius: 3,
+                      border: '1px solid rgba(239,68,68,0.4)',
+                      background: 'rgba(239,68,68,0.08)',
+                      cursor: selectedStock ? 'pointer' : 'not-allowed',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title="全窗口查看 K线 + 技术指标联动分析图"
+                  >
+                    K线
+                  </button>
+                  <button
+                    className="btn-text"
+                    onClick={() => selectedStock && setMarginDrawerCode(selectedStock.code)}
+                    disabled={!selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true}
+                    style={{
+                      fontSize: 10,
+                      color: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? '#64748b' : '#f59e0b',
+                      padding: '2px 6px',
+                      borderRadius: 3,
+                      border: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true
+                        ? '1px solid rgba(100,116,139,0.3)'
+                        : '1px solid rgba(245,158,11,0.4)',
+                      background: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true
+                        ? 'rgba(100,116,139,0.06)'
+                        : 'rgba(245,158,11,0.08)',
+                      cursor: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                      opacity: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? 0.7 : 1,
+                    }}
+                    title={
+                      !selectedStock
+                        ? '请先选择股票'
+                        : selectedStock.code.endsWith('.HK')
+                          ? '港股暂不支持融资融券'
+                          : marginTargetMap[selectedStock.code] === false
+                            ? '该股票不是融资融券标的'
+                            : marginTargetMap[selectedStock.code] === undefined
+                              ? '正在检查融资融券标的...'
+                              : '查看融资融券与股价叠加图'
+                    }
+                  >
+                    融资融券
+                  </button>
+                  <button
+                    className="btn-text"
+                    onClick={() => setTrendDrawerCode(selectedStock!.code)}
+                    style={{
+                      fontSize: 10,
+                      color: '#10b981',
+                      padding: '2px 6px',
+                      borderRadius: 3,
+                      border: '1px solid rgba(16,185,129,0.4)',
+                      background: 'rgba(16,185,129,0.08)',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title="查看近5年财务指标趋势"
+                  >
+                    财务趋势
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* 导入/导出操作区 */}
-            <div className="actions-sub" style={{ display: 'flex', marginBottom: 10, gap: 16, justifyContent: 'center' }}>
-              <button className="btn-text" style={{ flex: '1 1 0', textAlign: 'center', whiteSpace: 'nowrap', fontSize: 11 }} onClick={handleImport} disabled={loading}>
-                {loading ? '处理中...' : '导入csv/excel财报'}
-              </button>
-              <button className="btn-text" style={{ flex: '1 1 0', textAlign: 'center', whiteSpace: 'nowrap', fontSize: 11 }} onClick={handleExportCurrentData} disabled={!selectedStock || dataHistory.length === 0} title={dataHistory.length === 0 ? '请先下载或导入财报数据' : '导出当前财务数据到本地'}>
-                导出本地财报
-              </button>
-            </div>
+            {/* 导入/导出/财报下载/财报透镜 操作区 */}
+            <div className="stock-info-card">
+              {/* 导入/导出操作区 */}
+              <div className="actions-sub" style={{ display: 'flex', marginBottom: 10, gap: 16, justifyContent: 'center' }}>
+                <button className="btn-text" style={{ flex: '1 1 0', textAlign: 'center', whiteSpace: 'nowrap', fontSize: 11 }} onClick={handleImport} disabled={loading}>
+                  {loading ? '处理中...' : '导入csv/excel财报'}
+                </button>
+                <button className="btn-text" style={{ flex: '1 1 0', textAlign: 'center', whiteSpace: 'nowrap', fontSize: 11 }} onClick={handleExportCurrentData} disabled={!selectedStock || dataHistory.length === 0} title={dataHistory.length === 0 ? '请先下载或导入财报数据' : '导出当前财务数据到本地'}>
+                  导出本地财报
+                </button>
+              </div>
 
-            {/* 主操作按钮 */}
-            <div className="actions">
-              <button className="btn primary" onClick={handleDownload} disabled={downloading || loading}>
-                财报下载
-              </button>
-              <button className="btn primary" onClick={handleAnalyze} disabled={analyzing || downloading || loading || dataHistory.length === 0 || dataMissing} title={dataHistory.length === 0 || dataMissing ? '请先下载或导入财报数据' : ''}>
-                财报透镜
-              </button>
-            </div>
+              {/* 主操作按钮 */}
+              <div className="actions">
+                <button className="btn primary" onClick={handleDownload} disabled={downloading || loading}>
+                  财报下载
+                </button>
+                <button className="btn primary" onClick={handleAnalyze} disabled={analyzing || downloading || loading || dataHistory.length === 0 || dataMissing} title={dataHistory.length === 0 || dataMissing ? '请先下载或导入财报数据' : ''}>
+                  财报透镜
+                </button>
+              </div>
 
-            {/* 状态显示 - 按钮下方一行 */}
-            <div className="action-status-line">
-              {downloading && <span className="status-downloading">正在下载...</span>}
-              {downloadStatus.type === 'success' && !downloading && (
-                <span className="status-success" title={downloadStatus.message}>{downloadStatus.message}</span>
-              )}
-              {downloadStatus.type === 'error' && !downloading && (
-                <span className="status-error" title={downloadStatus.message}>{downloadStatus.message.length > 30 ? downloadStatus.message.slice(0, 30) + '...' : downloadStatus.message}</span>
-              )}
-              {analyzing && (
-                <span className="status-analyzing">
-                  分析中 {analyzeProgress}%（{getAnalyzeStageText(analyzeProgress)}）
-                </span>
-              )}
+              {/* 状态显示 - 按钮下方一行 */}
+              <div className="action-status-line">
+                {downloading && <span className="status-downloading">正在下载...</span>}
+                {downloadStatus.type === 'success' && !downloading && (
+                  <span className="status-success" title={downloadStatus.message}>{downloadStatus.message}</span>
+                )}
+                {downloadStatus.type === 'error' && !downloading && (
+                  <span className="status-error" title={downloadStatus.message}>{downloadStatus.message.length > 30 ? downloadStatus.message.slice(0, 30) + '...' : downloadStatus.message}</span>
+                )}
+                {analyzing && (
+                  <span className="status-analyzing">
+                    分析中 {analyzeProgress}%（{getAnalyzeStageText(analyzeProgress)}）
+                  </span>
+                )}
+              </div>
             </div>
 
             {downloadSuggestion && (
