@@ -339,6 +339,33 @@ body.light .ai-research-progress-stage {
   border-bottom: none;
 }
 
+.ai-research-source-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ai-research-source-copy {
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #94a3b8);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.ai-research-source-copy:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 .ai-research-sources-list a {
   color: #60a5fa;
   text-decoration: none;
@@ -355,6 +382,12 @@ body.light .ai-research-progress-stage {
   color: var(--text-muted, #94a3b8);
   font-size: 11px;
   white-space: nowrap;
+}
+
+.ai-research-copy-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
 }
 
 

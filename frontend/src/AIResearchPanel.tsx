@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './AIResearchPanel.css'
 import type { ai_researcher } from '../wailsjs/go/models'
 import { GetAIConfig } from './api'
+import { ClipboardSetText } from '../wailsjs/go/main/App'
 
 interface AIResearchPanelProps {
   symbol: string
@@ -27,13 +28,66 @@ function isConfigured(cfg: ai_researcher.AIConfig | null): boolean {
   return true
 }
 
+async function writeClipboard(text: string): Promise<void> {
+  try {
+    await ClipboardSetText(text)
+    return
+  } catch (e) {
+    console.warn('[AIResearchPanel] Go ClipboardSetText failed:', e)
+  }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return
+    }
+  } catch (e) {
+    console.warn('[AIResearchPanel] navigator.clipboard.writeText failed:', e)
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    if (ok) return
+  } catch (e) {
+    console.warn('[AIResearchPanel] execCommand copy failed:', e)
+  }
+  throw new Error('无法写入剪贴板')
+}
+
 export function AIResearchPanel({ symbol, name, report, loading, error, progress, reportRef }: AIResearchPanelProps) {
   const [expandedSources, setExpandedSources] = useState(false)
   const [config, setConfig] = useState<ai_researcher.AIConfig | null>(null)
   const [configLoading, setConfigLoading] = useState(true)
   const [elapsed, setElapsed] = useState(0)
+  const [copyToast, setCopyToast] = useState<string | null>(null)
   const localReportRef = useRef<HTMLDivElement>(null)
   const contentRef = reportRef || localReportRef
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showCopyToast = (message: string) => {
+    setCopyToast(message)
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current)
+    }
+    toastTimer.current = setTimeout(() => {
+      setCopyToast(null)
+    }, 2000)
+  }
+
+  const handleCopyLink = async (url: string) => {
+    try {
+      await writeClipboard(url)
+      showCopyToast('链接已复制到剪贴板')
+    } catch (e) {
+      console.warn('[AIResearchPanel] 复制链接失败:', e)
+      showCopyToast('复制失败，请手动复制')
+    }
+  }
 
   useEffect(() => {
     setConfigLoading(true)
@@ -41,6 +95,11 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
       .then((cfg) => setConfig(cfg))
       .catch(() => setConfig(null))
       .finally(() => setConfigLoading(false))
+    return () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -175,19 +234,35 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
                 <ul className="ai-research-sources-list">
                   {report.sources.map((source, idx) => (
                     <li key={idx}>
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={source.url}
-                      >
-                        {source.title || source.url}
-                      </a>
+                      <div className="ai-research-source-main">
+                        <button
+                          type="button"
+                          className="ai-research-source-copy"
+                          onClick={() => handleCopyLink(source.url)}
+                          title="复制链接"
+                          aria-label="复制链接"
+                        >
+                          📎
+                        </button>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={source.url}
+                        >
+                          {source.title || source.url}
+                        </a>
+                      </div>
                       {source.date && <span className="ai-research-source-date">{source.date}</span>}
                     </li>
                   ))}
                 </ul>
               )}
+            </div>
+          )}
+          {copyToast && (
+            <div className="ai-research-toast ai-research-copy-toast">
+              {copyToast}
             </div>
           )}
         </div>
