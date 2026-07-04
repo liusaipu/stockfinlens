@@ -13,21 +13,21 @@ const marginBaseURL = "https://datacenter-web.eastmoney.com/api/data/v1/get"
 
 // MarginData 单条融资融券数据（与东方财富字段对齐）
 type MarginData struct {
-	Date            string  `json:"date"`             // 交易日期 YYYY-MM-DD
-	Code            string  `json:"code"`             // 证券代码（纯数字，如 000001）
-	Name            string  `json:"name"`             // 证券简称
-	Market          string  `json:"market"`           // 市场分类：融资融券_上海 / 融资融券_深证
-	RZYE            float64 `json:"rzye"`             // 融资余额（元）
-	RQMCL           float64 `json:"rqmcl"`            // 融券卖出量（股）
-	RQYL            float64 `json:"rqyl"`             // 融券余量（股）
-	RZRQYE          float64 `json:"rzrqye"`           // 融资融券余额（元）
-	RQYE            float64 `json:"rqye"`             // 融券余额（元）
-	RZMRE           float64 `json:"rzmre"`            // 融资买入额（元）
-	RZCHE           float64 `json:"rzche"`            // 融资偿还额（元）
-	RZJME           float64 `json:"rzjme"`            // 融资净买额（元）
-	RZYEZB          float64 `json:"rzyezb"`           // 融资余额占流通市值比（%）
-	SPJ             float64 `json:"spj"`              // 收盘价
-	ZDF             float64 `json:"zdf"`              // 涨跌幅（%）
+	Date            string  `json:"date"`              // 交易日期 YYYY-MM-DD
+	Code            string  `json:"code"`              // 证券代码（纯数字，如 000001）
+	Name            string  `json:"name"`              // 证券简称
+	Market          string  `json:"market"`            // 市场分类：融资融券_上海 / 融资融券_深证
+	RZYE            float64 `json:"rzye"`              // 融资余额（元）
+	RQMCL           float64 `json:"rqmcl"`             // 融券卖出量（股）
+	RQYL            float64 `json:"rqyl"`              // 融券余量（股）
+	RZRQYE          float64 `json:"rzrqye"`            // 融资融券余额（元）
+	RQYE            float64 `json:"rqye"`              // 融券余额（元）
+	RZMRE           float64 `json:"rzmre"`             // 融资买入额（元）
+	RZCHE           float64 `json:"rzche"`             // 融资偿还额（元）
+	RZJME           float64 `json:"rzjme"`             // 融资净买额（元）
+	RZYEZB          float64 `json:"rzyezb"`            // 融资余额占流通市值比（%）
+	SPJ             float64 `json:"spj"`               // 收盘价
+	ZDF             float64 `json:"zdf"`               // 涨跌幅（%）
 	TradeMarketCode string  `json:"trade_market_code"` // 二级市场代码
 	TradeMarket     string  `json:"trade_market"`      // 二级市场
 }

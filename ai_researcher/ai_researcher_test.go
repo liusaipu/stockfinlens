@@ -194,6 +194,37 @@ func TestParseLLMOutput(t *testing.T) {
 	}
 }
 
+func TestParseLLMOutputWithUnescapedNewlines(t *testing.T) {
+	// 模拟 LLM 在字符串值内部输出真实换行（未转义为 \n）的情况
+	jsonContent := "{\n" +
+		`"sections": [` + "\n" +
+		`  {` + "\n" +
+		`    "title": "产品催化剂",` + "\n" +
+		`    "summary": "小米汽车业务持续放量` + "\n" + `新款车型订单超预期",` + "\n" +
+		`    "key_points": ["点1", "点2"],` + "\n" +
+		`    "sentiment": "positive"` + "\n" +
+		`  }` + "\n" +
+		`],` + "\n" +
+		`"sources": [` + "\n" +
+		`  {"title": "来源1", "url": "https://example.com/1", "date": "2025-06-01"}` + "\n" +
+		`]` + "\n" +
+		`}`
+
+	out, err := parseLLMOutput(jsonContent)
+	if err != nil {
+		t.Fatalf("含未转义换行的 JSON 应被修复并解析成功: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Errorf("应有 1 个 section，实际 %d", len(out.Sections))
+	}
+	if out.Sections[0].Title != "产品催化剂" {
+		t.Errorf("title 错误: %s", out.Sections[0].Title)
+	}
+	if out.Sections[0].Sentiment != "positive" {
+		t.Errorf("sentiment 应为 positive，实际是 %s", out.Sections[0].Sentiment)
+	}
+}
+
 func TestCollectSources(t *testing.T) {
 	results := []SearchResult{
 		{

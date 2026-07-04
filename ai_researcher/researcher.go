@@ -204,15 +204,53 @@ type llmOutput struct {
 }
 
 // sanitizeJSON 修复 LLM 生成的 JSON 中常见的转义错误。
-// 主要处理反斜杠后跟实际换行/回车的情况，以及移除对象/数组末尾多余的逗号。
+// 主要处理：
+//  1. 字符串值内部的真实换行/回车（LLM 未转义为 \n 导致 json 解析失败）；
+//  2. 反斜杠后直接跟真实换行/回车；
+//  3. 对象/数组末尾多余的逗号。
 func sanitizeJSON(s string) string {
-	// 反斜杠后直接跟真实换行/回车：转成合法的 \n
+	// 1. 先把字符串值内部的未转义换行/回车统一转义为 \n
+	s = escapeNewlinesInJSONStrings(s)
+	// 2. 反斜杠后直接跟真实换行/回车：转成合法的 \n
 	s = strings.ReplaceAll(s, "\\\r\n", "\\n")
 	s = strings.ReplaceAll(s, "\\\n", "\\n")
 	s = strings.ReplaceAll(s, "\\\r", "\\n")
-	// 移除 trailing comma：",}" -> "}" 和 ",]" -> "]"
+	// 3. 移除 trailing comma：",}" -> "}" 和 ",]" -> "]"
 	s = trailingCommaRegex.ReplaceAllString(s, "$1")
 	return s
+}
+
+// escapeNewlinesInJSONStrings 在 JSON 字符串值内部，把未转义的真实换行/回车替换为 \n。
+// 它只处理字符串值内部，不会破坏 JSON 结构中的空白分隔。
+func escapeNewlinesInJSONStrings(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if escaped {
+			b.WriteByte(c)
+			escaped = false
+			continue
+		}
+		if c == '\\' {
+			escaped = true
+			b.WriteByte(c)
+			continue
+		}
+		if c == '"' {
+			inString = !inString
+			b.WriteByte(c)
+			continue
+		}
+		if inString && (c == '\n' || c == '\r') {
+			b.WriteString("\\n")
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
 }
 
 var trailingCommaRegex = regexp.MustCompile(`,(\s*[}\]])`)

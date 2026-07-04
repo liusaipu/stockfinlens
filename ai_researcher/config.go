@@ -25,12 +25,12 @@ type AIConfig struct {
 
 	// 搜索引擎配置（首期仅支持 tavily）
 	SearchProvider    string   `json:"search_provider"` // "tavily"
-	SearchAPIKey      string   `json:"search_api_key"`             // 兼容旧配置：单 Key
-	SearchAPIKeys     []string `json:"search_api_keys"`            // 多 Key 备用（最多 5 个）
-	SearchDepth       string   `json:"search_depth"`               // "basic" | "advanced"
-	SearchTimeout     int      `json:"search_timeout"`             // 秒，Tavily 请求超时
+	SearchAPIKey      string   `json:"search_api_key"`  // 兼容旧配置：单 Key
+	SearchAPIKeys     []string `json:"search_api_keys"` // 多 Key 备用（最多 5 个）
+	SearchDepth       string   `json:"search_depth"`    // "basic" | "advanced"
+	SearchTimeout     int      `json:"search_timeout"`  // 秒，Tavily 请求超时
 	MaxResults        int      `json:"max_results"`
-	SearchRecencyDays int      `json:"search_recency_days"`        // 例如 90
+	SearchRecencyDays int      `json:"search_recency_days"` // 例如 90
 
 	// 本月已额度用尽的 Tavily Key（key -> "YYYY-MM"），下月自动重试
 	ExhaustedSearchKeys map[string]string `json:"exhausted_search_keys"`
