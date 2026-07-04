@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+
 import * as echarts from 'echarts'
 import type { downloader } from '../wailsjs/go/models'
 import { GetStockKlines, GetStockQuote, RefreshStockKlines } from './api'
@@ -1152,18 +1152,16 @@ export function UnifiedChart({ code, name, quote: propQuote, initialExpanded, on
         )}
       </div>
 
-      {/* 刷新遮罩：通过 Portal 挂到 document.body，z=99999 高于所有元素（包括 echarts 自带的 tooltip/zr 辅助 DOM 与可能的 Wails/macOS 系统级覆盖）。
-          由 chart 'finished' 事件触发解除，确保完整盖住整个 setOption 重绘过程。 */}
-      {refreshing && createPortal(
+      {/* 刷新遮罩：仅覆盖当前 K 线面板，由 chart 'finished' 事件触发解除，确保完整盖住整个 setOption 重绘过程。 */}
+      {refreshing && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 99999,
+          position: 'absolute', inset: 0, zIndex: 20000,
           display: 'flex', justifyContent: 'center', alignItems: 'center',
           backgroundColor: isLightTheme ? '#f8fafc' : '#0f172a',
           color: '#64748b', fontSize: 14,
         }}>
           刷新中…
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   )
