@@ -3493,75 +3493,6 @@ function App() {
                             当日数据暂未更新
                           </div>
                         )}
-                        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn-text"
-                            onClick={() => setKlineFullscreen(true)}
-                            disabled={!selectedStock}
-                            style={{
-                              fontSize: 10,
-                              color: '#ef4444',
-                              padding: '2px 6px',
-                              borderRadius: 3,
-                              border: '1px solid rgba(239,68,68,0.4)',
-                              background: 'rgba(239,68,68,0.08)',
-                              cursor: selectedStock ? 'pointer' : 'not-allowed',
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="全窗口查看 K线 + 技术指标联动分析图"
-                          >
-                            K线
-                          </button>
-                          <button
-                            className="btn-text"
-                            onClick={() => selectedStock && setMarginDrawerCode(selectedStock.code)}
-                            disabled={!selectedStock || marginTargetMap[selectedStock.code] !== true}
-                            style={{
-                              fontSize: 10,
-                              color: !selectedStock || marginTargetMap[selectedStock.code] !== true ? '#64748b' : '#f59e0b',
-                              padding: '2px 6px',
-                              borderRadius: 3,
-                              border: !selectedStock || marginTargetMap[selectedStock.code] !== true
-                                ? '1px solid rgba(100,116,139,0.3)'
-                                : '1px solid rgba(245,158,11,0.4)',
-                              background: !selectedStock || marginTargetMap[selectedStock.code] !== true
-                                ? 'rgba(100,116,139,0.06)'
-                                : 'rgba(245,158,11,0.08)',
-                              cursor: !selectedStock || marginTargetMap[selectedStock.code] !== true ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap',
-                              opacity: !selectedStock || marginTargetMap[selectedStock.code] !== true ? 0.7 : 1,
-                            }}
-                            title={
-                              !selectedStock
-                                ? '请先选择股票'
-                                : marginTargetMap[selectedStock.code] === false
-                                  ? '该股票不是融资融券标的'
-                                  : marginTargetMap[selectedStock.code] === undefined
-                                    ? '正在检查融资融券标的...'
-                                    : '查看融资融券与股价叠加图'
-                            }
-                          >
-                            融资融券
-                          </button>
-                          <button
-                            className="btn-text"
-                            onClick={() => setTrendDrawerCode(selectedStock!.code)}
-                            style={{
-                              fontSize: 10,
-                              color: '#10b981',
-                              padding: '2px 6px',
-                              borderRadius: 3,
-                              border: '1px solid rgba(16,185,129,0.4)',
-                              background: 'rgba(16,185,129,0.08)',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="查看近5年财务指标趋势"
-                          >
-                            财务趋势
-                          </button>
-                        </div>
-
                       </div>
                     )}
                   </div>
@@ -3574,6 +3505,80 @@ function App() {
               ) : null}
             </div>
             ) : null}
+
+            {/* K线 / 融资融券 / 财务趋势 快捷按钮（独立于资金流向卡片，港股也能使用 K线/财务趋势） */}
+            {selectedStock && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn-text"
+                  onClick={() => setKlineFullscreen(true)}
+                  disabled={!selectedStock}
+                  style={{
+                    fontSize: 10,
+                    color: '#ef4444',
+                    padding: '2px 6px',
+                    borderRadius: 3,
+                    border: '1px solid rgba(239,68,68,0.4)',
+                    background: 'rgba(239,68,68,0.08)',
+                    cursor: selectedStock ? 'pointer' : 'not-allowed',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="全窗口查看 K线 + 技术指标联动分析图"
+                >
+                  K线
+                </button>
+                <button
+                  className="btn-text"
+                  onClick={() => selectedStock && setMarginDrawerCode(selectedStock.code)}
+                  disabled={!selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true}
+                  style={{
+                    fontSize: 10,
+                    color: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? '#64748b' : '#f59e0b',
+                    padding: '2px 6px',
+                    borderRadius: 3,
+                    border: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true
+                      ? '1px solid rgba(100,116,139,0.3)'
+                      : '1px solid rgba(245,158,11,0.4)',
+                    background: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true
+                      ? 'rgba(100,116,139,0.06)'
+                      : 'rgba(245,158,11,0.08)',
+                    cursor: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap',
+                    opacity: !selectedStock || selectedStock.code.endsWith('.HK') || marginTargetMap[selectedStock.code] !== true ? 0.7 : 1,
+                  }}
+                  title={
+                    !selectedStock
+                      ? '请先选择股票'
+                      : selectedStock.code.endsWith('.HK')
+                        ? '港股暂不支持融资融券'
+                        : marginTargetMap[selectedStock.code] === false
+                          ? '该股票不是融资融券标的'
+                          : marginTargetMap[selectedStock.code] === undefined
+                            ? '正在检查融资融券标的...'
+                            : '查看融资融券与股价叠加图'
+                  }
+                >
+                  融资融券
+                </button>
+                <button
+                  className="btn-text"
+                  onClick={() => setTrendDrawerCode(selectedStock!.code)}
+                  style={{
+                    fontSize: 10,
+                    color: '#10b981',
+                    padding: '2px 6px',
+                    borderRadius: 3,
+                    border: '1px solid rgba(16,185,129,0.4)',
+                    background: 'rgba(16,185,129,0.08)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="查看近5年财务指标趋势"
+                >
+                  财务趋势
+                </button>
+              </div>
+            )}
 
             {/* 导入/导出操作区 */}
             <div className="actions-sub" style={{ display: 'flex', marginBottom: 10, gap: 16, justifyContent: 'center' }}>
