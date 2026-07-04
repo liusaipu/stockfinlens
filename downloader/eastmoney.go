@@ -1138,9 +1138,12 @@ func logRawHKOutput(script, code string, output []byte, err error) {
 		return
 	}
 	defer f.Close()
-	truncated := output
-	if len(truncated) > 16384 {
-		truncated = append(truncated[:16384], []byte("\n...truncated")...)
+	var truncated []byte
+	if len(output) > 16384 {
+		truncated = append([]byte{}, output[:16384]...)
+		truncated = append(truncated, []byte("\n...truncated")...)
+	} else {
+		truncated = output
 	}
 	errStr := ""
 	if err != nil {
