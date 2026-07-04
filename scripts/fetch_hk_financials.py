@@ -9,6 +9,7 @@ import json
 import sys
 import io
 import os
+import contextlib
 import pandas as pd
 
 # 强制 stdout 使用 UTF-8，避免 Windows 下 GBK 编码导致中文乱码
@@ -16,11 +17,25 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
+os.environ.setdefault("TQDM_DISABLE", "1")
+os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
 
 try:
     import akshare as ak
 except ImportError:
     ak = None
+
+
+# 把第三方库可能输出到 stdout 的警告/进度条重定向到 stderr，保证 stdout 只有最终 JSON
+@contextlib.contextmanager
+def _suppress_stdout():
+    old_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        yield
+    finally:
+        sys.stdout = old_stdout
 
 
 # 港股财报科目名 -> A股分析器使用的标准名称映射（支持一对多）
@@ -228,16 +243,18 @@ def main():
 
     errors = []
 
-    bs_df = fetch_report_sheet(code, "资产负债表")
-    is_df = fetch_report_sheet(code, "利润表")
-    cf_df = fetch_report_sheet(code, "现金流量表")
+    with _suppress_stdout():
+        bs_df = fetch_report_sheet(code, "资产负债表")
+        is_df = fetch_report_sheet(code, "利润表")
+        cf_df = fetch_report_sheet(code, "现金流量表")
 
     result["balanceSheet"] = add_combined_items(parse_sheet(bs_df))
     result["incomeStatement"] = add_combined_items(parse_sheet(is_df))
     result["cashFlow"] = add_combined_items(parse_sheet(cf_df))
 
     # 用分析指标补充关键字段（转置为 {item_name: {year: amount}} 结构与 A 股一致）
-    indicators = fetch_analysis_indicators(code)
+    with _suppress_stdout():
+        indicators = fetch_analysis_indicators(code)
     for year, vals in indicators.items():
         for k, v in vals.items():
             if k not in result["incomeStatement"]:

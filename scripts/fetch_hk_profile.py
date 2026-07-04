@@ -9,6 +9,7 @@ import json
 import sys
 import io
 import os
+import contextlib
 import pandas as pd
 
 # 强制 stdout 使用 UTF-8，避免 Windows 下 GBK 编码导致中文乱码
@@ -16,10 +17,24 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
+os.environ.setdefault("TQDM_DISABLE", "1")
+os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
 try:
     import akshare as ak
 except ImportError:
     ak = None
+
+
+# 把第三方库可能输出到 stdout 的警告/进度条重定向到 stderr，保证 stdout 只有最终 JSON
+@contextlib.contextmanager
+def _suppress_stdout():
+    old_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        yield
+    finally:
+        sys.stdout = old_stdout
 
 
 def main():
@@ -44,7 +59,8 @@ def main():
     errors = []
 
     try:
-        df_sec = ak.stock_hk_security_profile_em(symbol=code)
+        with _suppress_stdout():
+            df_sec = ak.stock_hk_security_profile_em(symbol=code)
         if df_sec is not None and not df_sec.empty:
             row = df_sec.iloc[0]
             result["listing_date"] = str(row.get("上市日期", "")).split()[0].replace("-", "")
@@ -54,7 +70,8 @@ def main():
         errors.append(f"security_profile: {e}")
 
     try:
-        df_comp = ak.stock_hk_company_profile_em(symbol=code)
+        with _suppress_stdout():
+            df_comp = ak.stock_hk_company_profile_em(symbol=code)
         if df_comp is not None and not df_comp.empty:
             row = df_comp.iloc[0]
             result["industry"] = str(row.get("所属行业", ""))

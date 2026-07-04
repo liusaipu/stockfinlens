@@ -1024,17 +1024,19 @@ func fetchHKProfileFromPython(code string) (*hkProfileResult, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, python, script, code)
-	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
+	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "TQDM_DISABLE=1")
 
 	// Windows: 隐藏 CMD 窗口
 	setHideWindow(cmd)
 
 	output, err := cmd.CombinedOutput()
+	logRawHKOutput("fetch_hk_profile", code, output, err)
 	if err != nil {
 		return nil, fmt.Errorf("fetch_hk_profile.py 执行失败: %v, output: %s", err, string(output))
 	}
+	jsonBytes := extractJSON(output)
 	var result hkProfileResult
-	if err := json.Unmarshal(output, &result); err != nil {
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
 		return nil, fmt.Errorf("解析港股资料失败: %v, raw: %s", err, string(output))
 	}
 	return &result, nil
@@ -1084,16 +1086,18 @@ func fetchHKFinancialsFromPython(code string, maxYears int) (*FinancialReportDat
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, python, script, code, fmt.Sprintf("%d", maxYears))
-	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
+	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "TQDM_DISABLE=1")
 
 	setHideWindow(cmd)
 
 	output, err := cmd.CombinedOutput()
+	logRawHKOutput("fetch_hk_financials", code, output, err)
 	if err != nil {
 		return nil, fmt.Errorf("fetch_hk_financials.py 执行失败: %v, output: %s", err, string(output))
 	}
+	jsonBytes := extractJSON(output)
 	var result hkFinancialsResult
-	if err := json.Unmarshal(output, &result); err != nil {
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
 		return nil, fmt.Errorf("解析港股财务数据失败: %v, raw: %s", err, string(output))
 	}
 	if len(result.Years) == 0 {
@@ -1106,6 +1110,43 @@ func fetchHKFinancialsFromPython(code string, maxYears int) (*FinancialReportDat
 		IncomeStatement: result.IncomeStatement,
 		CashFlow:        result.CashFlow,
 	}, nil
+}
+
+// extractJSON 从可能混有警告/调试信息的输出中提取第一个 JSON 对象/数组。
+func extractJSON(output []byte) []byte {
+	s := string(output)
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start >= 0 && end > start {
+		return []byte(s[start : end+1])
+	}
+	return output
+}
+
+// logRawHKOutput 把港股 Python 脚本的原始输出写入本地日志，便于排查不同机器上的环境问题。
+func logRawHKOutput(script, code string, output []byte, err error) {
+	defer func() { _ = recover() }()
+	home, e := os.UserHomeDir()
+	if e != nil {
+		return
+	}
+	logDir := filepath.Join(home, ".config", "stock-analyzer", "logs")
+	_ = os.MkdirAll(logDir, 0755)
+	logPath := filepath.Join(logDir, "hk_scripts.log")
+	f, e := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if e != nil {
+		return
+	}
+	defer f.Close()
+	truncated := output
+	if len(truncated) > 16384 {
+		truncated = append(truncated[:16384], []byte("\n...truncated")...)
+	}
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	_, _ = fmt.Fprintf(f, "[%s] %s %s err=%q\n%s\n\n", time.Now().Format(time.RFC3339), script, code, errStr, truncated)
 }
 
 func parseStrFloat(s string) float64 {
