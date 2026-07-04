@@ -57,7 +57,7 @@ func DefaultAIConfig() *AIConfig {
 		SearchDepth:       "advanced",
 		SearchTimeout:     180,
 		MaxResults:        10,
-		SearchRecencyDays: 90,
+		SearchRecencyDays: 60,
 		FocusRegions:      []string{"us", "jp"},
 		OutputLanguage:    "zh-CN",
 		EnableSocial:      true,

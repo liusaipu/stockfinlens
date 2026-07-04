@@ -3,6 +3,7 @@ package ai_researcher
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDefaultAIConfig(t *testing.T) {
@@ -225,25 +226,90 @@ func TestParseLLMOutputWithUnescapedNewlines(t *testing.T) {
 	}
 }
 
+func TestSourceFilterRelevance(t *testing.T) {
+	f := newSourceFilter("01478.HK", "丘钛科技", 60)
+
+	// 普通查询：包含股票名称 -> 相关
+	item := SearchItem{Title: "丘钛科技发布业绩预告", URL: "https://xueqiu.com/123", Content: "内容"}
+	if !f.isRelevant(item, "丘钛科技 01478 业绩") {
+		t.Error("包含股票名称应判定为相关")
+	}
+
+	// 普通查询：不包含股票名称/代码 -> 不相关
+	item = SearchItem{Title: "Apple Vision Pro 评测", URL: "https://theverge.com/1", Content: "内容"}
+	if f.isRelevant(item, "丘钛科技 01478 业绩") {
+		t.Error("普通查询不含股票名称应判定为不相关")
+	}
+
+	// 全球产业映射查询：包含海外龙头 -> 相关
+	item = SearchItem{Title: "Apple Vision Pro 带动供应链", URL: "https://theverge.com/2", Content: "内容"}
+	if !f.isRelevant(item, "丘钛科技 01478 全球产业映射 Apple Vision Pro") {
+		t.Error("全球产业映射查询含海外龙头应判定为相关")
+	}
+
+	// 全球产业映射查询：包含映射关键词 -> 相关
+	item = SearchItem{Title: "手机产业链预期差分析", URL: "https://example.com/1", Content: "内容"}
+	if !f.isRelevant(item, "丘钛科技 01478 全球产业映射") {
+		t.Error("全球产业映射查询含映射关键词应判定为相关")
+	}
+}
+
+func TestSourceFilterRecency(t *testing.T) {
+	f := newSourceFilter("01478.HK", "丘钛科技", 60)
+
+	// 普通财经新闻，日期在 60 天内 -> 通过
+	item := SearchItem{Title: "新闻", URL: "https://xueqiu.com/1", Published: time.Now().AddDate(0, 0, -10).Format("2006-01-02")}
+	if !f.isWithinRecency(item) {
+		t.Error("10天前应通过时效过滤")
+	}
+
+	// 普通财经新闻，日期超过 60 天 -> 过滤
+	item = SearchItem{Title: "旧闻", URL: "https://xueqiu.com/2", Published: time.Now().AddDate(0, 0, -100).Format("2006-01-02")}
+	if f.isWithinRecency(item) {
+		t.Error("100天前的普通新闻应被过滤")
+	}
+
+	// 监管来源，日期超过 60 天 -> 豁免
+	item = SearchItem{Title: "问询函", URL: "https://szse.cn/1", Published: time.Now().AddDate(0, 0, -200).Format("2006-01-02")}
+	if !f.isWithinRecency(item) {
+		t.Error("监管来源应豁免时效过滤")
+	}
+}
+
+func TestSourceTier(t *testing.T) {
+	if sourceTier("https://szse.cn/abc") != 1 {
+		t.Errorf("交易所应为 Tier 1，实际是 %d", sourceTier("https://szse.cn/abc"))
+	}
+	if sourceTier("https://xueqiu.com/abc") != 2 {
+		t.Errorf("雪球应为 Tier 2，实际是 %d", sourceTier("https://xueqiu.com/abc"))
+	}
+	if sourceTier("https://bloomberg.com/abc") != 3 {
+		t.Errorf("Bloomberg 应为 Tier 3，实际是 %d", sourceTier("https://bloomberg.com/abc"))
+	}
+	if sourceTier("https://example.com/abc") != 4 {
+		t.Errorf("未知域名应为 Tier 4，实际是 %d", sourceTier("https://example.com/abc"))
+	}
+}
+
 func TestCollectSources(t *testing.T) {
 	results := []SearchResult{
 		{
-			Query: "q1",
+			Query: "韦尔股份 603501 业绩",
 			Items: []SearchItem{
-				{Title: "A", URL: "https://a.com", Content: "content a", Published: "2025-06-01"},
-				{Title: "B", URL: "https://b.com", Content: "content b"},
+				{Title: "韦尔股份业绩超预期", URL: "https://a.com", Content: "content a", Published: "2025-06-01"},
+				{Title: "B", URL: "https://b.com", Content: "content b"}, // 不相关，应被过滤
 			},
 		},
 		{
-			Query: "q2",
+			Query: "韦尔股份 603501 风险",
 			Items: []SearchItem{
-				{Title: "A2", URL: "https://a.com", Content: "dup"}, // 重复 URL
+				{Title: "韦尔股份遭问询", URL: "https://a.com", Content: "dup"}, // 重复 URL
 			},
 		},
 	}
 
-	sources := collectSources(results)
-	if len(sources) != 2 {
-		t.Errorf("去重后应剩 2 条来源，实际 %d", len(sources))
+	sources := collectSources(results, "603501.SH", "韦尔股份", 60)
+	if len(sources) != 1 {
+		t.Errorf("去重并过滤后应剩 1 条来源，实际 %d", len(sources))
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -92,8 +93,8 @@ func (r *Researcher) Research(ctx context.Context, symbol, name string, forceRef
 	results = filterSearchResults(results)
 	emit("search", fmt.Sprintf("过滤后剩余 %d 条有效结果", countSearchItems(results)))
 
-	// 4. 去重、汇总来源
-	sources := collectSources(results)
+	// 4. 去重、汇总来源（按相关性、时效性、可信度过滤）
+	sources := collectSources(results, symbol, name, r.cfg.SearchRecencyDays)
 
 	// 5. 调用 LLM
 	emit("llm", "正在调用大模型生成投研报告...")
@@ -350,7 +351,8 @@ func countSearchItems(results []SearchResult) int {
 	return n
 }
 
-func collectSources(results []SearchResult) []ResearchSource {
+func collectSources(results []SearchResult, symbol, name string, recencyDays int) []ResearchSource {
+	filter := newSourceFilter(symbol, name, recencyDays)
 	seen := make(map[string]bool)
 	var sources []ResearchSource
 	for _, r := range results {
@@ -359,6 +361,12 @@ func collectSources(results []SearchResult) []ResearchSource {
 				continue
 			}
 			if !isQualitySource(item) {
+				continue
+			}
+			if !filter.isRelevant(item, r.Query) {
+				continue
+			}
+			if !filter.isWithinRecency(item) {
 				continue
 			}
 			seen[item.URL] = true
@@ -395,6 +403,67 @@ func isQualitySource(item SearchItem) bool {
 	return true
 }
 
+// sourceFilter 封装参考来源的相关性、时效性过滤逻辑。
+type sourceFilter struct {
+	symbol      string
+	name        string
+	recencyDays int
+}
+
+func newSourceFilter(symbol, name string, recencyDays int) sourceFilter {
+	if recencyDays <= 0 {
+		recencyDays = 60
+	}
+	return sourceFilter{symbol: symbol, name: name, recencyDays: recencyDays}
+}
+
+func (f sourceFilter) pureCode() string {
+	parts := strings.Split(f.symbol, ".")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return f.symbol
+}
+
+// isRelevant 判断来源是否与当前股票（或全球产业映射主题）相关。
+func (f sourceFilter) isRelevant(item SearchItem, query string) bool {
+	text := strings.ToLower(item.Title + " " + item.Content + " " + item.URL)
+	name := strings.ToLower(strings.TrimSpace(f.name))
+	code := strings.ToLower(strings.TrimSpace(f.pureCode()))
+
+	hasStock := (name != "" && strings.Contains(text, name)) || (code != "" && strings.Contains(text, code))
+
+	// 全球产业映射类查询：允许海外龙头或产业链映射相关来源，但仍需和主题相关
+	if isGlobalMappingQuery(query) {
+		if hasStock {
+			return true
+		}
+		if containsAnyKeyword(text, overseasCompanyKeywords) {
+			return true
+		}
+		return containsAnyKeyword(text, mappingKeywords)
+	}
+
+	// 普通查询：必须直接出现股票名称或代码
+	return hasStock
+}
+
+// isWithinRecency 判断来源是否在时效范围内；监管/交易所/官方公告豁免。
+func (f sourceFilter) isWithinRecency(item SearchItem) bool {
+	if item.Published == "" {
+		return true
+	}
+	date := normalizeDate(item.Published)
+	if date == "" {
+		return true
+	}
+	if isOfficialSource(item.URL) {
+		return true
+	}
+	cutoff := time.Now().AddDate(0, 0, -f.recencyDays).Format("2006-01-02")
+	return date >= cutoff
+}
+
 func mergeSources(llmSources, searchSources []ResearchSource) []ResearchSource {
 	seen := make(map[string]bool)
 	var out []ResearchSource
@@ -414,12 +483,85 @@ func mergeSources(llmSources, searchSources []ResearchSource) []ResearchSource {
 		seen[s.URL] = true
 		out = append(out, s)
 	}
-	// 限制来源数量
+	// 按可信度排序：官方/主流财经 > 国际媒体/科技媒体 > 其他
+	sort.SliceStable(out, func(i, j int) bool {
+		return sourceTier(out[i].URL) < sourceTier(out[j].URL)
+	})
+	// 限制来源数量，优先保留高可信度来源
 	if len(out) > 20 {
 		out = out[:20]
 	}
 	return out
 }
+
+// sourceTier 返回来源可信度层级，数字越小越可信。
+func sourceTier(url string) int {
+	u := strings.ToLower(url)
+	switch {
+	case containsAnyKeyword(u, tier1Domains):
+		return 1
+	case containsAnyKeyword(u, tier2Domains):
+		return 2
+	case containsAnyKeyword(u, tier3Domains):
+		return 3
+	default:
+		return 4
+	}
+}
+
+// isOfficialSource 判断是否为监管/交易所/公司公告等官方来源。
+func isOfficialSource(url string) bool {
+	return containsAnyKeyword(strings.ToLower(url), tier1Domains)
+}
+
+func isGlobalMappingQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "全球产业映射") || strings.Contains(q, "海外龙头")
+}
+
+func containsAnyKeyword(text string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(text, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	// 海外龙头公司关键词，用于全球产业映射查询的相关性判断
+	overseasCompanyKeywords = []string{
+		"nvidia", "amd", "tsmc", "台积电", "micron", "sk hynix", "skhynix", "hynix",
+		"openai", "anthropic", "google", "alphabet", "microsoft", "tesla", "xai",
+		"asml", "samsung", "apple", "intel", "qualcomm", "broadcom", "amazon",
+		"英伟达", "超威", "微软", "特斯拉", "苹果", "三星", "谷歌", "台积电",
+		"高通", "英特尔", "美光", "海力士", "阿斯麦", "马斯克", "musk",
+	}
+	// 产业链映射关键词
+	mappingKeywords = []string{
+		"映射", "产业链", "供应链", "预期差", "利好", "利空", "影响", "对标",
+		"受益", "拖累", "带动", "波及", "传导", "上游", "下游", "龙头",
+	}
+	// Tier 1: 监管/交易所/公司公告官方来源
+	tier1Domains = []string{
+		"csrc.gov.cn", "sse.com.cn", "szse.cn", "bse.cn", "cninfo.com.cn", "hkexnews.hk",
+	}
+	// Tier 2: 国内主流财经媒体/券商/社区
+	tier2Domains = []string{
+		"eastmoney.com", "sina.com.cn", "xueqiu.com", "caixin.com", "cls.cn", "stcn.com",
+		"jiemian.com", "wallstreetcn.com", "cs.com.cn", "hexun.com", "10jqka.com.cn",
+		"gelonghui.com", "cnstock.com", "p5w.net", "jrj.com", "ccstock.cn",
+	}
+	// Tier 3: 国际主流财经/科技媒体
+	tier3Domains = []string{
+		"bloomberg.com", "reuters.com", "ft.com", "cnbc.com", "techcrunch.com",
+		"theverge.com", "wired.com", "marketwatch.com", "seekingalpha.com", "investing.com",
+		"yahoo.com", "nikkei.com", "forbes.com", "businessinsider.com", "nasdaq.com",
+		"semianalysis.com", "tomshardware.com", "anandtech.com", "ars technica", "tomshardware.com",
+		"nvidia.com", "openai.com", "anthropic.com", "microsoft.com", "google.com",
+		"tesla.com", "tsmc.com", "samsung.com", "asml.com", "micron.com", "skhynix.com",
+	}
+)
 
 func normalizeDate(d string) string {
 	if d == "" {
