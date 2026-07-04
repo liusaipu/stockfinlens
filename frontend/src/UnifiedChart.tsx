@@ -1150,19 +1150,19 @@ export function UnifiedChart({ code, name, quote: propQuote, initialExpanded, on
             />
           </div>
         )}
-      </div>
 
-      {/* 刷新遮罩：仅覆盖当前 K 线面板，由 chart 'finished' 事件触发解除，确保完整盖住整个 setOption 重绘过程。 */}
-      {refreshing && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 20000,
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
-          backgroundColor: isLightTheme ? '#f8fafc' : '#0f172a',
-          color: '#64748b', fontSize: 14,
-        }}>
-          刷新中…
-        </div>
-      )}
+        {/* 刷新遮罩：仅覆盖当前 K 线面板，由 chart 'finished' 事件触发解除，确保完整盖住整个 setOption 重绘过程。 */}
+        {refreshing && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 20000,
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            backgroundColor: isLightTheme ? '#f8fafc' : '#0f172a',
+            color: '#64748b', fontSize: 14,
+          }}>
+            刷新中…
+          </div>
+        )}
+      </div>
     </div>
   )
 }
