@@ -386,9 +386,21 @@ body.light .ai-research-progress-stage {
 
 .ai-research-copy-toast {
   position: fixed;
-  transform: translateX(-50%);
+  transform: translate(-50%, 0);
   white-space: nowrap;
   pointer-events: none;
+  animation: ai-copy-toast-in 0.2s ease;
+}
+
+@keyframes ai-copy-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 
