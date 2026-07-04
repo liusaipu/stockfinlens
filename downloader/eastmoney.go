@@ -1371,6 +1371,10 @@ func fetchKlinesFromTencent(ctx context.Context, market, code string, limit int,
 
 	prefix := strings.ToLower(market)
 	isHK := strings.ToUpper(market) == "HK"
+	// 腾讯港股 K 线接口对 limit>=2500 返回 param error，实测 2000 可用
+	if isHK && limit > 2000 {
+		limit = 2000
+	}
 	var url string
 	if isHK {
 		// 港股腾讯接口末尾不能加 qfq
