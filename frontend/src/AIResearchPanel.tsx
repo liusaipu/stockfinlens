@@ -64,28 +64,28 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
   const [config, setConfig] = useState<ai_researcher.AIConfig | null>(null)
   const [configLoading, setConfigLoading] = useState(true)
   const [elapsed, setElapsed] = useState(0)
-  const [copyToast, setCopyToast] = useState<string | null>(null)
+  const [copyToast, setCopyToast] = useState<{ message: string; x: number; y: number } | null>(null)
   const localReportRef = useRef<HTMLDivElement>(null)
   const contentRef = reportRef || localReportRef
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const showCopyToast = (message: string) => {
-    setCopyToast(message)
+  const showCopyToast = (message: string, x: number, y: number) => {
+    setCopyToast({ message, x, y })
     if (toastTimer.current) {
       clearTimeout(toastTimer.current)
     }
     toastTimer.current = setTimeout(() => {
       setCopyToast(null)
-    }, 2000)
+    }, 1500)
   }
 
-  const handleCopyLink = async (url: string) => {
+  const handleCopyLink = async (e: React.MouseEvent<HTMLButtonElement>, url: string) => {
     try {
       await writeClipboard(url)
-      showCopyToast('链接已复制到剪贴板')
-    } catch (e) {
-      console.warn('[AIResearchPanel] 复制链接失败:', e)
-      showCopyToast('复制失败，请手动复制')
+      showCopyToast('链接已复制到剪贴板', e.clientX, e.clientY)
+    } catch (err) {
+      console.warn('[AIResearchPanel] 复制链接失败:', err)
+      showCopyToast('复制失败，请手动复制', e.clientX, e.clientY)
     }
   }
 
@@ -238,7 +238,7 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
                         <button
                           type="button"
                           className="ai-research-source-copy"
-                          onClick={() => handleCopyLink(source.url)}
+                          onClick={(e) => handleCopyLink(e, source.url)}
                           title="复制链接"
                           aria-label="复制链接"
                         >
@@ -261,8 +261,14 @@ export function AIResearchPanel({ symbol, name, report, loading, error, progress
             </div>
           )}
           {copyToast && (
-            <div className="ai-research-toast ai-research-copy-toast">
-              {copyToast}
+            <div
+              className="ai-research-toast ai-research-copy-toast"
+              style={{
+                top: copyToast.y + 12,
+                left: copyToast.x,
+              }}
+            >
+              {copyToast.message}
             </div>
           )}
         </div>

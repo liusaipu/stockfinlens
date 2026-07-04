@@ -386,8 +386,9 @@ body.light .ai-research-progress-stage {
 
 .ai-research-copy-toast {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 
