@@ -155,6 +155,8 @@ A-Score = 财务造假层(60%) + 破产风险层(20%) + 非财务信号层(20%)
 - **本地缓存**：按股票代码缓存搜索结果与报告，默认 6 小时，避免重复调用
 - **信源追溯**：每条结论均可展开查看原始网页来源与引用链接
 
+![AI 投研助手](docs/screenshots/ai-research.png)
+
 配置文件位置：`~/.config/stock-analyzer/ai_config.json`
 
 ---
