@@ -386,6 +386,8 @@ body.light .ai-research-progress-stage {
 
 .ai-research-copy-toast {
   position: fixed;
+  top: auto;
+  right: auto;
   padding: 3px 8px;
   font-size: 12px;
   white-space: nowrap;
