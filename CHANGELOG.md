@@ -1,5 +1,29 @@
 # Changelog
 
+## [v1.8.8] - 2026-07-04
+
+### 修复 (Fixes)
+- **修复 AI 投研偶发解析失败**（`ai_researcher/researcher.go`）
+  - 某些模型返回的 JSON 字符串值内部包含未转义的真实换行，导致 `invalid character '\n' in string literal`。
+  - 新增 `escapeNewlinesInJSONStrings`，在字符串值内部自动把裸换行/回车转义为 `\n` 后再解析。
+- **修复港股财报脚本 macOS Resources 路径回退缺失**（`downloader/hk_financials.go`）
+  - 打包后 `.app/Contents/Resources` 路径未被检查，导致部分用户无法下载港股财报。
+- **修复删除报告时 RIM 缓存未清理**（`storage.go`, `rim.go`）
+  - 删除个股报告后同步清理对应 RIM 估值缓存，避免旧估值被复用。
+
+### 新增 (Features)
+- **AI 投研参考来源支持一键复制链接**（`frontend/src/AIResearchPanel.tsx`）
+  - 每条参考来源前增加 📎 回形针图标，点击即可复制 URL 到剪贴板。
+  - 优先调用 Go 后端 `ClipboardSetText`，兼容 `navigator.clipboard` 与 `execCommand` 兜底。
+  - 提示条跟随鼠标下方显示，1.5 秒后自动消失。
+- **AI 投研报告导出增加「拷贝到剪贴板」选项**（`frontend/src/App.tsx`）
+  - 导出菜单新增 TXT / Markdown 复制，无需先保存文件。
+
+### 优化 (Improvements)
+- **选中港股时隐藏首页资金流向卡片**（`frontend/src/App.tsx`）
+  - 港股无 A 股式资金流向数据，避免展示空/错误状态。
+- **README 增加 AI 投研助手截图**（`README.md`, `docs/screenshots/ai-research.png`）
+
 ## [v1.8.6] - 2026-07-03
 
 ### 修复 (Fixes)
