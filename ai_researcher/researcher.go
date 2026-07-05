@@ -314,6 +314,50 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+// escapeInnerQuotes 尝试修复 JSON 字符串值内部未转义的双引号。
+// 启发式规则：在字符串内部遇到双引号时，若其后紧跟可选空白 + 结构字符（: , } ]），
+// 则视为字符串结束符；否则视为内层双引号，在前面加反斜杠转义。
+// 注意：这是尽力修复，不能保证 100%% 准确，仅作为解析兜底。
+func escapeInnerQuotes(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if escaped {
+			b.WriteByte(c)
+			escaped = false
+			continue
+		}
+		if c == '\\' {
+			escaped = true
+			b.WriteByte(c)
+			continue
+		}
+		if c == '"' {
+			if inString {
+				// 判断是字符串结束符还是内层引号
+				j := i + 1
+				for j < len(s) && (s[j] == ' ' || s[j] == '\t' || s[j] == '\n' || s[j] == '\r') {
+					j++
+				}
+				if j < len(s) && (s[j] == ':' || s[j] == ',' || s[j] == '}' || s[j] == ']') {
+					inString = false
+				} else {
+					b.WriteByte('\\')
+				}
+			} else {
+				inString = true
+			}
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
 func normalizeWhitespaceForJSON(s string) string {
 	s = strings.ReplaceAll(s, "\r\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
@@ -371,16 +415,19 @@ func parseLLMOutput(content string) (*llmOutput, error) {
 // tryParseLLMOutput 尝试多种方式解析 LLM 输出，返回成功时的结果或最后一次错误。
 func tryParseLLMOutput(content string) (*llmOutput, error) {
 	var out llmOutput
+	var lastErr error
 
 	// 1) 直接解析
-	if err := json.Unmarshal([]byte(content), &out); err == nil {
+	lastErr = json.Unmarshal([]byte(content), &out)
+	if lastErr == nil {
 		return &out, nil
 	}
 
 	// 2) 修复转义后解析
 	fixed := sanitizeJSON(content)
 	if fixed != content {
-		if err := json.Unmarshal([]byte(fixed), &out); err == nil {
+		lastErr = json.Unmarshal([]byte(fixed), &out)
+		if lastErr == nil {
 			return &out, nil
 		}
 	}
@@ -388,13 +435,15 @@ func tryParseLLMOutput(content string) (*llmOutput, error) {
 	// 3) 提取第一个完整 JSON 对象
 	candidate := extractJSONObject(content)
 	if candidate != content && candidate != "" {
-		if err := json.Unmarshal([]byte(candidate), &out); err == nil {
+		lastErr = json.Unmarshal([]byte(candidate), &out)
+		if lastErr == nil {
 			return &out, nil
 		}
 		// 4) 对提取对象做转义修复
 		fixedCandidate := sanitizeJSON(candidate)
 		if fixedCandidate != candidate {
-			if err := json.Unmarshal([]byte(fixedCandidate), &out); err == nil {
+			lastErr = json.Unmarshal([]byte(fixedCandidate), &out)
+			if lastErr == nil {
 				return &out, nil
 			}
 		}
@@ -403,12 +452,33 @@ func tryParseLLMOutput(content string) (*llmOutput, error) {
 	// 5) 最后兜底：移除所有真实换行/回车/Tab
 	lastResort := normalizeWhitespaceForJSON(content)
 	if lastResort != content {
-		if err := json.Unmarshal([]byte(lastResort), &out); err == nil {
+		lastErr = json.Unmarshal([]byte(lastResort), &out)
+		if lastErr == nil {
 			return &out, nil
 		}
 	}
 
-	return nil, fmt.Errorf("所有解析尝试均失败")
+	// 6) 尝试修复字符串内未转义双引号
+	quoteFixed := escapeInnerQuotes(content)
+	if quoteFixed != content {
+		lastErr = json.Unmarshal([]byte(quoteFixed), &out)
+		if lastErr == nil {
+			return &out, nil
+		}
+		// 结合 sanitize
+		quoteFixedSanitized := sanitizeJSON(quoteFixed)
+		if quoteFixedSanitized != quoteFixed {
+			lastErr = json.Unmarshal([]byte(quoteFixedSanitized), &out)
+			if lastErr == nil {
+				return &out, nil
+			}
+		}
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("所有解析尝试均失败")
+	}
+	return nil, fmt.Errorf("所有解析尝试均失败 (最后错误: %w)", lastErr)
 }
 
 // filterSearchResults 对每个查询返回的结果做垃圾过滤。

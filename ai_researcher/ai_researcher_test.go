@@ -252,6 +252,22 @@ func TestParseLLMOutputWithBackslashNewline(t *testing.T) {
 	}
 }
 
+func TestParseLLMOutputWithUnescapedInnerQuote(t *testing.T) {
+	// 模拟 LLM 在字符串值内部使用未转义双引号
+	jsonContent := `{"sections": [{"title": "产品催化剂", "summary": "公司与"某医院"签订大单", "key_points": ["点1"], "sentiment": "positive"}], "sources": []}`
+
+	out, err := parseLLMOutput(jsonContent)
+	if err != nil {
+		t.Fatalf("含未转义内层双引号的 JSON 应被修复并解析成功: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Errorf("应有 1 个 section，实际 %d", len(out.Sections))
+	}
+	if !strings.Contains(out.Sections[0].Summary, "某医院") {
+		t.Errorf("summary 应保留某医院: %s", out.Sections[0].Summary)
+	}
+}
+
 func TestParseLLMOutputWithTabInString(t *testing.T) {
 	// 字符串值内部出现真实 Tab
 	jsonContent := "{\n" +
