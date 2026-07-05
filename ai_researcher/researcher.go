@@ -210,20 +210,18 @@ type llmOutput struct {
 //  2. 反斜杠后直接跟真实换行/回车；
 //  3. 对象/数组末尾多余的逗号。
 func sanitizeJSON(s string) string {
-	// 1. 先把字符串值内部的未转义换行/回车统一转义为 \n
-	s = escapeNewlinesInJSONStrings(s)
-	// 2. 反斜杠后直接跟真实换行/回车：转成合法的 \n
-	s = strings.ReplaceAll(s, "\\\r\n", "\\n")
-	s = strings.ReplaceAll(s, "\\\n", "\\n")
-	s = strings.ReplaceAll(s, "\\\r", "\\n")
-	// 3. 移除 trailing comma：",}" -> "}" 和 ",]" -> "]"
+	// 1. 先把字符串值内部的未转义控制字符统一转义
+	s = escapeControlCharsInJSONStrings(s)
+	// 2. 移除 trailing comma：",}" -> "}" 和 ",]" -> "]"
 	s = trailingCommaRegex.ReplaceAllString(s, "$1")
 	return s
 }
 
-// escapeNewlinesInJSONStrings 在 JSON 字符串值内部，把未转义的真实换行/回车替换为 \n。
+// escapeControlCharsInJSONStrings 在 JSON 字符串值内部，把未转义的控制字符
+// （真实换行、回车、Tab 等）替换为合法转义序列。
+// 同时处理反斜杠后直接跟真实换行的情况（LLM 未完成转义），将其视为 \n。
 // 它只处理字符串值内部，不会破坏 JSON 结构中的空白分隔。
-func escapeNewlinesInJSONStrings(s string) string {
+func escapeControlCharsInJSONStrings(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 	inString := false
@@ -231,6 +229,12 @@ func escapeNewlinesInJSONStrings(s string) string {
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if escaped {
+			// 反斜杠后跟真实换行/回车：视为 LLM 想写 \n
+			if c == '\n' || c == '\r' {
+				b.WriteString("\\n")
+				escaped = false
+				continue
+			}
 			b.WriteByte(c)
 			escaped = false
 			continue
@@ -245,8 +249,15 @@ func escapeNewlinesInJSONStrings(s string) string {
 			b.WriteByte(c)
 			continue
 		}
-		if inString && (c == '\n' || c == '\r') {
-			b.WriteString("\\n")
+		if inString && c < 0x20 {
+			switch c {
+			case '\n', '\r':
+				b.WriteString("\\n")
+			case '\t':
+				b.WriteString("\\t")
+			default:
+				// 其他控制字符直接跳过，避免解析失败
+			}
 			continue
 		}
 		b.WriteByte(c)
@@ -255,6 +266,60 @@ func escapeNewlinesInJSONStrings(s string) string {
 }
 
 var trailingCommaRegex = regexp.MustCompile(`,(\s*[}\]])`)
+
+// extractJSONObject 从文本中提取第一个完整的 JSON 对象（按大括号深度匹配，尊重字符串）。
+func extractJSONObject(s string) string {
+	start := strings.Index(s, "{")
+	if start < 0 {
+		return s
+	}
+	inString := false
+	escaped := false
+	depth := 0
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if c == '\\' {
+			escaped = true
+			continue
+		}
+		if c == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if c == '{' {
+			depth++
+		} else if c == '}' {
+			depth--
+			if depth == 0 {
+				return s[start : i+1]
+			}
+		}
+	}
+	return s[start:]
+}
+
+// normalizeWhitespaceForJSON 作为最后兜底，将真实换行/回车替换为空格，
+// 避免字符串值内未转义换行导致解析失败（会丢失字符串内的换行格式，但保证结构可用）。
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+func normalizeWhitespaceForJSON(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	return s
+}
 
 func parseLLMOutput(content string) (*llmOutput, error) {
 	content = strings.TrimSpace(content)
@@ -271,35 +336,16 @@ func parseLLMOutput(content string) (*llmOutput, error) {
 		content = strings.TrimSpace(content)
 	}
 
-	// 如果直接解析失败，尝试从文本中提取第一个 { ... } JSON 对象
-	extractJSON := func(s string) string {
-		start := strings.Index(s, "{")
-		end := strings.LastIndex(s, "}")
-		if start >= 0 && end > start {
-			return s[start : end+1]
+	out, lastErr := tryParseLLMOutput(content)
+	if lastErr != nil {
+		// 打印原始响应便于排查（截断避免日志过大）
+		debugRaw := content
+		if len(debugRaw) > 2000 {
+			debugRaw = debugRaw[:2000] + "..."
 		}
-		return s
+		fmt.Printf("[AIResearch] 解析 LLM 输出失败，最后错误: %v，原始响应:\n%s\n", lastErr, debugRaw)
+		return nil, fmt.Errorf("解析 LLM 输出失败: %w (原始响应前 500 字符: %s)", lastErr, truncateString(content, 500))
 	}
-
-	var out llmOutput
-	if err := json.Unmarshal([]byte(content), &out); err != nil {
-		candidate := extractJSON(content)
-		if candidate != content {
-			if err2 := json.Unmarshal([]byte(candidate), &out); err2 == nil {
-				goto validate
-			}
-		}
-		// 尝试修复 LLM 常见 JSON 转义错误后再解析
-		fixed := sanitizeJSON(content)
-		if fixed != content {
-			if err2 := json.Unmarshal([]byte(fixed), &out); err2 == nil {
-				goto validate
-			}
-		}
-		return nil, err
-	}
-
-validate:
 
 	// 确保至少有一个 section
 	if len(out.Sections) == 0 {
@@ -319,7 +365,50 @@ validate:
 		}
 	}
 
-	return &out, nil
+	return out, nil
+}
+
+// tryParseLLMOutput 尝试多种方式解析 LLM 输出，返回成功时的结果或最后一次错误。
+func tryParseLLMOutput(content string) (*llmOutput, error) {
+	var out llmOutput
+
+	// 1) 直接解析
+	if err := json.Unmarshal([]byte(content), &out); err == nil {
+		return &out, nil
+	}
+
+	// 2) 修复转义后解析
+	fixed := sanitizeJSON(content)
+	if fixed != content {
+		if err := json.Unmarshal([]byte(fixed), &out); err == nil {
+			return &out, nil
+		}
+	}
+
+	// 3) 提取第一个完整 JSON 对象
+	candidate := extractJSONObject(content)
+	if candidate != content && candidate != "" {
+		if err := json.Unmarshal([]byte(candidate), &out); err == nil {
+			return &out, nil
+		}
+		// 4) 对提取对象做转义修复
+		fixedCandidate := sanitizeJSON(candidate)
+		if fixedCandidate != candidate {
+			if err := json.Unmarshal([]byte(fixedCandidate), &out); err == nil {
+				return &out, nil
+			}
+		}
+	}
+
+	// 5) 最后兜底：移除所有真实换行/回车/Tab
+	lastResort := normalizeWhitespaceForJSON(content)
+	if lastResort != content {
+		if err := json.Unmarshal([]byte(lastResort), &out); err == nil {
+			return &out, nil
+		}
+	}
+
+	return nil, fmt.Errorf("所有解析尝试均失败")
 }
 
 // filterSearchResults 对每个查询返回的结果做垃圾过滤。
@@ -382,8 +471,8 @@ func collectSources(results []SearchResult, symbol, name string, recencyDays int
 
 // isQualitySource 判断单条搜索结果是否可信。
 func isQualitySource(item SearchItem) bool {
-	// 1. Tavily 相关度分数过低则丢弃
-	if item.Score > 0 && item.Score < 0.35 {
+	// 1. Tavily 相关度分数过低则丢弃；阈值放宽到 0.2，避免误杀有效行业新闻
+	if item.Score > 0 && item.Score < 0.20 {
 		return false
 	}
 	// 2. 标题或摘要含垃圾关键词则丢弃
@@ -412,7 +501,7 @@ type sourceFilter struct {
 
 func newSourceFilter(symbol, name string, recencyDays int) sourceFilter {
 	if recencyDays <= 0 {
-		recencyDays = 60
+		recencyDays = 180
 	}
 	return sourceFilter{symbol: symbol, name: name, recencyDays: recencyDays}
 }
@@ -426,26 +515,41 @@ func (f sourceFilter) pureCode() string {
 }
 
 // isRelevant 判断来源是否与当前股票（或全球产业映射主题）相关。
+// 相关性不再硬要求出现股票全称或代码：如果来源与查询主题（产品/政策/风险/产业链等）高度契合，也应保留。
 func (f sourceFilter) isRelevant(item SearchItem, query string) bool {
 	text := strings.ToLower(item.Title + " " + item.Content + " " + item.URL)
 	name := strings.ToLower(strings.TrimSpace(f.name))
 	code := strings.ToLower(strings.TrimSpace(f.pureCode()))
 
 	hasStock := (name != "" && strings.Contains(text, name)) || (code != "" && strings.Contains(text, code))
+	if hasStock {
+		return true
+	}
 
-	// 全球产业映射类查询：允许海外龙头或产业链映射相关来源，但仍需和主题相关
+	// 全球产业映射类查询：允许海外龙头或产业链映射相关来源
 	if isGlobalMappingQuery(query) {
-		if hasStock {
-			return true
-		}
 		if containsAnyKeyword(text, overseasCompanyKeywords) {
 			return true
 		}
 		return containsAnyKeyword(text, mappingKeywords)
 	}
 
-	// 普通查询：必须直接出现股票名称或代码
-	return hasStock
+	// 普通查询：若未直接出现股票名称/代码，则依据查询中的主题关键词判断。
+	// 命中至少 2 个主题关键词视为相关；命中 1 个高置信度关键词也视为相关。
+	topicKeywords := extractQueryKeywords(query, name, code)
+	matched := 0
+	for _, kw := range topicKeywords {
+		if strings.Contains(text, kw) {
+			matched++
+		}
+	}
+	if matched >= 2 {
+		return true
+	}
+	if matched >= 1 && containsAnyKeyword(text, highRelevanceKeywords) {
+		return true
+	}
+	return false
 }
 
 // isWithinRecency 判断来源是否在时效范围内；监管/交易所/官方公告豁免。
@@ -528,7 +632,61 @@ func containsAnyKeyword(text string, keywords []string) bool {
 	return false
 }
 
+// extractQueryKeywords 从查询字符串中提取除股票名称/代码外的主题关键词，用于相关性兜底判断。
+func extractQueryKeywords(query, name, code string) []string {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if name != "" {
+		q = strings.ReplaceAll(q, strings.ToLower(name), "")
+	}
+	if code != "" {
+		q = strings.ReplaceAll(q, strings.ToLower(code), "")
+	}
+	// 移除股票代码后缀 .sh/.sz/.hk 等
+	q = symbolSuffixRegex.ReplaceAllString(q, "")
+
+	words := strings.Fields(q)
+	seen := make(map[string]bool)
+	var out []string
+	for _, w := range words {
+		w = strings.TrimSpace(w)
+		if w == "" || len(w) < 2 || queryStopWords[w] {
+			continue
+		}
+		if seen[w] {
+			continue
+		}
+		seen[w] = true
+		out = append(out, w)
+	}
+	return out
+}
+
 var (
+	symbolSuffixRegex = regexp.MustCompile(`\.(sh|sz|hk|bj|us|ss|nq)\b`)
+
+	// 查询停用词：在相关性判断中忽略过于宽泛或无意义的词
+	queryStopWords = map[string]bool{
+		"a股": true, "股票": true, "公司": true, "有限": true, "股份": true,
+		"分析": true, "研究": true, "报告": true, "查询": true, "搜索": true,
+		"相关": true, "有关": true, "关于": true, "最新": true, "动态": true,
+		"新闻": true, "资讯": true, "头条": true, "快讯": true,
+		"的": true, "和": true, "与": true, "或": true, "等": true, "对": true,
+		"及": true, "在": true, "是": true, "有": true, "了": true, "为": true,
+	}
+
+	// 高置信度主题关键词：命中一次即可认为与查询主题相关
+	highRelevanceKeywords = []string{
+		"产业链", "供应链", "行业", "板块", " sectors ", "sector",
+		"政策", "监管", "补贴", "关税", "营收", "业绩", "财报", "盈利",
+		"订单", "产能", "投产", "中标", "扩产", "涨价", "降价", "价格",
+		"技术突破", "技术进展", "新品", "新产品", "发布",
+		"立案调查", "行政处罚", "财务造假", "退市", "问询函", "监管函", "警示",
+		"对标", "竞争对手", "竞争格局", "市场份额", "估值",
+		"映射", "预期差", "利好", "利空", "带动", "受益", "拖累",
+		"雪球", "股吧", "reddit", "twitter", "x.com", "社交",
+	}
+
+	// 海外龙头公司关键词，用于全球产业映射查询的相关性判断
 	// 海外龙头公司关键词，用于全球产业映射查询的相关性判断
 	overseasCompanyKeywords = []string{
 		"nvidia", "amd", "tsmc", "台积电", "micron", "sk hynix", "skhynix", "hynix",

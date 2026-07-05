@@ -1,5 +1,32 @@
 # Changelog
 
+## [v1.8.9] - 2026-07-05
+
+### 修复 (Fixes)
+- **修复 AI 投研 LLM HTTP 响应解析失败**（`ai_researcher/llm.go`）
+  - 某些模型返回的 HTTP 响应体中 `content`/`reasoning_content` 字段含未转义真实换行，导致 `invalid character '\n' in string literal`。
+  - 对 LLM API 响应体也应用 `sanitizeJSON` 与兜底空白规范化，修复后立即解析。
+- **修复 AI 投研报告 JSON 多种转义异常**（`ai_researcher/researcher.go`）
+  - 增强字符串值内裸换行、反斜杠+换行、Tab 等控制字符的自动转义。
+  - 改进 JSON 对象提取逻辑，按大括号深度匹配，避免字符串内 `}` 被误当对象结尾。
+  - 解析失败时返回最后错误并附带原始响应摘要，方便排查。
+
+### 优化 (Improvements)
+- **放宽 AI 投研搜索召回条件**（`ai_researcher/prompts.go`, `ai_researcher/config.go`, `ai_researcher/researcher.go`）
+  - 移除 Tavily `include_domains` 白名单，改为全网搜索 + 本地质量过滤，提升中文财经新闻召回率。
+  - 简化搜索查询语句，避免关键词堆砌降低 Tavily 召回效果。
+  - 增加行业/产业链/券商研报通用查询，改善中小市值股票素材覆盖。
+  - `MaxResults` 默认从 10 提升到 20；质量分数阈值从 0.35 放宽到 0.20。
+  - `isRelevant` 相关性过滤放宽：未命中股票名/代码时，允许查询主题关键词或高置信度行业词命中。
+- **优化 AI 投研提示词**（`ai_researcher/prompts.go`）
+  - 明确允许 LLM 结合行业常识与产业链逻辑进行推断，减少每段都写“搜索结果未提及”的情况。
+  - 要求直接输出分析观点，不要以“搜索未...”开头。
+  - 在 SystemPrompt 中强制要求 JSON 字符串值内禁止真实换行。
+
+### 测试 (Tests)
+- 新增 `TestExtractJSONObject`、`TestParseLLMOutputWithBackslashNewline`、`TestParseLLMOutputWithTabInString`。
+- 扩展 `TestSourceFilterRelevance`、`TestBuildQueries` 覆盖放宽后的逻辑。
+
 ## [v1.8.8] - 2026-07-04
 
 ### 修复 (Fixes)

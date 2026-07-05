@@ -186,8 +186,30 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 
 	var chatResp ChatCompletionResponse
 	if err := json.Unmarshal(body, &chatResp); err != nil {
-		return "", fmt.Errorf("解析 LLM 响应失败: %w", err)
+		// 尝试修复响应体中未转义的换行/控制字符后再解析
+		bodyStr := string(body)
+		fixedBody := sanitizeJSON(bodyStr)
+		if fixedBody != bodyStr {
+			if err2 := json.Unmarshal([]byte(fixedBody), &chatResp); err2 == nil {
+				goto parseOK
+			}
+		}
+		// 兜底：移除所有真实空白字符
+		lastResort := normalizeWhitespaceForJSON(bodyStr)
+		if lastResort != bodyStr {
+			if err3 := json.Unmarshal([]byte(lastResort), &chatResp); err3 == nil {
+				goto parseOK
+			}
+		}
+		debugBody := bodyStr
+		if len(debugBody) > 2000 {
+			debugBody = debugBody[:2000] + "..."
+		}
+		fmt.Printf("[AIResearch] 解析 LLM HTTP 响应失败，错误: %v，原始响应:\n%s\n", err, debugBody)
+		return "", fmt.Errorf("解析 LLM 响应失败: %w (原始响应前 500 字符: %s)", err, truncateString(bodyStr, 500))
 	}
+
+parseOK:
 	if chatResp.Error != nil && chatResp.Error.Message != "" {
 		msg := chatResp.Error.Message
 		if strings.Contains(msg, "content_filter") || strings.Contains(msg, "safety policy") || strings.Contains(msg, "blocked") {

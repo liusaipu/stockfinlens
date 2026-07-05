@@ -56,7 +56,7 @@ func DefaultAIConfig() *AIConfig {
 		SearchProvider:    "tavily",
 		SearchDepth:       "advanced",
 		SearchTimeout:     180,
-		MaxResults:        10,
+		MaxResults:        20,
 		SearchRecencyDays: 180,
 		FocusRegions:      []string{"us", "jp"},
 		OutputLanguage:    "zh-CN",
@@ -143,7 +143,7 @@ func (c *AIConfig) Normalize() {
 		c.SearchTimeout = 180
 	}
 	if c.MaxResults <= 0 || c.MaxResults > 20 {
-		c.MaxResults = 10
+		c.MaxResults = 20
 	}
 	if c.SearchRecencyDays <= 0 {
 		c.SearchRecencyDays = 90

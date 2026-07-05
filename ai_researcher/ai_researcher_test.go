@@ -25,6 +25,12 @@ func TestDefaultAIConfig(t *testing.T) {
 	if cfg.CacheTTLHours != 6 {
 		t.Errorf("默认缓存时间应为 6 小时，实际是 %d", cfg.CacheTTLHours)
 	}
+	if cfg.MaxResults != 20 {
+		t.Errorf("默认 MaxResults 应为 20，实际是 %d", cfg.MaxResults)
+	}
+	if cfg.SearchRecencyDays != 180 {
+		t.Errorf("默认 SearchRecencyDays 应为 180，实际是 %d", cfg.SearchRecencyDays)
+	}
 }
 
 func TestAIConfigNormalize(t *testing.T) {
@@ -118,28 +124,32 @@ func TestAIConfigValidate(t *testing.T) {
 
 func TestBuildQueries(t *testing.T) {
 	queries := BuildQueries("603501.SH", "韦尔股份", []string{"us", "jp"}, true, 90)
-	if len(queries) < 4 {
-		t.Errorf("应至少生成 4 个查询，实际 %d", len(queries))
+	if len(queries) < 6 {
+		t.Errorf("应至少生成 6 个查询，实际 %d", len(queries))
 	}
 
 	hasProduct := false
 	hasPolicy := false
 	hasRisk := false
 	hasGlobalMapping := false
+	hasIndustry := false
 	hasCompetitor := false
 	hasSocial := false
 	for _, q := range queries {
-		if strings.Contains(q, "产品") || strings.Contains(q, "投产") || strings.Contains(q, "催化") {
+		if strings.Contains(q, "订单") || strings.Contains(q, "产能") || strings.Contains(q, "催化") {
 			hasProduct = true
 		}
-		if strings.Contains(q, "政策") || strings.Contains(q, "营收") {
+		if strings.Contains(q, "政策") || strings.Contains(q, "补贴") || strings.Contains(q, "关税") {
 			hasPolicy = true
 		}
 		if strings.Contains(q, "证监会") || strings.Contains(q, "处罚") || strings.Contains(q, "ST") || strings.Contains(q, "退市") {
 			hasRisk = true
 		}
-		if strings.Contains(q, "全球产业映射") || strings.Contains(q, "Nvidia") || strings.Contains(q, "OpenAI") {
+		if strings.Contains(q, "产业链") || strings.Contains(q, "Nvidia") || strings.Contains(q, "映射") {
 			hasGlobalMapping = true
+		}
+		if strings.Contains(q, "行业分析") || strings.Contains(q, "竞争格局") || strings.Contains(q, "主营业务") {
+			hasIndustry = true
 		}
 		if strings.Contains(q, "竞争对手") || strings.Contains(q, "对标") {
 			hasCompetitor = true
@@ -159,6 +169,9 @@ func TestBuildQueries(t *testing.T) {
 	}
 	if !hasGlobalMapping {
 		t.Error("缺少全球产业映射查询")
+	}
+	if !hasIndustry {
+		t.Error("缺少行业与竞争格局查询")
 	}
 	if !hasCompetitor {
 		t.Error("缺少国际对标查询")
@@ -192,6 +205,73 @@ func TestParseLLMOutput(t *testing.T) {
 	}
 	if out.Sections[0].Sentiment != "positive" {
 		t.Errorf("sentiment 应为 positive，实际是 %s", out.Sections[0].Sentiment)
+	}
+}
+
+func TestExtractJSONObject(t *testing.T) {
+	// 正常对象
+	got := extractJSONObject(`prefix {"a":1} suffix`)
+	if got != `{"a":1}` {
+		t.Errorf("应提取完整对象，实际: %s", got)
+	}
+	// 字符串内包含 } 时不应误停
+	got = extractJSONObject(`text {"summary":"ok}","b":2}`)
+	if got != `{"summary":"ok}","b":2}` {
+		t.Errorf("应正确处理字符串内的大括号，实际: %s", got)
+	}
+	// 嵌套对象
+	got = extractJSONObject(`{"a":{"b":1}}`)
+	if got != `{"a":{"b":1}}` {
+		t.Errorf("应正确提取嵌套对象，实际: %s", got)
+	}
+}
+
+func TestParseLLMOutputWithBackslashNewline(t *testing.T) {
+	// 模拟 LLM 在字符串值内部输出 "\<真实换行>"（未完成转义）的情况
+	jsonContent := "{\n" +
+		`"sections": [` + "\n" +
+		`  {` + "\n" +
+		`    "title": "产品催化剂",` + "\n" +
+		`    "summary": "订单增长\` + "\n" + `产能扩张",` + "\n" +
+		`    "key_points": ["点1"],` + "\n" +
+		`    "sentiment": "positive"` + "\n" +
+		`  }` + "\n" +
+		`],` + "\n" +
+		`"sources": []` + "\n" +
+		`}`
+
+	out, err := parseLLMOutput(jsonContent)
+	if err != nil {
+		t.Fatalf("含反斜杠+真实换行的 JSON 应被修复并解析成功: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Errorf("应有 1 个 section，实际 %d", len(out.Sections))
+	}
+	if !strings.Contains(out.Sections[0].Summary, "订单增长") {
+		t.Errorf("summary 应保留订单增长: %s", out.Sections[0].Summary)
+	}
+}
+
+func TestParseLLMOutputWithTabInString(t *testing.T) {
+	// 字符串值内部出现真实 Tab
+	jsonContent := "{\n" +
+		`"sections": [` + "\n" +
+		`  {` + "\n" +
+		`    "title": "产品催化剂",` + "\n" +
+		`    "summary": "订单增长	产能扩张",` + "\n" +
+		`    "key_points": ["点1"],` + "\n" +
+		`    "sentiment": "positive"` + "\n" +
+		`  }` + "\n" +
+		`],` + "\n" +
+		`"sources": []` + "\n" +
+		`}`
+
+	out, err := parseLLMOutput(jsonContent)
+	if err != nil {
+		t.Fatalf("含真实 Tab 的 JSON 应被修复并解析成功: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Errorf("应有 1 个 section，实际 %d", len(out.Sections))
 	}
 }
 
@@ -251,6 +331,43 @@ func TestSourceFilterRelevance(t *testing.T) {
 	item = SearchItem{Title: "手机产业链预期差分析", URL: "https://example.com/1", Content: "内容"}
 	if !f.isRelevant(item, "丘钛科技 01478 全球产业映射") {
 		t.Error("全球产业映射查询含映射关键词应判定为相关")
+	}
+
+	// 普通查询：未出现股票名，但命中多个查询主题关键词 -> 相关
+	item = SearchItem{Title: "手机摄像头模组订单饱满 产能持续扩张", URL: "https://example.com/2", Content: "内容"}
+	if !f.isRelevant(item, "丘钛科技 01478 新产品 投产 订单 产能") {
+		t.Error("命中多个主题关键词应判定为相关")
+	}
+
+	// 普通查询：未出现股票名，只命中 1 个普通主题词 -> 不相关
+	item = SearchItem{Title: "某公司业绩分析", URL: "https://example.com/3", Content: "内容"}
+	if f.isRelevant(item, "丘钛科技 01478 新产品 投产 订单 产能") {
+		t.Error("只命中宽泛主题词应判定为不相关")
+	}
+
+	// 普通查询：未出现股票名，但命中高置信度主题词 -> 相关
+	item = SearchItem{Title: "手机产业链订单供不应求", URL: "https://example.com/4", Content: "内容"}
+	if !f.isRelevant(item, "丘钛科技 01478 订单 产能") {
+		t.Error("命中高置信度主题词应判定为相关")
+	}
+}
+
+func TestExtractQueryKeywords(t *testing.T) {
+	kws := extractQueryKeywords("正海磁材 300224 新产品 投产 订单 产能", "正海磁材", "300224")
+	if len(kws) < 4 {
+		t.Errorf("应提取至少 4 个主题关键词，实际 %d", len(kws))
+	}
+	for _, kw := range []string{"新产品", "投产", "订单", "产能"} {
+		found := false
+		for _, k := range kws {
+			if k == kw {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("应包含主题关键词 %s", kw)
+		}
 	}
 }
 
