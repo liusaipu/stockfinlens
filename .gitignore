@@ -44,6 +44,12 @@ comparables.json
 reports/
 .history/
 
+# LLM / Agent coding assistant configs
+AGENTS.md
+CLAUDE.md
+SKILL.md
+.claude/
+
 # IDE
 .idea/
 .vscode/
