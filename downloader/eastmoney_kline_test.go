@@ -18,7 +18,7 @@ func TestDetectEastMoneyOffset(t *testing.T) {
 		},
 		{
 			name:     "标准格式（开盘为整数但收盘含小数）",
-			first:    "2024-01-02,100,101,102,99,50000,5000000.00,3.00,1.00,1.00,1.20",
+			first:    "2024-01-02,100,101,102,99,50000,5000000.00,3.00,1.00,1.00,1.00,1.20",
 			expected: 0,
 		},
 		{
@@ -111,5 +111,60 @@ func TestParseEastMoneyKlinesOffsetFormat(t *testing.T) {
 	}
 	if k.High != 126.00 {
 		t.Errorf("High = %.2f, want 126.00", k.High)
+	}
+}
+
+// TestParseSinaIndexKlines 验证新浪 jsonp 包裹的指数日线解析正确
+func TestParseSinaIndexKlines(t *testing.T) {
+	// 原始格式来自真实API返回（bj899050）：jsonp 前缀 + var _k=([...]);
+	body := []byte(`/*<script>location.href='//sina.com';</script>*/
+var _k=([{"day":"2022-05-05","open":"1000.585","high":"1036.860","low":"993.928","close":"1031.315","volume":"49876843"},{"day":"2022-05-06","open":"1031.000","high":"1040.000","low":"1010.500","close":"1020.250","volume":"30000000"}]);`)
+
+	result, err := parseSinaIndexKlines(body)
+	if err != nil {
+		t.Fatalf("parseSinaIndexKlines error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 klines, got %d", len(result))
+	}
+
+	first := result[0]
+	if first.Time != "2022-05-05" {
+		t.Errorf("Time = %s, want 2022-05-05", first.Time)
+	}
+	if first.Open != 1000.585 {
+		t.Errorf("Open = %.3f, want 1000.585", first.Open)
+	}
+	if first.Close != 1031.315 {
+		t.Errorf("Close = %.3f, want 1031.315", first.Close)
+	}
+	if first.High != 1036.860 {
+		t.Errorf("High = %.3f, want 1036.860", first.High)
+	}
+	if first.Low != 993.928 {
+		t.Errorf("Low = %.3f, want 993.928", first.Low)
+	}
+	if first.Volume != 49876843 {
+		t.Errorf("Volume = %.0f, want 49876843", first.Volume)
+	}
+}
+
+// TestParseSinaIndexKlinesBadInput 验证异常输入返回错误而非 panic
+func TestParseSinaIndexKlinesBadInput(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"空响应", ""},
+		{"无jsonp包裹", `{"day":"2022-05-05"}`},
+		{"null数据", `var _k=(null);`},
+		{"全为异常价格", `var _k=([{"day":"2022-05-05","open":"0","high":"0","low":"0","close":"0","volume":"0"}]);`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if _, err := parseSinaIndexKlines([]byte(c.body)); err == nil {
+				t.Errorf("expected error for %s, got nil", c.name)
+			}
+		})
 	}
 }

@@ -210,6 +210,14 @@ export function GetStockDataHistory(arg1) {
   return window['go']['main']['App']['GetStockDataHistory'](arg1);
 }
 
+export function GetStockHotPostContent(arg1, arg2) {
+  return window['go']['main']['App']['GetStockHotPostContent'](arg1, arg2);
+}
+
+export function GetStockHotPosts(arg1) {
+  return window['go']['main']['App']['GetStockHotPosts'](arg1);
+}
+
 export function GetStockKlines(arg1, arg2) {
   return window['go']['main']['App']['GetStockKlines'](arg1, arg2);
 }

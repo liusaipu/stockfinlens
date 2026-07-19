@@ -35,7 +35,7 @@ import (
 // debugLog 直接写入日志文件，确保日志被记录
 func isIndexSymbol(symbol string) bool {
 	switch symbol {
-	case "000001.SH", "399001.SZ", "399006.SZ":
+	case "000001.SH", "399001.SZ", "399006.SZ", "000680.SH", "899050.BJ":
 		return true
 	default:
 		return false
@@ -93,6 +93,10 @@ type App struct {
 	intradayCache  *downloader.IntradayCache
 	intradayFlight singleflight.Group
 
+	// 股吧热帖缓存（30 分钟）
+	hotPostsCache map[string]hotPostsCacheEntry
+	hotPostsMu    sync.Mutex
+
 	// AI 投研取消函数（按 symbol 存储）
 	aiCancelFuncs   map[string]context.CancelFunc
 	aiCancelFuncsMu sync.Mutex
@@ -104,6 +108,12 @@ type trayQuoteItem struct {
 	Code          string
 	CurrentPrice  float64
 	ChangePercent float64
+}
+
+// hotPostsCacheEntry 股吧热帖缓存项
+type hotPostsCacheEntry struct {
+	posts     []downloader.HotPost
+	fetchedAt time.Time
 }
 
 // StockInfo 股票基础信息
@@ -1842,7 +1852,7 @@ func (a *App) GetStockKlines(symbol string, period string) ([]downloader.KlineDa
 		return nil, fmt.Errorf("存储未初始化")
 	}
 
-	// 大盘指数（上证综指/深证成指/创业板指）走专用通道：绕过 SFL 与普通多源回退，
+	// 大盘指数（上证综指/深证成指/创业板指/科创综指/北证50）走专用通道：绕过 SFL 与普通多源回退，
 	// 直接用最稳定的腾讯财经接口，避免 SFL 不支持指数导致后续源也失败。
 	cached, cacheErr := a.storage.LoadStockKlines(symbol, period)
 	hasCache := cacheErr == nil && len(cached) >= 100
@@ -1999,6 +2009,44 @@ func (a *App) RefreshStockKlines(symbol string, period string) ([]downloader.Kli
 	}
 	debugLog("[RefreshStockKlines] %s period=%s refreshed %d klines, first=%s last=%s", symbol, period, len(klist), klist[0].Time, klist[len(klist)-1].Time)
 	return klist, nil
+}
+
+// GetStockHotPosts 获取东方财富股吧个股热帖列表（约 80 条，30 分钟内存缓存）。
+// 前端"热帖"抽屉按需打开时调用；最新/最热排序由前端处理。
+func (a *App) GetStockHotPosts(symbol string) ([]downloader.HotPost, error) {
+	a.hotPostsMu.Lock()
+	entry, ok := a.hotPostsCache[symbol]
+	a.hotPostsMu.Unlock()
+	if ok && time.Since(entry.fetchedAt) < 30*time.Minute {
+		debugLog("[GetStockHotPosts] %s cache hit, %d posts", symbol, len(entry.posts))
+		return entry.posts, nil
+	}
+
+	posts, err := downloader.FetchStockHotPosts(a.ctx, symbol)
+	if err != nil {
+		debugLog("[GetStockHotPosts] %s fetch failed: %v", symbol, err)
+		return nil, err
+	}
+
+	a.hotPostsMu.Lock()
+	if a.hotPostsCache == nil {
+		a.hotPostsCache = make(map[string]hotPostsCacheEntry)
+	}
+	a.hotPostsCache[symbol] = hotPostsCacheEntry{posts: posts, fetchedAt: time.Now()}
+	a.hotPostsMu.Unlock()
+	debugLog("[GetStockHotPosts] %s fetched %d posts", symbol, len(posts))
+	return posts, nil
+}
+
+// GetStockHotPostContent 获取东方财富股吧单帖正文与图片。
+// 帖子详情按需展开时调用，不做缓存（内容稳定，展开动作低频）。
+func (a *App) GetStockHotPostContent(symbol string, postID int64) (*downloader.HotPostContent, error) {
+	content, err := downloader.FetchStockHotPostContent(a.ctx, symbol, postID)
+	if err != nil {
+		debugLog("[GetStockHotPostContent] %s postID=%d fetch failed: %v", symbol, postID, err)
+		return nil, err
+	}
+	return content, nil
 }
 
 // GetStockQuote 获取股票实时行情（带15分钟本地缓存）

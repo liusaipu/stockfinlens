@@ -47,6 +47,8 @@ const colors = {
   shIndex: '#8b5cf6',
   szIndex: '#06b6d4',
   cyIndex: '#ec4899',
+  kcIndex: '#eab308',
+  bjIndex: '#fb923c',
 }
 
 // 大盘指数配置
@@ -54,6 +56,8 @@ const INDEX_CONFIGS = [
   { code: '000001.SH', label: '上证综指', color: colors.shIndex },
   { code: '399001.SZ', label: '深圳成指', color: colors.szIndex },
   { code: '399006.SZ', label: '创业板指', color: colors.cyIndex },
+  { code: '000680.SH', label: '科创综指', color: colors.kcIndex },
+  { code: '899050.BJ', label: '北证50', color: colors.bjIndex },
 ]
 
 function calcEMA(arr: number[], period: number): (number | null)[] {

@@ -184,6 +184,18 @@ export function IntradayChart({ code, isLightTheme = false, onDoubleClick }: Pro
         backgroundColor: isLightTheme ? '#fff' : '#1e293b',
         borderColor: gridColor,
         textStyle: { color: textColor },
+        axisPointer: {
+          type: 'cross',
+          crossStyle: { color: refLineColor, type: 'dashed', width: 1 },
+          label: {
+            show: true,
+            backgroundColor: isLightTheme ? '#fff' : '#1e293b',
+            borderColor: gridColor,
+            borderWidth: 1,
+            color: textColor,
+            fontSize: 10,
+          },
+        },
         formatter: (params: any) => {
           if (!Array.isArray(params) || params.length === 0) return ''
           const idx = params[0].dataIndex
@@ -253,6 +265,20 @@ export function IntradayChart({ code, isLightTheme = false, onDoubleClick }: Pro
             formatter: (v: number) => v.toFixed(2),
           },
           splitLine: { lineStyle: { color: gridColor, type: 'dashed' } },
+          axisPointer: {
+            show: true,
+            type: 'line',
+            lineStyle: { color: refLineColor, type: 'dashed', width: 1 },
+            label: {
+              show: true,
+              backgroundColor: isLightTheme ? '#fff' : '#1e293b',
+              borderColor: gridColor,
+              borderWidth: 1,
+              color: textColor,
+              fontSize: 10,
+              formatter: (params: any) => Number(params.value).toFixed(2),
+            },
+          },
         },
         {
           type: 'value',
@@ -267,6 +293,23 @@ export function IntradayChart({ code, isLightTheme = false, onDoubleClick }: Pro
             formatter: (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`,
           },
           splitLine: { show: false },
+          axisPointer: {
+            show: true,
+            type: 'line',
+            lineStyle: { color: 'transparent', width: 0 },
+            label: {
+              show: true,
+              backgroundColor: isLightTheme ? '#fff' : '#1e293b',
+              borderColor: gridColor,
+              borderWidth: 1,
+              color: textColor,
+              fontSize: 10,
+              formatter: (params: any) => {
+                const v = Number(params.value)
+                return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
+              },
+            },
+          },
         },
         {
           type: 'value',

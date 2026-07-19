@@ -1112,6 +1112,44 @@ export namespace downloader {
 	        this.top_names = source["top_names"];
 	    }
 	}
+	export class HotPost {
+	    id: number;
+	    title: string;
+	    author: string;
+	    clickCount: number;
+	    commentCount: number;
+	    publishTime: string;
+	    url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HotPost(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.author = source["author"];
+	        this.clickCount = source["clickCount"];
+	        this.commentCount = source["commentCount"];
+	        this.publishTime = source["publishTime"];
+	        this.url = source["url"];
+	    }
+	}
+	export class HotPostContent {
+	    content: string;
+	    images: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new HotPostContent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.content = source["content"];
+	        this.images = source["images"];
+	    }
+	}
 	export class IndustryUpdateResult {
 	    success: boolean;
 	    path: string;

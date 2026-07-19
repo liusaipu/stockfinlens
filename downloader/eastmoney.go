@@ -1263,7 +1263,7 @@ func FetchStockKlines(ctx context.Context, market, code string, limit int, perio
 }
 
 // FetchIndexKlines 专门拉取大盘指数 K 线，绕过 SFL/网易/Yahoo 等可能不支持指数的源，
-// 直接走腾讯财经（sh000001/sz399001/sz399006 均支持）。
+// 默认走腾讯财经（sh000001/sz399001/sz399006 均支持）；科创综指/北证50 日线优先走新浪。
 // 注意：腾讯指数 K 线对 limit>2000 会返回空 schema，因此内部会限制为 2000。
 func FetchIndexKlines(ctx context.Context, market, code string, limit int, period string) ([]KlineData, error) {
 	if period == "" {
@@ -1272,6 +1272,19 @@ func FetchIndexKlines(ctx context.Context, market, code string, limit int, perio
 	// 腾讯指数接口 limit 超过 2000 会返回空/异常 schema
 	if limit > 2000 {
 		limit = 2000
+	}
+	// 科创综指(000680.SH)/北证50(899050.BJ)：腾讯历史极短（科创综指仅有发布日
+	// 2025-01-20 以来、北证50仅当日），新浪日线历史完整，日线请求优先走新浪。
+	upperMarket := strings.ToUpper(market)
+	preferSina := period == "daily" && ((upperMarket == "SH" && code == "000680") || (upperMarket == "BJ" && code == "899050"))
+	if preferSina {
+		klines, sErr := fetchIndexKlinesFromSina(ctx, upperMarket, code, limit)
+		if sErr == nil && len(klines) > 0 {
+			return klines, nil
+		}
+		if sErr != nil {
+			fmt.Printf("[FetchIndexKlines] Sina failed for %s.%s: %v\n", market, code, sErr)
+		}
 	}
 	fmt.Printf("[FetchIndexKlines] trying Tencent for %s.%s, limit=%d, period=%s\n", market, code, limit, period)
 	klines, err := fetchKlinesFromTencent(ctx, market, code, limit, period)
@@ -1312,7 +1325,76 @@ func FetchIndexKlines(ctx context.Context, market, code string, limit int, perio
 		fmt.Printf("[FetchIndexKlines] EastMoney failed for %s.%s: %v\n", market, code, err)
 	}
 
-	return nil, fmt.Errorf("指数 K 线数据源均不可用 (腾讯/东财)")
+	return nil, fmt.Errorf("指数 K 线数据源均不可用 (新浪/腾讯/东财)")
+}
+
+// fetchIndexKlinesFromSina 通过新浪财经拉取指数日线（不复权，scale=240）。
+// 科创综指/北证50 在腾讯历史覆盖不足，新浪可提供接近基日的完整历史。
+// 新浪 datalen 实测上限约 1500 条，超出无效。
+func fetchIndexKlinesFromSina(ctx context.Context, market, code string, limit int) ([]KlineData, error) {
+	if limit <= 0 || limit > 1500 {
+		limit = 1500
+	}
+	symbol := strings.ToLower(market) + code
+	url := fmt.Sprintf("https://quotes.sina.cn/cn/api/jsonp_v2.php/var%%20_k=/CN_MarketDataService.getKLineData?symbol=%s&scale=240&ma=no&datalen=%d", symbol, limit)
+	fmt.Printf("[fetchIndexKlinesFromSina] trying Sina: %s\n", url)
+	rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	body, err := HTTPGet(rctx, url)
+	if err != nil {
+		return nil, err
+	}
+	klines, err := parseSinaIndexKlines(body)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("[fetchIndexKlinesFromSina] Sina returned %d klines for %s, first=%s last=%s\n",
+		len(klines), symbol, klines[0].Time, klines[len(klines)-1].Time)
+	return klines, nil
+}
+
+// parseSinaIndexKlines 解析新浪 jsonp 包裹的指数日线 JSON。
+// 返回形如：/*<script>...</script>*/ var _k=([{"day":"2022-05-05","open":"1000.585",...}]);
+func parseSinaIndexKlines(body []byte) ([]KlineData, error) {
+	start := bytes.IndexByte(body, '(')
+	end := bytes.LastIndexByte(body, ')')
+	if start < 0 || end <= start {
+		return nil, fmt.Errorf("新浪指数 K 线返回格式异常")
+	}
+	var items []struct {
+		Day    string `json:"day"`
+		Open   string `json:"open"`
+		High   string `json:"high"`
+		Low    string `json:"low"`
+		Close  string `json:"close"`
+		Volume string `json:"volume"`
+	}
+	if err := json.Unmarshal(body[start+1:end], &items); err != nil {
+		return nil, fmt.Errorf("解析新浪指数 K 线失败: %w", err)
+	}
+	result := make([]KlineData, 0, len(items))
+	for _, it := range items {
+		open := parseStrFloat(it.Open)
+		closePrice := parseStrFloat(it.Close)
+		high := parseStrFloat(it.High)
+		low := parseStrFloat(it.Low)
+		// 基本数据校验：过滤明显异常的K线（如价格为0、high<low 等）
+		if open <= 0 || closePrice <= 0 || high <= 0 || low <= 0 || high < low {
+			continue
+		}
+		result = append(result, KlineData{
+			Time:   it.Day,
+			Open:   open,
+			Close:  closePrice,
+			High:   high,
+			Low:    low,
+			Volume: parseStrFloat(it.Volume),
+		})
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("新浪指数 K 线为空")
+	}
+	return result, nil
 }
 
 func parseEastMoneyKlines(lines []string) []KlineData {

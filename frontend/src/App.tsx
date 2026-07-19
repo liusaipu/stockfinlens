@@ -6,6 +6,7 @@ import { FinancialTrendChart } from './FinancialTrendChart'
 import { FinancialTrendDrawer } from './FinancialTrendDrawer'
 import { AIResearchPanel } from './AIResearchPanel'
 import { MarginDrawer } from './MarginDrawer'
+import { HotPostsDrawer } from './HotPostsDrawer'
 import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
@@ -489,6 +490,7 @@ function App() {
   const [lastAnalysisAt, setLastAnalysisAt] = useState('')
   const [trendDrawerCode, setTrendDrawerCode] = useState<string | null>(null)
   const [marginDrawerCode, setMarginDrawerCode] = useState<string | null>(null)
+  const [hotPostsDrawerCode, setHotPostsDrawerCode] = useState<string | null>(null)
   const [marginTargetMap, setMarginTargetMap] = useState<Record<string, boolean>>({})
   const [klineFullscreen, setKlineFullscreen] = useState(false)
   const [riskRadar, setRiskRadar] = useState<RiskRadarItem[] | null>(null)
@@ -3578,6 +3580,34 @@ function App() {
                   >
                     财务趋势
                   </button>
+                  <button
+                    className="btn-text"
+                    onClick={() => selectedStock && setHotPostsDrawerCode(selectedStock.code)}
+                    disabled={!selectedStock || selectedStock.code.endsWith('.HK')}
+                    style={{
+                      fontSize: 10,
+                      color: !selectedStock || selectedStock.code.endsWith('.HK') ? '#64748b' : '#a855f7',
+                      padding: '2px 6px',
+                      borderRadius: 3,
+                      border: !selectedStock || selectedStock.code.endsWith('.HK')
+                        ? '1px solid rgba(100,116,139,0.3)'
+                        : '1px solid rgba(168,85,247,0.4)',
+                      background: !selectedStock || selectedStock.code.endsWith('.HK')
+                        ? 'rgba(100,116,139,0.06)'
+                        : 'rgba(168,85,247,0.08)',
+                      cursor: !selectedStock || selectedStock.code.endsWith('.HK') ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={
+                      !selectedStock
+                        ? '请先选择股票'
+                        : selectedStock.code.endsWith('.HK')
+                          ? '港股暂不支持股吧热帖'
+                          : '查看东方财富股吧热帖（最新/最热）'
+                    }
+                  >
+                    热帖
+                  </button>
                 </div>
               </div>
             )}
@@ -4887,6 +4917,14 @@ function App() {
           code={marginDrawerCode}
           name={selectedStock?.name}
           onClose={() => setMarginDrawerCode(null)}
+        />
+      )}
+
+      {hotPostsDrawerCode && (
+        <HotPostsDrawer
+          code={hotPostsDrawerCode}
+          name={selectedStock?.name}
+          onClose={() => setHotPostsDrawerCode(null)}
         />
       )}
 

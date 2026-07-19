@@ -16,6 +16,8 @@
 
 ![screenshot-dark](docs/screenshots/main-dark-v1.8.1.png)
 
+![AI 投研助手](docs/screenshots/ai-research.png)
+
 </div>
 
 ---

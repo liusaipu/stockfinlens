@@ -1,5 +1,25 @@
 # Changelog
 
+## [v1.8.11] - 2026-07-19
+
+### 新增 (Features)
+- **K 线指数叠加新增科创综指、北证50**（`frontend/src/UnifiedChart.tsx`, `app.go`, `downloader/eastmoney.go`）
+  - 方便科创板与北交所股票与对应指数直接对比。
+  - 由于腾讯对科创综指历史较短、北证50仅返回当日数据，指数日线优先走新浪财经作为稳定数据源，失败自动回退腾讯/东财。
+  - 新增 `fetchIndexKlinesFromSina` / `parseSinaIndexKlines` 与对应单元测试。
+- **新增「股吧热帖」抽屉**（`frontend/src/HotPostsDrawer.tsx`, `downloader/hot_posts.go`, `app.go`）
+  - 选中 A 股/北交股票后，在 K 线快捷按钮区点击紫色「热帖」按钮，即可查看东方财富股吧热门帖子。
+  - 默认按「最热」（评论优先、阅读次之）排序，可切换为「最新」。
+  - 每帖右侧可展开查看主贴正文与图片，点击标题或图片可跳转原帖/大图。
+  - 后端 30 分钟缓存列表，单帖内容按需加载。
+
+### 优化 (Improvements)
+- **分时图增加十字光标与坐标轴标签**（`frontend/src/IntradayChart.tsx`）
+- **README 增加 AI 投研助手截图**
+
+### 测试 (Tests)
+- 新增 `TestParseSinaIndexKlines`、`TestParseSinaIndexKlinesBadInput`、`TestParseGubaHotPosts`、`TestParseGubaHotPostsBadInput`、`TestParseGubaPostContent`、`TestExtractPostArticleJSON`、`TestStripHtmlTags`、`TestFetchStockHotPostsInvalidSymbol`。
+
 ## [v1.8.9] - 2026-07-05
 
 ### 修复 (Fixes)
