@@ -267,6 +267,173 @@ func escapeControlCharsInJSONStrings(s string) string {
 
 var trailingCommaRegex = regexp.MustCompile(`,(\s*[}\]])`)
 
+// smartRepairJSON 对 LLM 输出的 JSON 做结构感知修复：
+// 1. 转义字符串值内部未转义的双引号；
+// 2. 转义字符串值内部的真实换行/回车/Tab；
+// 3. 处理反斜杠后直接跟真实换行的情况；
+// 4. 移除对象/数组末尾多余的逗号。
+func smartRepairJSON(s string) string {
+	s = repairJSON(s)
+	s = trailingCommaRegex.ReplaceAllString(s, "$1")
+	return s
+}
+
+// repairJSON 使用状态机重新扫描 JSON，把字符串值内部未转义的双引号统一转义。
+// 它通过当前容器上下文（对象/数组）判断一个双引号是字符串结束符还是内层引号：
+//   - 对象键字符串后面只能是 ':'；
+//   - 对象值/数组元素字符串后面只能是 ',' 或对应的闭合符；
+//   - 其他情况均视为内层引号，前面加反斜杠。
+//
+// 同时会修复真实换行、回车、Tab 等未转义控制字符，以及反斜杠后直接跟真实换行的情况。
+func repairJSON(s string) string {
+	type frame struct {
+		kind       byte
+		expectsKey bool // 仅当 kind == '{' 时有效
+	}
+	var stack []frame
+
+	var b strings.Builder
+	b.Grow(len(s) + 10)
+
+	inString := false
+	inKey := false
+	escaped := false
+
+	nextNonSpace := func(start int) (byte, bool) {
+		for i := start; i < len(s); i++ {
+			c := s[i]
+			if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+				return c, true
+			}
+		}
+		return 0, false
+	}
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		if escaped {
+			if c == '\n' || c == '\r' {
+				b.WriteString("\\n")
+			} else {
+				b.WriteByte(c)
+			}
+			escaped = false
+			continue
+		}
+
+		if c == '\\' {
+			if inString {
+				escaped = true
+			}
+			b.WriteByte(c)
+			continue
+		}
+
+		if c == '"' {
+			if !inString {
+				inString = true
+				inKey = false
+				if len(stack) > 0 {
+					top := &stack[len(stack)-1]
+					if top.kind == '{' && top.expectsKey {
+						inKey = true
+					}
+				}
+				b.WriteByte(c)
+				continue
+			}
+
+			// 字符串内部，判断是结束引号还是内层引号
+			next, ok := nextNonSpace(i + 1)
+			valid := false
+			if inKey {
+				valid = ok && next == ':'
+			} else {
+				if len(stack) == 0 {
+					valid = !ok
+				} else if stack[len(stack)-1].kind == '{' {
+					valid = ok && (next == ',' || next == '}')
+				} else { // '['
+					valid = ok && (next == ',' || next == ']')
+				}
+			}
+
+			wasKey := inKey
+			if valid {
+				inString = false
+				inKey = false
+				if !wasKey && len(stack) > 0 && stack[len(stack)-1].kind == '{' {
+					stack[len(stack)-1].expectsKey = false
+				}
+				b.WriteByte(c)
+				continue
+			}
+
+			// 内层引号：转义
+			b.WriteByte('\\')
+			b.WriteByte(c)
+			continue
+		}
+
+		if !inString {
+			switch c {
+			case '{':
+				stack = append(stack, frame{kind: '{', expectsKey: true})
+				b.WriteByte(c)
+			case '[':
+				stack = append(stack, frame{kind: '['})
+				b.WriteByte(c)
+			case '}':
+				if len(stack) > 0 {
+					stack = stack[:len(stack)-1]
+					if len(stack) > 0 && stack[len(stack)-1].kind == '{' {
+						stack[len(stack)-1].expectsKey = false
+					}
+				}
+				b.WriteByte(c)
+			case ']':
+				if len(stack) > 0 {
+					stack = stack[:len(stack)-1]
+					if len(stack) > 0 && stack[len(stack)-1].kind == '{' {
+						stack[len(stack)-1].expectsKey = false
+					}
+				}
+				b.WriteByte(c)
+			case ':':
+				if len(stack) > 0 && stack[len(stack)-1].kind == '{' {
+					stack[len(stack)-1].expectsKey = false
+				}
+				b.WriteByte(c)
+			case ',':
+				if len(stack) > 0 && stack[len(stack)-1].kind == '{' {
+					stack[len(stack)-1].expectsKey = true
+				}
+				b.WriteByte(c)
+			default:
+				b.WriteByte(c)
+			}
+			continue
+		}
+
+		// 字符串内部的普通字符
+		if c < 0x20 {
+			switch c {
+			case '\n', '\r':
+				b.WriteString("\\n")
+			case '\t':
+				b.WriteString("\\t")
+			default:
+				// 其他控制字符直接跳过
+			}
+			continue
+		}
+		b.WriteByte(c)
+	}
+
+	return b.String()
+}
+
 // extractJSONObject 从文本中提取第一个完整的 JSON 对象（按大括号深度匹配，尊重字符串）。
 func extractJSONObject(s string) string {
 	start := strings.Index(s, "{")
@@ -432,14 +599,32 @@ func tryParseLLMOutput(content string) (*llmOutput, error) {
 		}
 	}
 
-	// 3) 提取第一个完整 JSON 对象
+	// 3) 结构感知智能修复（重点处理字符串内未转义双引号、真实换行等）
+	repaired := smartRepairJSON(content)
+	if repaired != content {
+		lastErr = json.Unmarshal([]byte(repaired), &out)
+		if lastErr == nil {
+			return &out, nil
+		}
+	}
+	if fixed != content {
+		repairedFixed := smartRepairJSON(fixed)
+		if repairedFixed != fixed {
+			lastErr = json.Unmarshal([]byte(repairedFixed), &out)
+			if lastErr == nil {
+				return &out, nil
+			}
+		}
+	}
+
+	// 4) 提取第一个完整 JSON 对象
 	candidate := extractJSONObject(content)
 	if candidate != content && candidate != "" {
 		lastErr = json.Unmarshal([]byte(candidate), &out)
 		if lastErr == nil {
 			return &out, nil
 		}
-		// 4) 对提取对象做转义修复
+		// 5) 对提取对象做转义修复
 		fixedCandidate := sanitizeJSON(candidate)
 		if fixedCandidate != candidate {
 			lastErr = json.Unmarshal([]byte(fixedCandidate), &out)
@@ -447,9 +632,16 @@ func tryParseLLMOutput(content string) (*llmOutput, error) {
 				return &out, nil
 			}
 		}
+		repairedCandidate := smartRepairJSON(candidate)
+		if repairedCandidate != candidate {
+			lastErr = json.Unmarshal([]byte(repairedCandidate), &out)
+			if lastErr == nil {
+				return &out, nil
+			}
+		}
 	}
 
-	// 5) 最后兜底：移除所有真实换行/回车/Tab
+	// 6) 最后兜底：移除所有真实换行/回车/Tab
 	lastResort := normalizeWhitespaceForJSON(content)
 	if lastResort != content {
 		lastErr = json.Unmarshal([]byte(lastResort), &out)
@@ -458,7 +650,7 @@ func tryParseLLMOutput(content string) (*llmOutput, error) {
 		}
 	}
 
-	// 6) 尝试修复字符串内未转义双引号
+	// 7) 旧版启发式修复字符串内未转义双引号（作为最终兜底）
 	quoteFixed := escapeInnerQuotes(content)
 	if quoteFixed != content {
 		lastErr = json.Unmarshal([]byte(quoteFixed), &out)

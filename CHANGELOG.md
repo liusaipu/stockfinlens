@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.8.12] - 2026-07-20
+
+### 修复 (Fixes)
+- **修复 AI 投研报告 JSON 解析失败（字符串内未转义引号后跟冒号）**（`ai_researcher/researcher.go`）
+  - 新增结构感知修复 `repairJSON` / `smartRepairJSON`，通过当前容器上下文（对象键/值）判断双引号是字符串结束符还是内层引号，避免把紧跟 `: , } ]` 的内层引号误判为结束符。
+  - 解决部分 LLM 输出（如 `公司简称"A股":拓展业务`）触发 `invalid character ':' after object key:value pair` 的解析报错。
+  - 同时继续修复真实换行、回车、Tab 及反斜杠后直接跟真实换行等未转义控制字符。
+  - 新增单元测试 `TestParseLLMOutputWithUnescapedQuoteFollowedByColon` 覆盖该场景。
+
 ## [v1.8.11] - 2026-07-19
 
 ### 新增 (Features)

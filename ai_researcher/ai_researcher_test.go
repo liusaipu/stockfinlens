@@ -291,6 +291,24 @@ func TestParseLLMOutputWithTabInString(t *testing.T) {
 	}
 }
 
+func TestParseLLMOutputWithUnescapedQuoteFollowedByColon(t *testing.T) {
+	// 模拟 LLM 在字符串值内部使用未转义双引号，且该引号后紧跟英文冒号，
+	// 导致旧版启发式修复误判为字符串结束符，最终报错：
+	// invalid character ':' after object key:value pair
+	jsonContent := `{"sections": [{"title": "产品催化剂", "summary": "公司简称"A股":拓展业务", "key_points": ["点1"], "sentiment": "positive"}], "sources": []}`
+
+	out, err := parseLLMOutput(jsonContent)
+	if err != nil {
+		t.Fatalf("含未转义引号且后跟冒号的 JSON 应被修复并解析成功: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Errorf("应有 1 个 section，实际 %d", len(out.Sections))
+	}
+	if !strings.Contains(out.Sections[0].Summary, "A股") {
+		t.Errorf("summary 应保留 A股: %s", out.Sections[0].Summary)
+	}
+}
+
 func TestParseLLMOutputWithUnescapedNewlines(t *testing.T) {
 	// 模拟 LLM 在字符串值内部输出真实换行（未转义为 \n）的情况
 	jsonContent := "{\n" +
