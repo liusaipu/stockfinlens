@@ -37,7 +37,7 @@ func writeAScoreProfile(b *strings.Builder, steps []StepResult, years []string, 
 	b.WriteString(fmt.Sprintf("> **%s** | **A-Score = %.1f** | %s\n\n", ascoreBadge(as), as, ascoreBrief(as)))
 
 	// 2. 核心子指标概览（原模块3.5内容）
-	b.WriteString("## 8.1 A-Score 核心子指标概览\n\n")
+	b.WriteString("## 7.1 A-Score 核心子指标概览\n\n")
 	b.WriteString("| 子指标 | 数值 | 风险说明 |\n")
 	b.WriteString("|--------|------|----------|\n")
 	b.WriteString(fmt.Sprintf("| **M-Score** | %.3f | Beneish 财务造假风险指标 |\n", ms))
@@ -49,7 +49,7 @@ func writeAScoreProfile(b *strings.Builder, steps []StepResult, years []string, 
 	b.WriteString("\n")
 
 	// 3. 六维雷达分解
-	b.WriteString("## 8.2 A-Score 六维风险分解\n\n")
+	b.WriteString("## 7.2 A-Score 六维风险分解\n\n")
 	b.WriteString("| 维度 | 原始指标 | 风险分 | 权重 | 评估 |\n")
 	b.WriteString("|------|----------|--------|------|------|\n")
 	b.WriteString(fmt.Sprintf("| **M-Score（造假风险）** | %.3f | %.1f | 15%% | %s |\n", ms, mRisk, riskLevel(mRisk)))
@@ -63,7 +63,7 @@ func writeAScoreProfile(b *strings.Builder, steps []StepResult, years []string, 
 
 	// 4. 历史趋势
 	if len(years) >= 2 {
-		b.WriteString("## 8.3 A-Score 历史趋势（近5年）\n\n")
+		b.WriteString("## 7.3 A-Score 历史趋势（近5年）\n\n")
 		b.WriteString("| 年度 | A-Score | 趋势 | 状态 |\n")
 		b.WriteString("|------|---------|------|------|\n")
 		var prevAScore float64 = -1
@@ -105,23 +105,28 @@ func writeAScoreProfile(b *strings.Builder, steps []StepResult, years []string, 
 				avg += v
 			}
 			avg /= float64(len(compAScores))
-			b.WriteString("## 8.4 同行业 A-Score 参考（基于 M-Score 估算）\n\n")
-			b.WriteString("| 指标 | 当前公司 | 可比均值 | 差异 |\n")
-			b.WriteString("|------|----------|----------|------|\n")
-			diff := as - avg
-			b.WriteString(fmt.Sprintf("| **A-Score** | %.1f | %.1f | %+.1f |\n", as, avg, diff))
-			if diff > 10 {
-				b.WriteString("> ⚠️ 当前公司 A-Score 显著高于可比均值，财务风险相对偏大。\n\n")
-			} else if diff < -10 {
-				b.WriteString("> ✅ 当前公司 A-Score 低于可比均值，财务风险相对可控。\n\n")
+			b.WriteString("## 7.4 同行业 A-Score 参考（基于 M-Score 估算）\n\n")
+			if len(compAScores) < 3 {
+				// 样本太少时均值无统计意义，只给提示不下结论
+				b.WriteString(fmt.Sprintf("> ⚠️ 可比样本不足（仅 %d 家，建议配置 3~5 家），同行业 A-Score 均值暂不具备参考价值，本节不下结论。\n\n", len(compAScores)))
 			} else {
-				b.WriteString("> 当前公司 A-Score 与可比均值接近。\n\n")
+				b.WriteString("| 指标 | 当前公司 | 可比均值 | 差异 |\n")
+				b.WriteString("|------|----------|----------|------|\n")
+				diff := as - avg
+				b.WriteString(fmt.Sprintf("| **A-Score** | %.1f | %.1f | %+.1f |\n", as, avg, diff))
+				if diff > 10 {
+					b.WriteString("> ⚠️ 当前公司 A-Score 显著高于可比均值，财务风险相对偏大。\n\n")
+				} else if diff < -10 {
+					b.WriteString("> ✅ 当前公司 A-Score 低于可比均值，财务风险相对可控。\n\n")
+				} else {
+					b.WriteString("> 当前公司 A-Score 与可比均值接近。\n\n")
+				}
 			}
 		}
 	}
 
 	// 6. 调优建议
-	b.WriteString("## 8.5 A-Score 调优建议\n\n")
+	b.WriteString("## 7.5 A-Score 调优建议\n\n")
 	var tips []string
 	if mRisk >= 60 {
 		tips = append(tips, "M-Score 偏高：重点关注应收账款增速、收入确认政策及费用资本化情况，建议核查审计意见。")

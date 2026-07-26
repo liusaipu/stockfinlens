@@ -3,6 +3,7 @@ package analyzer
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // GenerateMarkdown 生成增强版 Markdown 格式的投资分析报告（14模块标准框架）
@@ -24,7 +25,7 @@ func GenerateMarkdown(symbol string, years []string, steps []StepResult, scores 
 	b.WriteString(fmt.Sprintf("**股票代码**: %s  \n", symbol))
 	b.WriteString("**分析框架**: 财报透视分析框架  \n")
 	b.WriteString(fmt.Sprintf("**最新报告期**: %s  \n", latest))
-	b.WriteString(fmt.Sprintf("**数据基础**: 基于 %d 年财务报表数据（%s ~ %s）\n\n", len(years), latest, years[len(years)-1]))
+	b.WriteString(fmt.Sprintf("**数据基础**: 基于 %d 年财务报表数据（%s ~ %s）\n\n", len(years), years[len(years)-1], latest))
 	b.WriteString("---\n\n")
 
 	// ==================== 数据质量警告（新增）====================
@@ -86,7 +87,7 @@ func GenerateMarkdown(symbol string, years []string, steps []StepResult, scores 
 	writeModule10(&b, steps, latest, latestScore)
 
 	// ==================== 模块12: 投资检查清单 ====================
-	writeModule11(&b, steps, latest, latestScore)
+	writeModule11(&b, steps, latest, latestScore, quote)
 
 	// ==================== 模块13: 社交媒体情绪监控 ====================
 	writeModule12(&b, sentiment)
@@ -98,7 +99,7 @@ func GenerateMarkdown(symbol string, years []string, steps []StepResult, scores 
 	writeModule14(&b, symbol, steps, years, latest, latestScore, sentiment)
 
 	b.WriteString("---\n\n")
-	b.WriteString("*报告生成时间：基于最新导入的财务数据*\n")
+	b.WriteString(fmt.Sprintf("*报告生成时间：%s*\n", time.Now().Format("2006-01-02 15:04")))
 
 	return b.String()
 }

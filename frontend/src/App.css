@@ -987,6 +987,162 @@ body.light .toc-select {
   overflow-y: auto;
 }
 
+/* 报告区主体：左侧章节导航 + 右侧内容 */
+.report-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.toc-nav {
+  width: 180px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 12px 8px;
+  border-right: 1px solid #1f2933;
+  background: #0f1419;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+body.light .toc-nav {
+  border-right-color: #e5e7eb;
+  background: #ffffff;
+}
+
+.toc-nav-item {
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: left;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.15s ease;
+}
+
+.toc-nav-item:hover {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+}
+
+body.light .toc-nav-item {
+  color: #64748b;
+}
+
+body.light .toc-nav-item:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+/* 窗口较窄时隐藏章节导航 */
+@media (max-width: 1100px) {
+  .toc-nav {
+    display: none;
+  }
+}
+
+/* 返回顶部按钮（sticky 悬浮在报告容器右下角） */
+.back-to-top-wrapper {
+  position: sticky;
+  bottom: 8px;
+  height: 0;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.back-to-top-btn {
+  pointer-events: auto;
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid #2a3a4a;
+  border-radius: 16px;
+  background: #141b24;
+  color: #e6e6e6;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: all 0.15s;
+}
+
+.back-to-top-btn:hover {
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+body.light .back-to-top-btn {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #374151;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+body.light .back-to-top-btn:hover {
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+/* 全局 toast 提示 */
+.app-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  max-width: 420px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-line;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  border: 1px solid transparent;
+  background: #1e293b;
+  color: #e6e6e6;
+}
+
+.app-toast-error {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(127, 29, 29, 0.95);
+  color: #fecaca;
+}
+
+.app-toast-success {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(20, 83, 45, 0.95);
+  color: #bbf7d0;
+}
+
+.app-toast-info {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(30, 58, 95, 0.95);
+  color: #bfdbfe;
+}
+
+body.light .app-toast-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+body.light .app-toast-success {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+body.light .app-toast-info {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
 /* Markdown 渲染样式 */
 .markdown-body {
   font-size: 14px;
@@ -1077,10 +1233,16 @@ body.light .markdown-body blockquote {
   margin-bottom: 0;
 }
 
+/* 表格横向滚动容器，避免宽表撑破布局 */
+.markdown-body .table-wrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
 .markdown-body table {
   width: 100%;
   border-collapse: collapse;
-  margin: 12px 0;
+  margin: 0;
   font-size: 13px;
 }
 

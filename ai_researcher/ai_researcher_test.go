@@ -464,3 +464,74 @@ func TestCollectSources(t *testing.T) {
 		t.Errorf("去重并过滤后应剩 1 条来源，实际 %d", len(sources))
 	}
 }
+
+func TestParseLLMOutputTruncatedMidSection(t *testing.T) {
+	// 模拟 max_tokens 截断：第二个 section 写到一半被切断
+	truncated := `{"sections": [
+		{"title": "产品/业务催化剂", "summary": "第一段摘要", "key_points": ["要点1", "要点2"], "sentiment": "positive"},
+		{"title": "国际对标", "summary": "第二段摘要被截断，贵金`
+	out, err := parseLLMOutput(truncated)
+	if err != nil {
+		t.Fatalf("截断的 JSON 应能通过截断修复解析，实际报错: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Fatalf("应保留 1 个完整 section，实际 %d", len(out.Sections))
+	}
+	if out.Sections[0].Title != "产品/业务催化剂" {
+		t.Errorf("section 标题错误: %s", out.Sections[0].Title)
+	}
+	if out.Sections[0].Sentiment != "positive" {
+		t.Errorf("sentiment 应规范化为 positive，实际 %s", out.Sections[0].Sentiment)
+	}
+}
+
+func TestParseLLMOutputTruncatedInSources(t *testing.T) {
+	// sections 完整，sources 数组被截断：应保留全部 sections，sources 尽力保留
+	truncated := `{"sections": [
+		{"title": "板块一", "summary": "摘要一", "key_points": ["要点1"], "sentiment": "乐观"},
+		{"title": "板块二", "summary": "摘要二", "key_points": [], "sentiment": "neutral"}
+	],
+	"sources": [
+		{"title": "来源1", "url": "https://a.com", "date": "2025-07-25"},
+		{"title": "来源2", "url": "https://b.com", "da`
+	out, err := parseLLMOutput(truncated)
+	if err != nil {
+		t.Fatalf("截断的 JSON 应能通过截断修复解析，实际报错: %v", err)
+	}
+	if len(out.Sections) != 2 {
+		t.Fatalf("应保留 2 个完整 section，实际 %d", len(out.Sections))
+	}
+	if out.Sections[0].Sentiment != "positive" {
+		t.Errorf("乐观 应规范化为 positive，实际 %s", out.Sections[0].Sentiment)
+	}
+	if len(out.Sources) != 1 {
+		t.Errorf("sources 应保留 1 条完整记录，实际 %d", len(out.Sources))
+	}
+}
+
+func TestParseLLMOutputTruncatedMidScalar(t *testing.T) {
+	// 截断点在标量（数字/布尔）中间：残缺标量应被丢弃
+	truncated := `{"sections": [{"title": "板块一", "summary": "摘要", "key_points": [], "sentiment": "neutral"}], "relevance_score": 0.8`
+	out, err := parseLLMOutput(truncated)
+	if err != nil {
+		t.Fatalf("截断的 JSON 应能通过截断修复解析，实际报错: %v", err)
+	}
+	if len(out.Sections) != 1 {
+		t.Fatalf("应保留 1 个完整 section，实际 %d", len(out.Sections))
+	}
+}
+
+func TestAIConfigNormalizeMigratesMaxTokens(t *testing.T) {
+	// 旧版默认 4096 容易导致投研报告 JSON 被截断，应自动迁移到 8192
+	cfg := &AIConfig{MaxTokens: 4096}
+	cfg.Normalize()
+	if cfg.MaxTokens != 8192 {
+		t.Errorf("旧默认 4096 应迁移为 8192，实际 %d", cfg.MaxTokens)
+	}
+	// 用户显式设置的其他值不应被覆盖
+	cfg = &AIConfig{MaxTokens: 16384}
+	cfg.Normalize()
+	if cfg.MaxTokens != 16384 {
+		t.Errorf("用户自定义 max_tokens 不应被覆盖，实际 %d", cfg.MaxTokens)
+	}
+}

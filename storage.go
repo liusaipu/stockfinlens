@@ -908,6 +908,12 @@ func (s *Storage) LoadSnapshot(symbol string) (*analyzer.AnalysisReport, error) 
 	if data, err := os.ReadFile(oldPath); err == nil {
 		var report analyzer.AnalysisReport
 		if err := json.Unmarshal(data, &report); err == nil {
+			// 老快照没有 GeneratedAt 字段，用文件修改时间兜底
+			if report.GeneratedAt == "" {
+				if fi, err := os.Stat(oldPath); err == nil {
+					report.GeneratedAt = fi.ModTime().Format("2006-01-02 15:04")
+				}
+			}
 			return &report, nil
 		}
 	}
@@ -923,6 +929,12 @@ func (s *Storage) LoadSnapshot(symbol string) (*analyzer.AnalysisReport, error) 
 	var report analyzer.AnalysisReport
 	if err := json.Unmarshal(data, &report); err != nil {
 		return nil, err
+	}
+	// 老版本快照没有 GeneratedAt 字段，用快照文件修改时间兜底，保证「与上次分析对比」能显示时间
+	if report.GeneratedAt == "" {
+		if fi, err := os.Stat(path); err == nil {
+			report.GeneratedAt = fi.ModTime().Format("2006-01-02 15:04")
+		}
 	}
 	return &report, nil
 }

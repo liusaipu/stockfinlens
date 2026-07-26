@@ -21,7 +21,8 @@ func ComputeAnalysisDiff(current, previous *AnalysisReport) *AnalysisDiff {
 	}
 
 	diff.HasPrevious = true
-	diff.PreviousTime = previous.CompanyName // 复用字段存储时间（实际应扩展结构体，这里用分析时间戳）
+	// 上次分析时间取自快照中持久化的生成时间；老版本快照没有该字段时由调用方回填
+	diff.PreviousTime = previous.GeneratedAt
 
 	// 评分变化
 	if current.Score != nil && previous.Score != nil {

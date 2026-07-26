@@ -39,6 +39,7 @@ type StepResult struct {
 type AnalysisReport struct {
 	Symbol          string                `json:"symbol"`
 	CompanyName     string                `json:"companyName"`
+	GeneratedAt     string                `json:"generatedAt,omitempty"` // 分析生成时间（YYYY-MM-DD HH:MM），快照随 JSON 持久化
 	Years           []string              `json:"years"`
 	StepResults     []StepResult          `json:"stepResults"`
 	PassSummary     map[string][]PassItem `json:"passSummary"`

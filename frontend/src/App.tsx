@@ -483,6 +483,14 @@ function App() {
   const downloadMenuRef = useRef<HTMLDivElement>(null)
   const downloadMenuBtnRef = useRef<HTMLButtonElement>(null)
   const tocSelectRef = useRef<HTMLSelectElement>(null)
+  // 轻量 toast 提示（替代原生 alert）
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
+  const showToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'error') => {
+    setToast({ message, type })
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 3500)
+  }, [])
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false)
   const [currentTrace, setCurrentTrace] = useState<analyzer.CalcTrace | null>(null)
   const [traceList, setTraceList] = useState<analyzer.CalcTrace[]>([])
@@ -609,7 +617,7 @@ function App() {
       return
     }
     if (!displayContent) {
-      alert('没有可搜索的内容')
+      showToast('没有可搜索的内容', 'info')
       return
     }
     // If query changed, rebuild highlights
@@ -618,7 +626,7 @@ function App() {
       reportSearchIndexRef.current = 0
       const count = buildSearchHighlights(query)
       if (count === 0) {
-        alert('没有匹配')
+        showToast('没有匹配', 'info')
         return
       }
     }
@@ -626,7 +634,7 @@ function App() {
     if (matches.length === 0) {
       const count = buildSearchHighlights(query)
       if (count === 0) {
-        alert('没有匹配')
+        showToast('没有匹配', 'info')
         return
       }
     }
@@ -638,7 +646,7 @@ function App() {
     current.className = 'search-highlight search-highlight-active'
     current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     if (currentIdx === matches.length - 1) {
-      alert('已经达到最后一个匹配的字串')
+      showToast('已经达到最后一个匹配的字串', 'info')
       reportSearchIndexRef.current = 0
     } else {
       reportSearchIndexRef.current++
@@ -1035,7 +1043,7 @@ function App() {
       const p = await RefreshStockProfile(selectedStock.code)
       setProfile(p || null)
     } catch (err: any) {
-      alert('刷新基本信息失败: ' + String(err))
+      showToast('刷新基本信息失败: ' + String(err))
     }
   }
 
@@ -1409,7 +1417,7 @@ function App() {
       await loadRiskRadar(stock.code, p?.industry || '')
       // await loadKlines(stock.code)
     } catch (e) {
-      alert(String(e))
+      showToast(String(e))
     } finally {
       setLoading(false)
     }
@@ -1446,7 +1454,7 @@ function App() {
         setConcepts(null)
       }
     } catch (err) {
-      alert(String(err))
+      showToast(String(err))
     } finally {
       setLoading(false)
     }
@@ -1459,16 +1467,16 @@ function App() {
       const result = await ImportFinancialReports(selectedStock.code)
       setImportResult(result)
       if (result && result.success) {
-        alert(`导入成功！\n${result.message}\n资产负债表年份: ${result.balanceSheet?.join(', ') || '无'}\n利润表年份: ${result.income?.join(', ') || '无'}\n现金流量表年份: ${result.cashFlow?.join(', ') || '无'}`)
+        showToast(`导入成功！\n${result.message}\n资产负债表年份: ${result.balanceSheet?.join(', ') || '无'}\n利润表年份: ${result.income?.join(', ') || '无'}\n现金流量表年份: ${result.cashFlow?.join(', ') || '无'}`, 'success')
         await loadDataHistory(selectedStock.code)
         const cache = await CheckAnalysisCache(selectedStock.code)
         setDataMissing(!!cache?.dataMissing)
       } else {
-        alert('导入失败')
+        showToast('导入失败')
       }
     } catch (err: any) {
       console.error('导入失败:', err)
-      alert(String(err))
+      showToast(String(err))
     } finally {
       setLoading(false)
     }
@@ -1541,7 +1549,7 @@ function App() {
       await ExportCurrentFinancialData(selectedStock.code)
     } catch (err: any) {
       console.error('导出当前数据失败:', err)
-      alert('导出失败: ' + String(err))
+      showToast('导出失败: ' + String(err))
     }
   }
 
@@ -1556,7 +1564,7 @@ function App() {
 
   const runAnalyze = async (overwriteLatest = false) => {
     if (!selectedStock) {
-      alert('没有选择股票')
+      showToast('没有选择股票', 'info')
       return
     }
     
@@ -1594,7 +1602,7 @@ function App() {
     } catch (err: any) {
       console.error('分析失败:', err)
       const errorMsg = err?.message || String(err) || '未知错误'
-      alert('分析失败: ' + errorMsg)
+      showToast('分析失败: ' + errorMsg)
     } finally {
       clearInterval(interval)
       setAnalyzeProgress(100)
@@ -1607,13 +1615,13 @@ function App() {
 
   const handleAnalyze = async () => {
     if (!selectedStock) {
-      alert('请选择一只股票')
+      showToast('请选择一只股票', 'info')
       return
     }
     
     // 检查是否有财务数据
     if (dataHistory.length === 0) {
-      alert('请先下载或导入财报数据')
+      showToast('请先下载或导入财报数据', 'info')
       return
     }
     
@@ -1624,7 +1632,7 @@ function App() {
       setDataMissing(!!cache?.dataMissing)
 
       if (cache?.dataMissing) {
-        alert('请先下载或导入财报数据')
+        showToast('请先下载或导入财报数据', 'info')
         return
       }
       
@@ -1645,7 +1653,7 @@ function App() {
 
   const handleAnalyzeAI = useCallback(async (forceRefresh = false) => {
     if (!selectedStock) {
-      alert('请选择一只股票')
+      showToast('请选择一只股票', 'info')
       return
     }
     setActiveReportTab('ai')
@@ -1766,7 +1774,7 @@ function App() {
       setShowRIMModal(false)
     } catch (err: any) {
       console.error('RIM分析失败:', err)
-      alert(String(err))
+      showToast(String(err))
     } finally {
       clearInterval(interval)
       setRimProgress(100)
@@ -1783,7 +1791,7 @@ function App() {
     }
     const content = viewingHistory ? historyContent : report?.markdownContent
     if (!content) {
-      alert('没有可下载的报告内容')
+      showToast('没有可下载的报告内容', 'info')
       return
     }
     try {
@@ -1793,7 +1801,7 @@ function App() {
       if (msg.includes('取消保存') || msg.includes('用户取消')) {
         return
       }
-      alert('下载报告失败: ' + msg)
+      showToast('下载报告失败: ' + msg)
     }
   }
 
@@ -1801,7 +1809,7 @@ function App() {
     if (!selectedStock || !reportContentRef.current) return
     const markdownBody = reportContentRef.current.querySelector('.markdown-body') as HTMLElement | null
     if (!markdownBody) {
-      alert('未找到报告内容')
+      showToast('未找到报告内容', 'info')
       return
     }
     try {
@@ -1843,7 +1851,7 @@ function App() {
       if (msg.includes('取消保存') || msg.includes('用户取消')) {
         return
       }
-      alert('导出PDF失败: ' + msg)
+      showToast('导出PDF失败: ' + msg)
     }
   }
 
@@ -1851,7 +1859,7 @@ function App() {
     if (!selectedStock || !reportContentRef.current) return
     const markdownBody = reportContentRef.current.querySelector('.markdown-body') as HTMLElement | null
     if (!markdownBody) {
-      alert('没有可下载的报告内容')
+      showToast('没有可下载的报告内容', 'info')
       return
     }
     try {
@@ -1866,7 +1874,7 @@ function App() {
       if (msg.includes('取消保存') || msg.includes('用户取消')) {
         return
       }
-      alert('生成图片失败: ' + msg)
+      showToast('生成图片失败: ' + msg)
     }
   }
 
@@ -1957,7 +1965,7 @@ function App() {
     } catch (err: any) {
       const msg = String(err)
       if (msg.includes('取消保存') || msg.includes('用户取消')) return
-      alert('导出 TXT 失败: ' + msg)
+      showToast('导出 TXT 失败: ' + msg)
     }
   }
 
@@ -1968,7 +1976,7 @@ function App() {
     } catch (err: any) {
       const msg = String(err)
       if (msg.includes('取消保存') || msg.includes('用户取消')) return
-      alert('导出 Markdown 失败: ' + msg)
+      showToast('导出 Markdown 失败: ' + msg)
     }
   }
 
@@ -1976,9 +1984,9 @@ function App() {
     if (!aiReport) return
     try {
       await navigator.clipboard.writeText(reportToTxt(aiReport))
-      alert('已复制 TXT 格式到剪贴板')
+      showToast('已复制 TXT 格式到剪贴板', 'success')
     } catch (err: any) {
-      alert('复制 TXT 失败: ' + String(err))
+      showToast('复制 TXT 失败: ' + String(err))
     }
   }
 
@@ -1986,9 +1994,9 @@ function App() {
     if (!aiReport) return
     try {
       await navigator.clipboard.writeText(reportToMd(aiReport))
-      alert('已复制 Markdown 格式到剪贴板')
+      showToast('已复制 Markdown 格式到剪贴板', 'success')
     } catch (err: any) {
-      alert('复制 Markdown 失败: ' + String(err))
+      showToast('复制 Markdown 失败: ' + String(err))
     }
   }
 
@@ -2025,7 +2033,7 @@ function App() {
     } catch (err: any) {
       const msg = String(err)
       if (msg.includes('取消保存') || msg.includes('用户取消')) return
-      alert('导出 PDF 失败: ' + msg)
+      showToast('导出 PDF 失败: ' + msg)
     }
   }
 
@@ -2085,7 +2093,7 @@ function App() {
         return next
       })
     } catch (err: any) {
-      alert('删除报告失败: ' + String(err))
+      showToast('删除报告失败: ' + String(err))
     }
   }
 
@@ -2114,7 +2122,7 @@ function App() {
       setCompQuery('')
       setShowCompDropdown(false)
     } catch (err: any) {
-      alert(String(err))
+      showToast(String(err))
     }
   }
 
@@ -2126,7 +2134,7 @@ function App() {
       setComparables(list || [])
       setCompReportsDownloaded(false) // 可比公司变化，需要重新下载
     } catch (err: any) {
-      alert(String(err))
+      showToast(String(err))
     }
   }
 
@@ -2220,7 +2228,7 @@ function App() {
       setAppliedComparables(list || [])
     } catch (err: any) {
       console.error('添加推荐可比公司失败:', err)
-      alert('添加失败: ' + String(err))
+      showToast('添加失败: ' + String(err))
       return
     }
     setCompRecommendations((prev) => prev.filter((r) => r.symbol !== symbol))
@@ -2242,7 +2250,7 @@ function App() {
       setCompRecommendations([])
     } catch (err: any) {
       console.error('批量添加推荐可比公司失败:', err)
-      alert('批量添加失败: ' + String(err))
+      showToast('批量添加失败: ' + String(err))
     }
   }
 
@@ -2269,7 +2277,7 @@ function App() {
       }, 150)
     } catch (err: any) {
       console.error('更新模块4失败:', err)
-      alert(String(err))
+      showToast(String(err))
     } finally {
       clearInterval(interval)
       setAnalyzeProgress(100)
@@ -2419,6 +2427,17 @@ function App() {
     }
   }, [displayContent])
 
+  // 监听报告容器滚动，超过 600px 时显示「返回顶部」按钮
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  useEffect(() => {
+    const container = reportContentRef.current
+    if (!container) return
+    const handleScroll = () => setShowBackToTop(container.scrollTop > 600)
+    container.addEventListener('scroll', handleScroll)
+    handleScroll()
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [displayContent, activeReportTab, hotPanelOpen])
+
   const markdownComponents = useMemo(() => ({
     details: DetailsComponent,
     span({ className, 'data-steps': dataSteps, children, ...props }: any) {
@@ -2441,7 +2460,7 @@ function App() {
                 setCurrentTrace(matched[0])
                 setTraceDrawerOpen(true)
               } else {
-                alert('暂无该指标的计算过程数据，请重新执行分析后再试。')
+                showToast('暂无该指标的计算过程数据，请重新执行分析后再试。', 'info')
               }
             }}
             title="查看计算过程"
@@ -2499,6 +2518,14 @@ function App() {
         <code className={className} {...props}>
           {children}
         </code>
+      )
+    },
+    // 表格外包一层可横向滚动的容器，避免宽表撑破布局
+    table({ children, ...props }: any) {
+      return (
+        <div className="table-wrapper">
+          <table {...props}>{children}</table>
+        </div>
       )
     },
     pre({ children }: any) {
@@ -2641,7 +2668,7 @@ function App() {
         </h3>
       )
     },
-  }), [report, selectedStock, currentSnapshot, handleRefreshInteractQA])
+  }), [report, selectedStock, currentSnapshot, handleRefreshInteractQA, showToast])
 
   return (
     <div className="app">
@@ -4330,9 +4357,9 @@ function App() {
                                 AddToWatchlist(quickAnalysisData.symbol || quickAnalysisData.code + '.' + quickAnalysisData.market)
                                   .then(() => {
                                     GetWatchlist().then((list) => setWatchlist(list || []))
-                                    alert(`${quickAnalysisData.name} 已加入自选`)
+                                    showToast(`${quickAnalysisData.name} 已加入自选`, 'success')
                                   })
-                                  .catch((err: any) => alert('加入自选失败: ' + (err?.message || err)))
+                                  .catch((err: any) => showToast('加入自选失败: ' + (err?.message || err)))
                               }}
                               disabled={watchlist.some((w) => w.code === quickAnalysisData.code)}
                             >
@@ -4656,6 +4683,21 @@ function App() {
             )}
           </div>
         </div>
+        <div className="report-body">
+        {activeReportTab === 'report' && displayContent && (
+          <nav className="toc-nav">
+            {tocSections.map((s) => (
+              <button
+                key={s.id}
+                className="toc-nav-item"
+                onClick={() => handleTocJump(s.id)}
+                title={s.label}
+              >
+                {s.label}
+              </button>
+            ))}
+          </nav>
+        )}
         <div className="report-content" ref={reportContentRef}>
           {activeReportTab === 'ai' && selectedStock ? (
             <AIResearchPanel
@@ -4694,6 +4736,18 @@ function App() {
               <p>未选择股票</p>
             </div>
           )}
+          {activeReportTab === 'report' && displayContent && showBackToTop && (
+            <div className="back-to-top-wrapper">
+              <button
+                className="back-to-top-btn"
+                onClick={() => reportContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+                title="返回顶部"
+              >
+                ↑ 返回顶部
+              </button>
+            </div>
+          )}
+        </div>
         </div>
         </>)}
         {hotPanelOpen && !selectedHotConceptCode && (
@@ -4954,6 +5008,13 @@ function App() {
         info={updateInfo}
         onClose={() => setShowUpdateModal(false)}
       />
+
+      {/* 全局 toast 提示 */}
+      {toast && (
+        <div className={`app-toast app-toast-${toast.type}`} onClick={() => setToast(null)}>
+          {toast.message}
+        </div>
+      )}
     </div>
   )
 }

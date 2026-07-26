@@ -344,9 +344,10 @@ func BuildMLSummary(ml *MLPredictionData, technical *TechnicalData, activity *Ac
 	}
 
 	if b != nil {
-		if b.HealthScore >= 6.0 {
+		// HealthScore 为 0-100 量纲（模型回归输出），60/40 为健康分界线
+		if b.HealthScore >= 60.0 {
 			dirScore += 1.0
-		} else if b.HealthScore <= 4.0 {
+		} else if b.HealthScore <= 40.0 {
 			dirScore -= 1.0
 		}
 		if b.ROEDirection == "up" {
@@ -486,13 +487,14 @@ func BuildMLSummary(ml *MLPredictionData, technical *TechnicalData, activity *Ac
 	}
 
 	if b != nil {
-		if b.HealthScore >= 6.0 && (b.ROEDirection == "up" || b.RevenueDirection == "up") {
+		// HealthScore 为 0-100 量纲（模型回归输出），60/40 为健康分界线
+		if b.HealthScore >= 60.0 && (b.ROEDirection == "up" || b.RevenueDirection == "up") {
 			parts = append(parts, "财务基本面持续改善")
-		} else if b.HealthScore <= 4.0 && (b.ROEDirection == "down" || b.RevenueDirection == "down") {
+		} else if b.HealthScore <= 40.0 && (b.ROEDirection == "down" || b.RevenueDirection == "down") {
 			parts = append(parts, "财务基本面承压")
-		} else if b.HealthScore >= 6.0 {
+		} else if b.HealthScore >= 60.0 {
 			parts = append(parts, "财务健康度良好")
-		} else if b.HealthScore <= 4.0 {
+		} else if b.HealthScore <= 40.0 {
 			parts = append(parts, "财务健康度偏弱")
 		}
 	}

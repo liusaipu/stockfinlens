@@ -201,9 +201,29 @@ export function HotPostsDrawer({ code, name, onClose }: Props) {
                     borderBottom: `1px solid ${borderColor}`,
                     cursor: 'pointer',
                   }}
-                  onClick={() => BrowserOpenURL(p.url)}
-                  title="点击打开原帖"
+                  onClick={() => toggleExpand(p)}
+                  title={expanded ? '点击收起正文' : '点击展开正文'}
                 >
+                  <button
+                    onClick={(e) => { e.stopPropagation(); BrowserOpenURL(p.url) }}
+                    title="在浏览器打开原帖"
+                    style={{
+                      flexShrink: 0,
+                      width: 22,
+                      height: 22,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: 'none',
+                      background: 'transparent',
+                      color: textSecondary,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      padding: 0,
+                    }}
+                  >
+                    📎
+                  </button>
                   <span style={{ fontSize: 11, color: textSecondary, width: 18, textAlign: 'right', flexShrink: 0 }}>
                     {idx + 1}
                   </span>
@@ -224,26 +244,6 @@ export function HotPostsDrawer({ code, name, onClose }: Props) {
                       {p.author && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{p.author}</span>}
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleExpand(p) }}
-                    title={expanded ? '收起正文' : '展开正文'}
-                    style={{
-                      flexShrink: 0,
-                      width: 24,
-                      height: 24,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 4,
-                      border: 'none',
-                      background: expanded ? 'rgba(168,85,247,0.15)' : 'transparent',
-                      color: '#a855f7',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                    }}
-                  >
-                    {expanded ? '▾' : '▸'}
-                  </button>
                   <div style={{ fontSize: 11, color: textSecondary, flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap', minWidth: 72 }}>
                     <span style={{ marginRight: 8 }}>阅 {p.clickCount}</span>
                     <span>评 {p.commentCount}</span>

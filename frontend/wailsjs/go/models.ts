@@ -822,6 +822,7 @@ export namespace analyzer {
 	export class AnalysisReport {
 	    symbol: string;
 	    companyName: string;
+	    generatedAt?: string;
 	    years: string[];
 	    stepResults: StepResult[];
 	    passSummary: Record<string, Array<PassItem>>;
@@ -847,6 +848,7 @@ export namespace analyzer {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.symbol = source["symbol"];
 	        this.companyName = source["companyName"];
+	        this.generatedAt = source["generatedAt"];
 	        this.years = source["years"];
 	        this.stepResults = this.convertValues(source["stepResults"], StepResult);
 	        this.passSummary = this.convertValues(source["passSummary"], Array<PassItem>, true);

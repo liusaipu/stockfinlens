@@ -3,6 +3,7 @@ package analyzer
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // AnalysisOptions 控制 RunAnalysis 集成哪些附加数据。零值合法（=纯财务透视）。
@@ -131,6 +132,7 @@ func RunAnalysis(baseDir, symbol string, opts AnalysisOptions) (*AnalysisReport,
 	report := &AnalysisReport{
 		Symbol:          symbol,
 		CompanyName:     symbol,
+		GeneratedAt:     time.Now().Format("2006-01-02 15:04"),
 		Years:           data.Years,
 		StepResults:     steps,
 		PassSummary:     passSummary,

@@ -6,11 +6,18 @@ import (
 	"strings"
 )
 
-func sign(v float64) string {
-	if v > 0 {
-		return "+"
+// formatSignedYi 把单位为元金额格式化为带符号的"亿"（如 +1.23亿 / -0.45亿）。
+// 用于资金流向等需要明确正负方向的场景，避免负值丢失负号。
+func formatSignedYi(v float64) string {
+	yi := v / 1e8
+	switch {
+	case yi >= 0.005:
+		return fmt.Sprintf("+%.2f亿", yi)
+	case yi <= -0.005:
+		return fmt.Sprintf("%.2f亿", yi) // 负数自带负号
+	default:
+		return "0.00亿"
 	}
-	return ""
 }
 
 func getDiffEmoji(diff float64) string {
@@ -171,21 +178,6 @@ func scoreToStars(score float64) string {
 	case score >= 70:
 		return "⭐⭐⭐"
 	case score >= 60:
-		return "⭐⭐"
-	default:
-		return "⭐"
-	}
-}
-
-func formatActivityStars(stars int) string {
-	switch stars {
-	case 5:
-		return "⭐⭐⭐⭐⭐"
-	case 4:
-		return "⭐⭐⭐⭐"
-	case 3:
-		return "⭐⭐⭐"
-	case 2:
 		return "⭐⭐"
 	default:
 		return "⭐"

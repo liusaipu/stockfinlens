@@ -481,6 +481,74 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+// repairTruncatedJSON 修复因 max_tokens 上限被截断的不完整 JSON：
+// 回退到最后一个完整闭合的容器（对象/数组）的结束位置，丢弃其后残缺内容，
+// 再补齐未闭合的括号，得到一个可解析的"截断版" JSON。
+// 只在容器边界裁剪，避免保留"有标题无内容"之类的残缺元素。
+// 返回空字符串表示找不到任何完整容器（无法修复）。
+func repairTruncatedJSON(s string) string {
+	var stack []byte
+	inString := false
+	escaped := false
+	cutPos := 0   // 最后一个完整容器结束后的位置
+	cutDepth := 0 // 该位置对应的括号栈深度
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		switch c {
+		case '"':
+			inString = true
+		case '{', '[':
+			stack = append(stack, c)
+		case '}', ']':
+			want := byte('{')
+			if c == ']' {
+				want = '['
+			}
+			if len(stack) == 0 || stack[len(stack)-1] != want {
+				// 括号不配平，超出截断修复能力
+				return ""
+			}
+			stack = stack[:len(stack)-1]
+			// 闭合的容器是一个完整元素，记录裁剪点
+			cutPos = i + 1
+			cutDepth = len(stack)
+		}
+	}
+
+	if cutPos == 0 {
+		return ""
+	}
+	prefix := strings.TrimRight(s[:cutPos], " \t\n\r")
+	var b strings.Builder
+	b.Grow(len(prefix) + cutDepth)
+	b.WriteString(prefix)
+	// 补齐截断点处仍未闭合的括号（截断点之后只有新增的开括号，不会弹出）
+	for i := cutDepth - 1; i >= 0; i-- {
+		if stack[i] == '{' {
+			b.WriteByte('}')
+		} else {
+			b.WriteByte(']')
+		}
+	}
+	return b.String()
+}
+
 // escapeInnerQuotes 尝试修复 JSON 字符串值内部未转义的双引号。
 // 启发式规则：在字符串内部遇到双引号时，若其后紧跟可选空白 + 结构字符（: , } ]），
 // 则视为字符串结束符；否则视为内层双引号，在前面加反斜杠转义。
@@ -611,6 +679,22 @@ func tryParseLLMOutput(content string) (*llmOutput, error) {
 		repairedFixed := smartRepairJSON(fixed)
 		if repairedFixed != fixed {
 			lastErr = json.Unmarshal([]byte(repairedFixed), &out)
+			if lastErr == nil {
+				return &out, nil
+			}
+		}
+	}
+
+	// 3.5) 截断修复：输出被 max_tokens 截断时，回退到最后一个完整值并补齐括号
+	if trunc := repairTruncatedJSON(content); trunc != "" && trunc != content {
+		lastErr = json.Unmarshal([]byte(trunc), &out)
+		if lastErr == nil {
+			return &out, nil
+		}
+	}
+	if fixed != content {
+		if truncFixed := repairTruncatedJSON(fixed); truncFixed != "" && truncFixed != fixed {
+			lastErr = json.Unmarshal([]byte(truncFixed), &out)
 			if lastErr == nil {
 				return &out, nil
 			}

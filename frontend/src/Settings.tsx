@@ -251,7 +251,7 @@ export function Settings({
     }).catch(() => {
       setAiCfg({
         enabled: false, llm_provider: 'deepseek', llm_api_key: '', llm_base_url: 'https://api.deepseek.com/v1',
-        llm_model: 'deepseek-v4-pro', llm_timeout: 90, temperature: 0.2, max_tokens: 4096, top_p: 1.0,
+        llm_model: 'deepseek-v4-pro', llm_timeout: 90, temperature: 0.2, max_tokens: 8192, top_p: 1.0,
         search_provider: 'tavily', search_api_key: '', search_api_keys: [], search_depth: 'advanced', search_timeout: 180, max_results: 10,
         search_recency_days: 90, exhausted_search_keys: {}, focus_regions: ['us', 'jp'], output_language: 'zh-CN', enable_social: true,
         cache_ttl_hours: 6

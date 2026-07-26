@@ -37,7 +37,7 @@ func writeModule1(b *strings.Builder, symbol string, steps []StepResult, latest,
 		b.WriteString(fmt.Sprintf("| **技术形态** | - | -/100 | 待接入技术分析数据 |\n"))
 	}
 	if activity != nil && activity.Score > 0 {
-		b.WriteString(fmt.Sprintf("| **交易活跃度** | %s | %.0f/100 | %s |\n", formatActivityStars(activity.Stars), activity.Score, activity.Comment))
+		b.WriteString(fmt.Sprintf("| **交易活跃度** | %s | %.0f/100 | %s |\n", scoreToStars(activity.Score), activity.Score, activity.Comment))
 	} else {
 		b.WriteString(fmt.Sprintf("| **交易活跃度** | - | -/100 | 数据不足 |\n"))
 	}
@@ -52,12 +52,12 @@ func writeModule1(b *strings.Builder, symbol string, steps []StepResult, latest,
 		} else {
 			predText = fmt.Sprintf("%s %.0f%%~+%.0f%%", mlDirectionCN(sum.Direction), sum.RangeLow, sum.RangeHigh)
 		}
-		b.WriteString(fmt.Sprintf("| **ML预测** | - | -/30 | %s |\n", predText))
+		b.WriteString(fmt.Sprintf("| **ML预测** | - | - | %s |\n", predText))
 	} else {
-		b.WriteString(fmt.Sprintf("| **ML预测** | - | -/30 | 待接入机器学习模型 |\n"))
+		b.WriteString(fmt.Sprintf("| **ML预测** | - | - | 待接入机器学习模型 |\n"))
 	}
 	b.WriteString(fmt.Sprintf("| **逆向检查** | %s | %.0f/100 | %s |\n", scoreToStars(reverseScore(steps, latest, score)), reverseScore(steps, latest, score), reverseComment(steps, latest, score)))
-	b.WriteString(fmt.Sprintf("| **投资检查清单** | %s | %.1f/10 | %s |\n", scoreToStars(buffettScore(steps, latest, score)*10), buffettScore(steps, latest, score), buffettComment(steps, latest, score)))
+	b.WriteString(fmt.Sprintf("| **投资检查清单** | %s | %.0f/100 | %s |\n", scoreToStars(buffettScore(steps, latest, score)*10), buffettScore(steps, latest, score)*10, buffettComment(steps, latest, score)))
 	if score != nil {
 		weighted := score.RawScore*0.30 + profitScore(steps, latest)*0.25 + cashScore(steps, latest)*0.20 + growthScore(steps, latest)*0.15 + debtScore(steps, latest)*0.10
 		b.WriteString(fmt.Sprintf("| **综合建议** | **%s** | **%.0f/100** | %s |\n", investmentGrade(weighted), weighted, strategyAdvice(weighted)))
@@ -255,28 +255,40 @@ func writeModule4(b *strings.Builder, steps []StepResult, latest string, comp *C
 		ActivityScore: activityScore,
 	}
 
+	// 样本不足（<3 家）时均值/最高/最低/百分位没有统计意义：给出提示并省略百分位
+	smallSample := len(comp.Metrics) < 3
+	if smallSample {
+		b.WriteString(fmt.Sprintf("> ⚠️ 可比公司样本不足（仅 %d 家，建议配置 3~5 家），以下均值/最高/最低仅供参考，排名百分位已省略。\n\n", len(comp.Metrics)))
+	}
+	pctStr := func(metric string) string {
+		if smallSample {
+			return "—"
+		}
+		return fmt.Sprintf("%.0f%%", RankPercentile(comp.Metrics, target, metric))
+	}
+
 	b.WriteString(fmt.Sprintf("## 4.1 可比公司关键指标对比（%s）", latest) + traceTrigger(3, 9, 10, 15, 16) + "\n\n")
 	b.WriteString("| 指标 | 当前公司 | 可比均值 | 最高 | 最低 | 排名百分位 |\n")
 	b.WriteString("|------|----------|----------|------|------|------------|\n")
-	b.WriteString(fmt.Sprintf("| **ROE** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.0f%% |\n",
-		target.ROE, comp.Average.ROE, comp.Max.ROE, comp.Min.ROE, RankPercentile(comp.Metrics, target, "roe")))
-	b.WriteString(fmt.Sprintf("| **毛利率** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.0f%% |\n",
-		target.GrossMargin, comp.Average.GrossMargin, comp.Max.GrossMargin, comp.Min.GrossMargin, RankPercentile(comp.Metrics, target, "grossMargin")))
-	b.WriteString(fmt.Sprintf("| **营收增长率** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.0f%% |\n",
-		target.RevenueGrowth, comp.Average.RevenueGrowth, comp.Max.RevenueGrowth, comp.Min.RevenueGrowth, RankPercentile(comp.Metrics, target, "revenueGrowth")))
-	b.WriteString(fmt.Sprintf("| **资产负债率** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.0f%% |\n",
-		target.DebtRatio, comp.Average.DebtRatio, comp.Max.DebtRatio, comp.Min.DebtRatio, RankPercentile(comp.Metrics, target, "debtRatio")))
-	b.WriteString(fmt.Sprintf("| **净利润现金含量** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %.0f%% |\n",
-		target.CashRatio, comp.Average.CashRatio, comp.Max.CashRatio, comp.Min.CashRatio, RankPercentile(comp.Metrics, target, "cashRatio")))
-	b.WriteString(fmt.Sprintf("| **A-Score** | %.1f | %.1f | %.1f | %.1f | %.0f%% |\n",
-		target.AScore, comp.Average.AScore, comp.Max.AScore, comp.Min.AScore, RankPercentile(comp.Metrics, target, "aScore")))
+	b.WriteString(fmt.Sprintf("| **ROE** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %s |\n",
+		target.ROE, comp.Average.ROE, comp.Max.ROE, comp.Min.ROE, pctStr("roe")))
+	b.WriteString(fmt.Sprintf("| **毛利率** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %s |\n",
+		target.GrossMargin, comp.Average.GrossMargin, comp.Max.GrossMargin, comp.Min.GrossMargin, pctStr("grossMargin")))
+	b.WriteString(fmt.Sprintf("| **营收增长率** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %s |\n",
+		target.RevenueGrowth, comp.Average.RevenueGrowth, comp.Max.RevenueGrowth, comp.Min.RevenueGrowth, pctStr("revenueGrowth")))
+	b.WriteString(fmt.Sprintf("| **资产负债率** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %s |\n",
+		target.DebtRatio, comp.Average.DebtRatio, comp.Max.DebtRatio, comp.Min.DebtRatio, pctStr("debtRatio")))
+	b.WriteString(fmt.Sprintf("| **净利润现金含量** | %.2f%% | %.2f%% | %.2f%% | %.2f%% | %s |\n",
+		target.CashRatio, comp.Average.CashRatio, comp.Max.CashRatio, comp.Min.CashRatio, pctStr("cashRatio")))
+	b.WriteString(fmt.Sprintf("| **A-Score** | %.1f | %.1f | %.1f | %.1f | %s |\n",
+		target.AScore, comp.Average.AScore, comp.Max.AScore, comp.Min.AScore, pctStr("aScore")))
 	if target.ActivityScore >= 0 || comp.Average.ActivityScore >= 0 {
 		avgAct := comp.Average.ActivityScore
 		if avgAct < 0 {
 			avgAct = 0
 		}
-		b.WriteString(fmt.Sprintf("| **活跃度** | %.0f | %.0f | %.0f | %.0f | %.0f%% |\n",
-			math.Max(0, target.ActivityScore), avgAct, math.Max(0, comp.Max.ActivityScore), math.Max(0, comp.Min.ActivityScore), RankPercentile(comp.Metrics, target, "activityScore")))
+		b.WriteString(fmt.Sprintf("| **活跃度** | %.0f | %.0f | %.0f | %.0f | %s |\n",
+			math.Max(0, target.ActivityScore), avgAct, math.Max(0, comp.Max.ActivityScore), math.Max(0, comp.Min.ActivityScore), pctStr("activityScore")))
 	}
 	b.WriteString("\n")
 
@@ -381,8 +393,12 @@ func writeModule4(b *strings.Builder, steps []StepResult, latest string, comp *C
 	b.WriteString("> **解读**: 排名百分位表示当前公司在可比公司中的相对位置（越高越好，负债率与 A-Score 为反向指标）。活跃度带 `*` 表示使用样本中位数替代（该可比公司暂无本地缓存数据）。综合得分基于 ROE(25%)、毛利率(20%)、营收增长(15%)、现金含量(10%)、负债率(10%)、A-Score(10%)、活跃度(10%) 加权计算。\n\n")
 
 	b.WriteString(fmt.Sprintf("> **💡 综合评分排名**（满分100）\n"))
-	b.WriteString(fmt.Sprintf("> 当前公司在 **%d** 家可比公司中排名第 **%d**，综合得分 **%.1f**。\n", total, targetRank, scoredList[targetRank-1].score))
-	b.WriteString(fmt.Sprintf("> %s\n\n", advice))
+	if smallSample {
+		b.WriteString(fmt.Sprintf("> 当前公司综合得分 **%.1f**。可比样本不足（仅 %d 家），排名结论暂不具备参考价值，建议补充可比公司后再看排名。\n\n", scoredList[targetRank-1].score, len(comp.Metrics)))
+	} else {
+		b.WriteString(fmt.Sprintf("> 当前公司在 **%d** 家可比公司中排名第 **%d**，综合得分 **%.1f**。\n", total, targetRank, scoredList[targetRank-1].score))
+		b.WriteString(fmt.Sprintf("> %s\n\n", advice))
+	}
 	// 多年度趋势对比
 	if len(comp.YearlyTrends) >= 2 && len(comp.CommonYears) >= 2 {
 		b.WriteString("## 4.3 多年度趋势对比（当前公司 vs 可比均值）\n\n")
@@ -661,9 +677,13 @@ func writeModule7(b *strings.Builder, quote *QuoteData, technical *TechnicalData
 		b.WriteString("**偏空**: price、开盘、高低点及换手均呈现弱势信号。\n")
 	}
 
+	// 8.4 起的子节按数据可用性动态编号，避免条件缺失导致跳号
+	secNo := 4
+
 	// 新增：基于历史K线的技术指标分析
 	if technical != nil && technical.Score > 0 {
-		b.WriteString("\n## 8.4 历史K线技术指标分析\n\n")
+		b.WriteString(fmt.Sprintf("\n## 8.%d 历史K线技术指标分析\n\n", secNo))
+		secNo++
 		b.WriteString(fmt.Sprintf("| 指标 | 状态 | 说明 |\n"))
 		b.WriteString(fmt.Sprintf("|------|------|------|\n"))
 		b.WriteString(fmt.Sprintf("| 技术评分 | %s | %.0f/100（%s） |\n", scoreToStars(technical.Score), technical.Score, technical.Grade))
@@ -678,14 +698,15 @@ func writeModule7(b *strings.Builder, quote *QuoteData, technical *TechnicalData
 	}
 
 	if activity != nil && activity.Score > 0 && activity.PotentialHint != "" {
-		b.WriteString("\n## 8.5 交易活跃度潜力提示\n\n")
-		b.WriteString(fmt.Sprintf("> **活跃度评级**: %s（%.0f分）\n\n", formatActivityStars(activity.Stars), activity.Score))
+		b.WriteString(fmt.Sprintf("\n## 8.%d 交易活跃度潜力提示\n\n", secNo))
+		secNo++
+		b.WriteString(fmt.Sprintf("> **活跃度评级**: %s（%.0f分）\n\n", scoreToStars(activity.Score), activity.Score))
 		b.WriteString(fmt.Sprintf("> 💡 **提示**: %s\n\n", activity.PotentialHint))
 	}
 
 	// 新增：资金流向分析
 	if moneyflow != nil && moneyflow.HasData && len(moneyflow.Items) > 0 {
-		b.WriteString("\n## 8.6 资金流向分析\n\n")
+		b.WriteString(fmt.Sprintf("\n## 8.%d 资金流向分析\n\n", secNo))
 		b.WriteString(fmt.Sprintf("> **%s**\n\n", moneyflow.Summary))
 		b.WriteString("| 日期 | 主力净流入 | 超大单 | 大单 | 中单 | 小单 |\n")
 		b.WriteString("|------|-----------|--------|------|------|------|\n")
@@ -694,13 +715,13 @@ func writeModule7(b *strings.Builder, quote *QuoteData, technical *TechnicalData
 			if len(dateStr) == 8 {
 				dateStr = dateStr[:4] + "-" + dateStr[4:6] + "-" + dateStr[6:]
 			}
-			b.WriteString(fmt.Sprintf("| %s | %s%.2f亿 | %s%.2f亿 | %s%.2f亿 | %s%.2f亿 | %s%.2f亿 |\n",
+			b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n",
 				dateStr,
-				sign(item.MainInflow), math.Abs(item.MainInflow)/1e4,
-				sign(item.ElgNetAmount), math.Abs(item.ElgNetAmount)/1e4,
-				sign(item.LgNetAmount), math.Abs(item.LgNetAmount)/1e4,
-				sign(item.MdNetAmount), math.Abs(item.MdNetAmount)/1e4,
-				sign(item.SmNetAmount), math.Abs(item.SmNetAmount)/1e4,
+				formatSignedYi(item.MainInflow),
+				formatSignedYi(item.ElgNetAmount),
+				formatSignedYi(item.LgNetAmount),
+				formatSignedYi(item.MdNetAmount),
+				formatSignedYi(item.SmNetAmount),
 			))
 		}
 		b.WriteString("\n")
@@ -716,11 +737,11 @@ func writeModule7(b *strings.Builder, quote *QuoteData, technical *TechnicalData
 			}
 		}
 		if inflowDays > outflowDays {
-			b.WriteString(fmt.Sprintf("- **主力资金整体呈流入态势**：近%d日中%d日净流入，累计主力净流入 %.2f 亿，表明机构资金对该股关注度较高。\n", len(moneyflow.Items), inflowDays, totalMain/1e4))
+			b.WriteString(fmt.Sprintf("- **主力资金整体呈流入态势**：近%d日中%d日净流入，累计主力净流入 %.2f 亿，表明机构资金对该股关注度较高。\n", len(moneyflow.Items), inflowDays, totalMain/1e8))
 		} else if outflowDays > inflowDays {
-			b.WriteString(fmt.Sprintf("- **主力资金整体呈流出态势**：近%d日中%d日净流出，累计主力净流出 %.2f 亿，需警惕机构资金撤离风险。\n", len(moneyflow.Items), outflowDays, -totalMain/1e4))
+			b.WriteString(fmt.Sprintf("- **主力资金整体呈流出态势**：近%d日中%d日净流出，累计主力净流出 %.2f 亿，需警惕机构资金撤离风险。\n", len(moneyflow.Items), outflowDays, -totalMain/1e8))
 		} else {
-			b.WriteString(fmt.Sprintf("- **主力资金分歧较大**：近%d日流入与流出天数持平，累计主力净流入 %.2f 亿，资金博弈激烈。\n", len(moneyflow.Items), totalMain/1e4))
+			b.WriteString(fmt.Sprintf("- **主力资金分歧较大**：近%d日流入与流出天数持平，累计主力净流入 %.2f 亿，资金博弈激烈。\n", len(moneyflow.Items), totalMain/1e8))
 		}
 		// 散户与机构对比
 		var totalSm, totalMd float64
@@ -806,7 +827,7 @@ func writeModule8(b *strings.Builder, steps []StepResult, latest, prev string, m
 		b.WriteString(fmt.Sprintf("| ROE 趋势 | %s | %.1f%% | 基于最近 8 年度财务序列 |\n", mlDirectionCN(fp.ROEDirection), fp.ROEProb*100))
 		b.WriteString(fmt.Sprintf("| 营收趋势 | %s | %.1f%% | 营收增长方向预测 |\n", mlDirectionCN(fp.RevenueDirection), fp.RevenueProb*100))
 		b.WriteString(fmt.Sprintf("| M-Score 趋势 | %s | %.1f%% | 财报质量变化方向 |\n", mlDirectionCN(fp.MScoreDirection), fp.MScoreProb*100))
-		b.WriteString(fmt.Sprintf("| 财务健康分 | %.2f / 10 | — | 综合健康度评分 |\n\n", fp.HealthScore))
+		b.WriteString(fmt.Sprintf("| 财务健康分 | %.2f / 100 | — | 综合健康度评分 |\n\n", fp.HealthScore))
 	} else {
 		b.WriteString("> **数据缺失**: Engine-B 模型暂不可用。可能原因：\n")
 		b.WriteString("> - ONNX 模型文件未加载（需要 `financial_lstm.onnx` + `scaler.pkl`）\n")
@@ -862,6 +883,8 @@ func writeModule8(b *strings.Builder, steps []StepResult, latest, prev string, m
 		} else {
 			b.WriteString("> ✅ **风险评估**: 当前无显著风险信号，财务状况相对健康。\n\n")
 		}
+		// 口径说明：Engine-D 与 A-Score 评估视角不同，避免两处结论看似矛盾
+		b.WriteString("> 📖 **口径说明**: Engine-D 是基于 GradientBoosting 的统计概率模型，输出的是「财务造假/退市」事件的历史先验概率（样本整体偏保守，50% 左右属常见区间）；A-Score（模块7）是基于规则的指标加权评分，衡量当前财报健康度。两者口径不同，结论冲突时建议以 A-Score 为主、Engine-D 概率作为补充参考。\n\n")
 	} else {
 		b.WriteString("> **数据缺失**: Engine-D 模型暂不可用。可能原因：\n")
 		b.WriteString("> - 模型文件未加载（需要 `engine_d_model.pkl`）\n")
@@ -974,12 +997,14 @@ func writeModule9(b *strings.Builder, steps []StepResult, latest, prev string) {
 	passCount := 0
 	for _, c := range conditions {
 		passStr := "❌"
+		earned := 0
 		if c.pass {
 			passStr = "✅"
 			passCount++
+			earned = c.points
 			totalScore += c.points
 		}
-		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %d/%d |\n", c.name, c.std, c.value, passStr, totalScore, c.max))
+		b.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %d/%d |\n", c.name, c.std, c.value, passStr, earned, c.max))
 	}
 	b.WriteString(fmt.Sprintf("| **总分** | - | - | **%d/%d项** | **%d/100** |\n", passCount, len(conditions), totalScore))
 	b.WriteString("\n")
@@ -1063,7 +1088,7 @@ func writeModule10(b *strings.Builder, steps []StepResult, latest string, score 
 }
 
 // ========== 模块12: 投资检查清单 ==========
-func writeModule11(b *strings.Builder, steps []StepResult, latest string, score *YearScore) {
+func writeModule11(b *strings.Builder, steps []StepResult, latest string, score *YearScore, quote *QuoteData) {
 	b.WriteString("# 模块12: 投资检查清单\n\n")
 	b.WriteString("## 12.1 7项核心检查" + traceTrigger(3, 7, 10, 15, 16, 18) + "\n\n")
 
@@ -1075,6 +1100,16 @@ func writeModule11(b *strings.Builder, steps []StepResult, latest string, score 
 	cr := getStepValue(steps, 15, latest, "cashRatio")
 	divRatio := getStepValue(steps, 18, latest, "ratio")
 
+	// 安全边际：有实时行情时基于 PE/PB 评估，与模块1/模块6 口径保持一致
+	safetyItem := "估值有折扣（暂缺股价）"
+	safetyScore := 3.0
+	safetyDesc := "未接入实时股价，无法计算安全边际"
+	if quote != nil && quote.CurrentPrice > 0 && (quote.PE > 0 || quote.PB > 0) {
+		safetyItem = "估值有折扣（PE/PB）"
+		safetyScore = valuationScore(quote) / 20 // 0-100 映射到 0-5
+		safetyDesc = fmt.Sprintf("PE %.1f / PB %.2f，%s", quote.PE, quote.PB, valuationComment(quote))
+	}
+
 	checks := []struct {
 		dim    string
 		weight string
@@ -1084,7 +1119,7 @@ func writeModule11(b *strings.Builder, steps []StepResult, latest string, score 
 	}{
 		{"护城河", "15%", "竞争优势（毛利率/ROE）", mapScore(gm, 40, 20, 5), moatComment(gm, roe)},
 		{"能力圈", "10%", "业务可理解（主业专注度）", mapScore(getStepValue(steps, 7, latest, "ratio"), 10, 30, 5), "投资类资产占比反映主业专注度"},
-		{"安全边际", "20%", "估值有折扣（暂缺股价）", 3, "未接入实时股价，无法计算安全边际"},
+		{"安全边际", "20%", safetyItem, safetyScore, safetyDesc},
 		{"长期价值", "10%", "持续经营能力（分红/现金流）", mapScore(divRatio, 45, 70, 5), func() string {
 			if divRatio == 0 {
 				return "分红数据缺失或未实施现金分红"
@@ -1098,12 +1133,12 @@ func writeModule11(b *strings.Builder, steps []StepResult, latest string, score 
 
 	b.WriteString("| 维度 | 权重 | 检查项 | 评分 | 说明 |\n")
 	b.WriteString("|------|------|--------|------|------|\n")
-	total := 0.0
 	for _, c := range checks {
 		b.WriteString(fmt.Sprintf("| %s | %s | %s | %.1f/5 | %s |\n", c.dim, c.weight, c.item, c.score, c.desc))
-		total += c.score
 	}
-	b.WriteString(fmt.Sprintf("| **总分** | 100%% | - | **%.1f/10** | %s |\n", total/3.5, buffettComment(steps, latest, score)))
+	// 总分统一使用 buffettScore 口径（0-10 映射到 0-100），与模块1.1/模块14 保持一致；
+	// 明细行的 x/5 评分为各维度定性参考，不直接加总
+	b.WriteString(fmt.Sprintf("| **总分** | 100%% | - | **%.0f/100** | %s |\n", buffettScore(steps, latest, score)*10, buffettComment(steps, latest, score)))
 	b.WriteString("\n")
 
 	b.WriteString("## 12.2 关键否决项\n\n")
@@ -1372,7 +1407,11 @@ func writeModuleDiff(b *strings.Builder, diff *AnalysisDiff) {
 	}
 
 	b.WriteString("# 模块1.3: 与上次分析对比\n\n")
-	b.WriteString(fmt.Sprintf("> 上次分析时间：%s | 本次分析时间：%s\n\n", diff.PreviousTime, diff.CurrentTime))
+	prevTime := diff.PreviousTime
+	if prevTime == "" {
+		prevTime = "未知"
+	}
+	b.WriteString(fmt.Sprintf("> 上次分析时间：%s | 本次分析时间：%s\n\n", prevTime, diff.CurrentTime))
 
 	// 评分变化
 	if diff.GradeChanged {

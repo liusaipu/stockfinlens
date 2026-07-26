@@ -51,7 +51,7 @@ func DefaultAIConfig() *AIConfig {
 		LLMModel:          "deepseek-v4-pro",
 		LLMTimeout:        90,
 		Temperature:       0.2,
-		MaxTokens:         4096,
+		MaxTokens:         8192,
 		TopP:              1.0,
 		SearchProvider:    "tavily",
 		SearchDepth:       "advanced",
@@ -94,8 +94,9 @@ func (c *AIConfig) Normalize() {
 	if c.Temperature < 0 || c.Temperature > 2 {
 		c.Temperature = 0.2
 	}
-	if c.MaxTokens <= 0 {
-		c.MaxTokens = 4096
+	// 4096 是旧版默认值，投研报告 JSON 较长容易被截断，自动迁移到 8192
+	if c.MaxTokens <= 0 || c.MaxTokens == 4096 {
+		c.MaxTokens = 8192
 	}
 	if c.TopP <= 0 || c.TopP > 1 {
 		c.TopP = 1.0

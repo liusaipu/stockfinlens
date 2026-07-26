@@ -58,6 +58,8 @@ type ChatCompletionResponse struct {
 			Content          string `json:"content"`
 			ReasoningContent string `json:"reasoning_content"`
 		} `json:"message"`
+		// FinishReason 为 "length" 表示输出达到 max_tokens 上限被截断
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
@@ -221,6 +223,11 @@ parseOK:
 		return "", fmt.Errorf("LLM 返回空 choices")
 	}
 	content := chatResp.Choices[0].Message.Content
+	if chatResp.Choices[0].FinishReason == "length" {
+		// 输出被 max_tokens 截断：解析层会做截断修复尽力保留已生成内容，
+		// 这里打日志提醒用户调大 max_tokens 以获得完整报告。
+		fmt.Printf("[AIResearch] 警告: LLM 输出达到 max_tokens 上限被截断 (finish_reason=length)，将尝试截断修复；建议在设置中增大 max_tokens\n")
+	}
 	if content == "" {
 		reasoning := chatResp.Choices[0].Message.ReasoningContent
 		if reasoning != "" {
