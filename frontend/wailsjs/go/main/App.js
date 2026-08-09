@@ -142,6 +142,14 @@ export function GetFinancialTrends(arg1) {
   return window['go']['main']['App']['GetFinancialTrends'](arg1);
 }
 
+export function GetGroupComparison(arg1) {
+  return window['go']['main']['App']['GetGroupComparison'](arg1);
+}
+
+export function GetGroupHeat() {
+  return window['go']['main']['App']['GetGroupHeat']();
+}
+
 export function GetIndustryDBMeta() {
   return window['go']['main']['App']['GetIndustryDBMeta']();
 }
@@ -246,6 +254,10 @@ export function GetWatchlistFilterData() {
   return window['go']['main']['App']['GetWatchlistFilterData']();
 }
 
+export function GetWatchlistGroups() {
+  return window['go']['main']['App']['GetWatchlistGroups']();
+}
+
 export function HasPythonDepsChecked() {
   return window['go']['main']['App']['HasPythonDepsChecked']();
 }
@@ -338,6 +350,10 @@ export function SaveSFLConfig(arg1) {
   return window['go']['main']['App']['SaveSFLConfig'](arg1);
 }
 
+export function SaveWatchlistGroups(arg1) {
+  return window['go']['main']['App']['SaveWatchlistGroups'](arg1);
+}
+
 export function SearchStocks(arg1) {
   return window['go']['main']['App']['SearchStocks'](arg1);
 }
@@ -356,6 +372,10 @@ export function SetRiskSensitivity(arg1) {
 
 export function SkipVersion(arg1) {
   return window['go']['main']['App']['SkipVersion'](arg1);
+}
+
+export function SuggestWatchlistGroups() {
+  return window['go']['main']['App']['SuggestWatchlistGroups']();
 }
 
 export function TestAIConnection(arg1) {

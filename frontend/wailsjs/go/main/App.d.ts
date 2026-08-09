@@ -76,6 +76,10 @@ export function GetCurrentVersion():Promise<string>;
 
 export function GetFinancialTrends(arg1:string):Promise<main.FinancialTrendsData>;
 
+export function GetGroupComparison(arg1:Array<string>):Promise<Array<main.GroupComparisonRow>>;
+
+export function GetGroupHeat():Promise<Array<main.GroupHeat>>;
+
 export function GetIndustryDBMeta():Promise<Record<string, any>>;
 
 export function GetIndustryMetrics(arg1:string):Promise<analyzer.IndustryMetrics|boolean>;
@@ -128,6 +132,8 @@ export function GetWatchlistActivity():Promise<Array<main.WatchlistActivitySumma
 
 export function GetWatchlistFilterData():Promise<Array<main.WatchlistFilterItem>>;
 
+export function GetWatchlistGroups():Promise<Array<main.StockGroup>>;
+
 export function HasPythonDepsChecked():Promise<boolean>;
 
 export function ImportFinancialReports(arg1:string):Promise<main.ImportResult>;
@@ -174,6 +180,8 @@ export function SaveDefaultPolicyLibrary():Promise<void>;
 
 export function SaveSFLConfig(arg1:main.SFLConfig):Promise<void>;
 
+export function SaveWatchlistGroups(arg1:Array<main.StockGroup>):Promise<void>;
+
 export function SearchStocks(arg1:string):Promise<Array<main.StockInfo>>;
 
 export function SendNotification(arg1:string,arg2:string):Promise<void>;
@@ -183,6 +191,8 @@ export function SetAutoCheckUpdate(arg1:boolean):Promise<void>;
 export function SetRiskSensitivity(arg1:string):Promise<void>;
 
 export function SkipVersion(arg1:string):Promise<void>;
+
+export function SuggestWatchlistGroups():Promise<Array<main.GroupSuggestion>>;
 
 export function TestAIConnection(arg1:ai_researcher.AIConfig):Promise<ai_researcher.TestConnectionResult>;
 

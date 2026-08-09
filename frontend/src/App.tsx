@@ -7,6 +7,7 @@ import { FinancialTrendDrawer } from './FinancialTrendDrawer'
 import { AIResearchPanel } from './AIResearchPanel'
 import { MarginDrawer } from './MarginDrawer'
 import { HotPostsDrawer } from './HotPostsDrawer'
+import { GroupCompareDrawer } from './GroupCompareDrawer'
 import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
@@ -195,6 +196,9 @@ import {
   GetWatchlist,
   GetWatchlistActivity,
   GetWatchlistFilterData,
+  GetWatchlistGroups,
+  SaveWatchlistGroups,
+  SuggestWatchlistGroups,
   AddToWatchlist,
   RemoveFromWatchlist,
   ReorderWatchlist,
@@ -255,6 +259,12 @@ type StockQuote = downloader.StockQuote
 type WatchlistFilterItem = main.WatchlistFilterItem
 type RiskRadarItem = analyzer.RiskRadarItem
 // type KlineData = downloader.KlineData
+
+// 分组视图的一个 section：group 为 null 表示「未分组」
+type WatchlistGroupSection = {
+  group: main.StockGroup | null
+  members: WatchlistItem[]
+}
 
 function getStepValue(steps: StepResult[], stepNum: number, year: string, key: string): number {
   const step = steps.find((s) => s.stepNum === stepNum)
@@ -466,6 +476,42 @@ function App() {
     'none' | 'highReturn' | 'lowRisk' | 'hasData' | 'noData' | 'analyzed' | 'unanalyzed'
   >('none')
   const [watchlistIndustryFilter, setWatchlistIndustryFilter] = useState<string>('全部')
+
+  // 自选股分组（viewMode 持久化到 localStorage；无分组时 UI 与现状完全一致）
+  const [watchlistGroups, setWatchlistGroups] = useState<main.StockGroup[]>([])
+  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>(() =>
+    localStorage.getItem('watchlistViewMode') === 'grouped' ? 'grouped' : 'flat'
+  )
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  const [groupSuggestions, setGroupSuggestions] = useState<main.GroupSuggestion[]>([])
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
+  // 组对比抽屉：组头「对比」按钮设置，GroupCompareDrawer 展示组内股票对比表
+  const [compareGroup, setCompareGroup] = useState<{ name: string; codes: string[] } | null>(null)
+  // 组头右键菜单（Wails webview 里 window.prompt/confirm 会被屏蔽，用自定义弹窗）
+  const [groupContextMenu, setGroupContextMenu] = useState<{
+    x: number
+    y: number
+    group: main.StockGroup
+    codes: string[]
+  } | null>(null)
+  const [groupDelete, setGroupDelete] = useState<main.StockGroup | null>(null)
+  const [groupCreate, setGroupCreate] = useState<{ value: string } | null>(null)
+  // 组头就地重命名
+  const [inlineRename, setInlineRename] = useState<{ groupId: string; value: string } | null>(null)
+  const inlineRenameInputRef = useRef<HTMLInputElement | null>(null)
+  // 股票右键菜单（分组视图下：移入/移出分组）
+  const [stockContextMenu, setStockContextMenu] = useState<{
+    x: number
+    y: number
+    code: string
+    sourceGroupId: string | null
+  } | null>(null)
+  const [stockMoveSubmenu, setStockMoveSubmenu] = useState<{
+    code: string
+    currentGroupIds: string[]
+  } | null>(null)
+  const groupCreateInputRef = useRef<HTMLInputElement | null>(null)
+  const stockSubmenuCloseTimer = useRef<number | null>(null)
   const flashTimeoutRef = useRef<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const reportContentRef = useRef<HTMLDivElement>(null)
@@ -475,6 +521,11 @@ function App() {
   const originalOrderRef = useRef<WatchlistItem[]>([])
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  // 分组模式拖拽（与平铺的 index 拖拽相互独立）
+  const [draggingCode, setDraggingCode] = useState<string | null>(null)
+  const [dragOverCode, setDragOverCode] = useState<string | null>(null)
+  const dragGroupRef = useRef<{ code: string; sourceGroupId: string | null } | null>(null)
+  const dragOverGroupRef = useRef<{ groupId: string | null; code: string | null; before: boolean } | null>(null)
   const ghostElRef = useRef<HTMLDivElement | null>(null)
   const reportSearchRef = useRef<HTMLInputElement>(null)
   const reportMatchesRef = useRef<HTMLElement[]>([])
@@ -491,6 +542,39 @@ function App() {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
     toastTimerRef.current = window.setTimeout(() => setToast(null), 3500)
   }, [])
+
+  // 拉取自选股分组 / 建议，失败静默降级为空，不影响现有加载
+  const refreshWatchlistGroups = useCallback(() => {
+    GetWatchlistGroups()
+      .then((groups) => setWatchlistGroups(groups || []))
+      .catch((err) => console.error('[GetWatchlistGroups] error', err))
+    SuggestWatchlistGroups()
+      .then((list) => setGroupSuggestions(list || []))
+      .catch((err) => console.error('[SuggestWatchlistGroups] error', err))
+  }, [])
+
+  // 整组替换保存，成功后重新拉取分组 / 建议 / 热度
+  const persistWatchlistGroups = useCallback(
+    (groups: main.StockGroup[]) => {
+      SaveWatchlistGroups(groups)
+        .then(() => refreshWatchlistGroups())
+        .catch((err) => {
+          console.error('[SaveWatchlistGroups] error', err)
+          showToast('保存分组失败：' + String(err))
+        })
+    },
+    [refreshWatchlistGroups, showToast]
+  )
+
+  // 切换平铺/分组视图并持久化
+  const handleSetViewMode = (mode: 'flat' | 'grouped') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('watchlistViewMode', mode)
+    } catch {
+      // ignore
+    }
+  }
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false)
   const [currentTrace, setCurrentTrace] = useState<analyzer.CalcTrace | null>(null)
   const [traceList, setTraceList] = useState<analyzer.CalcTrace[]>([])
@@ -707,6 +791,8 @@ function App() {
     }).catch((err) => {
       console.error('[GetWatchlistFilterData] error', err)
     })
+    // 加载自选股分组 / 建议（失败静默降级，不影响现有加载）
+    refreshWatchlistGroups()
     // 加载政策库元信息
     loadPolicyLibMeta()
     // 加载行业数据库元信息，并根据设置决定是否自动更新
@@ -920,6 +1006,35 @@ function App() {
     })
     return list
   }, [watchlist, activityMap, activitySort, filterData, watchlistFilter, watchlistIndustryFilter])
+
+  // 分组视图：以 displayWatchlist（已含筛选与排序）为输入做 partition，组内排序自动继承当前排序模式
+  const groupedDisplay = useMemo<WatchlistGroupSection[]>(() => {
+    if (watchlistGroups.length === 0) return []
+    const maxScore = (members: WatchlistItem[]) =>
+      members.reduce((m, item) => Math.max(m, activityMap[item.code]?.score ?? -1), -1)
+    let sections: WatchlistGroupSection[] = watchlistGroups.map((group) => ({
+      group,
+      members: displayWatchlist.filter((item) => group.codes.includes(item.code)),
+    }))
+    // 活跃度排序模式下，组间按「组内最高活跃度」降序；手动模式保持 watchlistGroups 数组顺序
+    if (activitySort !== 'none') {
+      sections = [...sections].sort((a, b) => maxScore(b.members) - maxScore(a.members))
+    }
+    // 筛选导致某组成员为空时隐藏该 section；但用户刚建的「空分组」始终显示，方便拖入股票
+    sections = sections.filter(
+      (s) => s.members.length > 0 || (s.group && s.group.codes.length === 0)
+    )
+    const assigned = new Set<string>()
+    sections.forEach((s) => s.members.forEach((m) => assigned.add(m.code)))
+    const ungrouped = displayWatchlist.filter((item) => !assigned.has(item.code))
+    if (ungrouped.length > 0) {
+      sections.push({ group: null, members: ungrouped })
+    }
+    return sections
+  }, [watchlistGroups, displayWatchlist, activityMap, activitySort])
+
+  // 无分组时强制走平铺视图，保证存量用户零感知
+  const isGroupedView = viewMode === 'grouped' && watchlistGroups.length > 0
 
   // 通过 data-status 属性控制 activity-hint 状态显示（避免直接操作 DOM）
   useEffect(() => {
@@ -1430,6 +1545,12 @@ function App() {
       await RemoveFromWatchlist(code)
       const list = await GetWatchlist()
       setWatchlist(list || [])
+      // 同步从各分组移除该代码（持久化失败仅告警，不回滚 UI）
+      if (watchlistGroups.some((g) => g.codes.includes(code))) {
+        const nextGroups = watchlistGroups.map((g) => ({ ...g, codes: g.codes.filter((c) => c !== code) }))
+        setWatchlistGroups(nextGroups)
+        SaveWatchlistGroups(nextGroups).catch((err) => console.warn('[SaveWatchlistGroups] 移除自选后同步分组失败:', err))
+      }
       // 刷新筛选数据
       GetWatchlistFilterData().then((fd) => {
         const map: Record<string, WatchlistFilterItem> = {}
@@ -1458,6 +1579,389 @@ function App() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // ===== 自选股分组操作 =====
+
+  const openGroupContextMenu = useCallback(
+    (e: React.MouseEvent, group: main.StockGroup, codes: string[]) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setGroupContextMenu({ x: e.clientX, y: e.clientY, group, codes })
+    },
+    []
+  )
+
+  const closeGroupContextMenu = useCallback(() => setGroupContextMenu(null), [])
+
+  const isDuplicateGroupName = useCallback(
+    (name: string, excludeGroupId?: string) =>
+      watchlistGroups.some(
+        (g) => g.id !== excludeGroupId && g.name.trim().toLowerCase() === name.trim().toLowerCase()
+      ),
+    [watchlistGroups]
+  )
+
+  const handleStartInlineRename = useCallback((group: main.StockGroup) => {
+    setInlineRename({ groupId: group.id, value: group.name })
+    setGroupContextMenu(null)
+  }, [])
+
+  const handleConfirmInlineRename = useCallback(() => {
+    if (!inlineRename) return
+    const trimmed = inlineRename.value.trim()
+    if (!trimmed || trimmed === watchlistGroups.find((g) => g.id === inlineRename.groupId)?.name) {
+      setInlineRename(null)
+      return
+    }
+    if (isDuplicateGroupName(trimmed, inlineRename.groupId)) {
+      showToast('已存在同名分组')
+      return
+    }
+    persistWatchlistGroups(
+      watchlistGroups.map((g) => (g.id === inlineRename.groupId ? { ...g, name: trimmed } : g))
+    )
+    setInlineRename(null)
+  }, [inlineRename, watchlistGroups, persistWatchlistGroups, isDuplicateGroupName, showToast])
+
+  const handleCancelInlineRename = useCallback(() => setInlineRename(null), [])
+
+  const handleStartDeleteGroup = useCallback((group: main.StockGroup) => {
+    setGroupDelete(group)
+    setGroupContextMenu(null)
+  }, [])
+
+  const handleConfirmDeleteGroup = useCallback(() => {
+    if (!groupDelete) return
+    persistWatchlistGroups(watchlistGroups.filter((g) => g.id !== groupDelete.id))
+    setGroupDelete(null)
+  }, [groupDelete, watchlistGroups, persistWatchlistGroups])
+
+  // 股票右键菜单：移入/移出分组
+  const openStockContextMenu = useCallback(
+    (e: React.MouseEvent, code: string, sourceGroupId: string | null) => {
+      e.preventDefault()
+      e.stopPropagation()
+      // 避免右键时长按选中文字
+      window.getSelection()?.removeAllRanges()
+      setStockContextMenu({ x: e.clientX, y: e.clientY, code, sourceGroupId })
+    },
+    []
+  )
+
+  const openStockMoveSubmenu = useCallback((code: string) => {
+    if (stockSubmenuCloseTimer.current) {
+      window.clearTimeout(stockSubmenuCloseTimer.current)
+      stockSubmenuCloseTimer.current = null
+    }
+    const currentGroupIds = watchlistGroups.filter((g) => g.codes.includes(code)).map((g) => g.id)
+    setStockMoveSubmenu({ code, currentGroupIds })
+  }, [watchlistGroups])
+
+  const scheduleCloseStockMoveSubmenu = useCallback(() => {
+    if (stockSubmenuCloseTimer.current) window.clearTimeout(stockSubmenuCloseTimer.current)
+    stockSubmenuCloseTimer.current = window.setTimeout(() => {
+      setStockMoveSubmenu(null)
+      stockSubmenuCloseTimer.current = null
+    }, 80)
+  }, [])
+
+  const handleMoveStockToGroup = useCallback(
+    (code: string, targetGroupId: string) => {
+      persistWatchlistGroups(
+        watchlistGroups.map((g) =>
+          g.id === targetGroupId ? { ...g, codes: [...new Set([...g.codes, code])] } : g
+        )
+      )
+      setStockContextMenu(null)
+      setStockMoveSubmenu(null)
+    },
+    [watchlistGroups, persistWatchlistGroups]
+  )
+
+  const handleRemoveStockFromGroup = useCallback(
+    (code: string, sourceGroupId: string) => {
+      persistWatchlistGroups(
+        watchlistGroups.map((g) =>
+          g.id === sourceGroupId ? { ...g, codes: g.codes.filter((c) => c !== code) } : g
+        )
+      )
+      setStockContextMenu(null)
+    },
+    [watchlistGroups, persistWatchlistGroups]
+  )
+
+  // 右键菜单打开后，点击窗口其他区域/滚动/缩放时关闭
+  useEffect(() => {
+    if (!groupContextMenu) return
+    const close = () => setGroupContextMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('resize', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [groupContextMenu])
+
+  useEffect(() => {
+    if (!stockContextMenu) return
+    const close = () => setStockContextMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('resize', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [stockContextMenu])
+
+  // 就地重命名/新建弹出后自动聚焦并全选输入框（只在 groupId 变化时全选，避免每次输入都被覆盖）
+  useEffect(() => {
+    if (inlineRename) {
+      inlineRenameInputRef.current?.focus()
+      inlineRenameInputRef.current?.select()
+    }
+  }, [inlineRename?.groupId])
+
+  useEffect(() => {
+    if (groupCreate) {
+      groupCreateInputRef.current?.focus()
+    }
+  }, [!!groupCreate])
+
+  // 一键采纳建议建组（id 留空由后端生成），成功后自动切到分组视图
+  const handleAdoptSuggestion = (suggestion: main.GroupSuggestion) => {
+    const newGroup: main.StockGroup = {
+      id: '',
+      name: suggestion.conceptName,
+      source: 'concept',
+      conceptName: suggestion.conceptName,
+      codes: suggestion.codes,
+    } as main.StockGroup
+    persistWatchlistGroups([...watchlistGroups, newGroup])
+    handleSetViewMode('grouped')
+  }
+
+  // 手动新建空分组
+  const handleConfirmCreateGroup = useCallback(() => {
+    if (!groupCreate) return
+    const trimmed = groupCreate.value.trim()
+    if (!trimmed) {
+      setGroupCreate(null)
+      return
+    }
+    if (isDuplicateGroupName(trimmed)) {
+      showToast('已存在同名分组')
+      return
+    }
+    const newGroup: main.StockGroup = {
+      id: '',
+      name: trimmed,
+      source: 'manual',
+      conceptName: '',
+      codes: [],
+    } as main.StockGroup
+    persistWatchlistGroups([...watchlistGroups, newGroup])
+    setGroupCreate(null)
+    handleSetViewMode('grouped')
+  }, [groupCreate, watchlistGroups, persistWatchlistGroups, isDuplicateGroupName, showToast])
+
+  // 组内重排：取全局 watchlist 中目标集合成员的子序列重排，再拼回全局 codes
+  // groupId 为 null 时目标集合 = 未分组成员
+  const reorderWithinGroup = (groupId: string | null, dragCode: string, targetCode: string, before: boolean) => {
+    const memberSet = new Set<string>()
+    if (groupId) {
+      const group = watchlistGroups.find((g) => g.id === groupId)
+      if (!group) return
+      group.codes.forEach((c) => memberSet.add(c))
+    } else {
+      const assigned = new Set<string>()
+      watchlistGroups.forEach((g) => g.codes.forEach((c) => assigned.add(c)))
+      watchlist.forEach((item) => {
+        if (!assigned.has(item.code)) memberSet.add(item.code)
+      })
+    }
+    const itemByCode = new Map(watchlist.map((item) => [item.code, item]))
+    const sub = watchlist.filter((item) => memberSet.has(item.code)).map((item) => item.code)
+    const rest = sub.filter((c) => c !== dragCode)
+    const targetIdx = rest.indexOf(targetCode)
+    if (targetIdx < 0) return
+    rest.splice(before ? targetIdx : targetIdx + 1, 0, dragCode)
+    const next: WatchlistItem[] = []
+    let si = 0
+    watchlist.forEach((item) => {
+      if (memberSet.has(item.code)) {
+        next.push(itemByCode.get(rest[si])!)
+        si++
+      } else {
+        next.push(item)
+      }
+    })
+    setWatchlist(next)
+    ReorderWatchlist(next.map((i) => i.code)).catch((err) => console.error('排序保存失败:', err))
+  }
+
+  // 跨组拖拽：加入目标组末尾；目标为「未分组」（null）时从所有组移除
+  const moveCodeToGroup = (code: string, targetGroupId: string | null) => {
+    const next = watchlistGroups.map((g) => {
+      const codes = g.codes.filter((c) => c !== code)
+      if (targetGroupId && g.id === targetGroupId) {
+        return { ...g, codes: [...codes, code] }
+      }
+      return { ...g, codes }
+    })
+    persistWatchlistGroups(next)
+  }
+
+  // 分组模式拖拽：幽灵元素与平铺一致，drop 目标用 elementFromPoint 判定（成员/组头/未分组区）
+  const handleGroupDragStart = (e: React.MouseEvent, code: string, sourceGroupId: string | null) => {
+    if (activitySort !== 'none' || watchlistFilter !== 'none' || watchlistIndustryFilter !== '全部') return
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const li = (e.target as HTMLElement).closest('li') as HTMLElement
+    if (!li) return
+    const rect = li.getBoundingClientRect()
+    const offsetX = e.clientX - rect.left
+    const offsetY = e.clientY - rect.top
+
+    dragGroupRef.current = { code, sourceGroupId }
+    setDraggingCode(code)
+    setDragOverCode(code)
+
+    // 创建幽灵元素（与平铺模式一致）
+    const ghost = li.cloneNode(true) as HTMLDivElement
+    ghost.style.position = 'fixed'
+    ghost.style.left = rect.left + 'px'
+    ghost.style.top = rect.top + 'px'
+    ghost.style.width = rect.width + 'px'
+    ghost.style.height = rect.height + 'px'
+    ghost.style.zIndex = '1000'
+    ghost.style.pointerEvents = 'none'
+    ghost.style.opacity = '0.9'
+    ghost.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
+    ghost.style.transform = 'scale(1.02)'
+    ghost.style.transition = 'none'
+    ghost.classList.add('drag-ghost')
+    document.body.appendChild(ghost)
+    ghostElRef.current = ghost
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (ghostElRef.current) {
+        ghostElRef.current.style.left = (moveEvent.clientX - offsetX) + 'px'
+        ghostElRef.current.style.top = (moveEvent.clientY - offsetY) + 'px'
+      }
+      // 幽灵元素 pointerEvents:none，elementFromPoint 命中的是下方真实元素
+      const el = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY) as HTMLElement | null
+      const sectionEl = el?.closest('.watchlist-group-section') as HTMLElement | null
+      if (!sectionEl) {
+        dragOverGroupRef.current = null
+        setDragOverCode(null)
+        return
+      }
+      const gidAttr = sectionEl.getAttribute('data-group-id')
+      const targetGroupId = gidAttr ? gidAttr : null
+      const targetLi = el?.closest('li[data-code]') as HTMLElement | null
+      if (targetLi && sectionEl.contains(targetLi)) {
+        const r = targetLi.getBoundingClientRect()
+        const before = moveEvent.clientY < r.top + r.height / 2
+        dragOverGroupRef.current = { groupId: targetGroupId, code: targetLi.getAttribute('data-code'), before }
+        setDragOverCode(targetLi.getAttribute('data-code'))
+      } else {
+        // 落在组头或空白处：追加到该组末尾
+        dragOverGroupRef.current = { groupId: targetGroupId, code: null, before: false }
+        setDragOverCode(null)
+      }
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+
+      if (ghostElRef.current) {
+        document.body.removeChild(ghostElRef.current)
+        ghostElRef.current = null
+      }
+
+      const drag = dragGroupRef.current
+      const target = dragOverGroupRef.current
+      if (drag && target) {
+        if (target.code && target.groupId === drag.sourceGroupId && target.code !== drag.code) {
+          reorderWithinGroup(target.groupId, drag.code, target.code, target.before)
+        } else if (target.groupId !== drag.sourceGroupId) {
+          moveCodeToGroup(drag.code, target.groupId)
+        }
+      }
+      setDraggingCode(null)
+      setDragOverCode(null)
+      dragGroupRef.current = null
+      dragOverGroupRef.current = null
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+
+  // 点击列表项选中股票（平铺与分组视图共用）
+  const handleWatchItemSelect = (s: WatchlistItem) => {
+    setSelectedCode(s.code)
+    setHotPanelOpen(false)
+    setSelectedHotConceptCode(null)
+    setProfile(null)
+    setQuote(null)
+    setQuoteError('')
+    // setKlines([])
+    // setKlineError('')
+    setImportResult(null)
+    setDownloadResult(null)
+    setDownloadSuggestion('')
+    setReport(null)
+    setViewingHistory(null)
+    setHistoryContent('')
+    setComparables([])
+    setAppliedComparables([])
+    setCompRecommendations([])
+    setDataHistory([])
+    setDataMissing(false)
+    loadReportHistory(s.code, true)
+    loadDataHistory(s.code)
+    loadProfile(s.code).then((p) => loadRiskRadar(s.code, p?.industry || ''))
+    loadConcepts(s.code)
+    loadMoneyflow(s.code)
+    loadComparables(s.code)
+    loadQuote(s.code)
+    // loadKlines(s.code)
+  }
+
+  // 列表项主体（名称/风险灯/活跃度/移除按钮），平铺与分组视图共用
+  const renderWatchItemBody = (s: WatchlistItem) => {
+    const act = activityMap[s.code]
+    const scoreText = act ? Math.round(act.score).toString() : '-'
+    return (
+      <>
+        <div className="watch-info" title={`${s.name}(${s.code})`}>
+          {s.name}<span className="code-part">({s.code})</span>
+        </div>
+        {snapshots[s.code]?.riskAlert && snapshots[s.code].riskAlert!.level !== 'low' && (
+          <RiskBadge level={snapshots[s.code].riskAlert!.level} size="small" />
+        )}
+        <div className="watch-activity" title={act ? `${act.grade} · ${Math.round(act.score)}分` : ''}>
+          {scoreText}
+        </div>
+        <button
+          className="btn-remove"
+          title="移除"
+          onClick={(e) => handleRemove(s.code, e)}
+          disabled={loading}
+        >
+          ×
+        </button>
+      </>
+    )
   }
 
   const handleImport = async () => {
@@ -2858,6 +3362,37 @@ function App() {
           )
         })()}
 
+        {/* 视图切换 + 新建分组（仅在分组视图下允许新建） */}
+        <div className="watchlist-view-switch-bar">
+          {watchlistGroups.length > 0 ? (
+            <div className="watchlist-view-switch">
+              <button
+                className={viewMode === 'flat' ? 'active' : ''}
+                onClick={() => handleSetViewMode('flat')}
+              >
+                平铺
+              </button>
+              <button
+                className={viewMode === 'grouped' ? 'active' : ''}
+                onClick={() => handleSetViewMode('grouped')}
+              >
+                分组
+              </button>
+            </div>
+          ) : (
+            <div />
+          )}
+          {viewMode === 'grouped' && (
+            <button
+              className="watchlist-new-group-btn"
+              title="新建自定义分组"
+              onClick={() => setGroupCreate({ value: '' })}
+            >
+              + 新建分组
+            </button>
+          )}
+        </div>
+
         <div className="watchlist-header">
           <span className="watch-header-name">股票名称</span>
           <span
@@ -2878,44 +3413,147 @@ function App() {
           </span>
           <span className="watch-header-action" />
         </div>
+
+        {/* 建议分组 banner */}
+        {groupSuggestions.length > 0 && !suggestionsDismissed && (
+          <div className="group-suggest-banner">
+            <span className="group-suggest-label">发现可分组的概念：</span>
+            <div className="group-suggest-chips">
+              {groupSuggestions.map((sg) => (
+                <button
+                  key={sg.conceptName}
+                  className="group-suggest-chip"
+                  title={`按概念「${sg.conceptName}」一键建组`}
+                  onClick={() => handleAdoptSuggestion(sg)}
+                >
+                  {sg.conceptName} ({sg.codes.length}只)
+                </button>
+              ))}
+            </div>
+            <button className="group-suggest-dismiss" onClick={() => setSuggestionsDismissed(true)}>
+              忽略
+            </button>
+          </div>
+        )}
+
+        {isGroupedView ? (
+          <div className="watchlist watchlist-grouped">
+            {groupedDisplay.map((section) => {
+              const group = section.group
+              const collapsed = group ? !!collapsedGroups[group.id] : false
+              return (
+                <section
+                  key={group ? group.id : '__ungrouped__'}
+                  className="watchlist-group-section"
+                  data-group-id={group ? group.id : ''}
+                >
+                  {group ? (
+                    inlineRename?.groupId === group.id ? (
+                      <div
+                        className="watchlist-group-header watchlist-group-header-editing"
+                        onContextMenu={(e) =>
+                          openGroupContextMenu(e, group, section.members.map((m) => m.code))
+                        }
+                      >
+                        <span className={`watchlist-group-arrow ${collapsed ? '' : 'expanded'}`}>{'›'}</span>
+                        <input
+                          ref={inlineRenameInputRef}
+                          className="watchlist-group-rename-input"
+                          value={inlineRename.value}
+                          onChange={(e) =>
+                            setInlineRename({ ...inlineRename, value: e.target.value })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleConfirmInlineRename()
+                            if (e.key === 'Escape') handleCancelInlineRename()
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                          className="watchlist-group-rename-confirm"
+                          title="确认"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleConfirmInlineRename()
+                          }}
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="watchlist-group-header"
+                        onClick={() =>
+                          setCollapsedGroups((prev) => ({ ...prev, [group.id]: !prev[group.id] }))
+                        }
+                        onContextMenu={(e) =>
+                          openGroupContextMenu(e, group, section.members.map((m) => m.code))
+                        }
+                      >
+                        <span className={`watchlist-group-arrow ${collapsed ? '' : 'expanded'}`}>{'›'}</span>
+                        <span className="watchlist-group-name" title={group.name}>{group.name}</span>
+                        <span className="watchlist-group-count">· {section.members.length}</span>
+                      </div>
+                    )
+                  ) : (
+                    <div className="watchlist-group-header watchlist-group-header-static">
+                      <span className="watchlist-group-name">未分组</span>
+                      <span className="watchlist-group-count">· {section.members.length}</span>
+                    </div>
+                  )}
+                  {!collapsed && section.members.length === 0 && group && (
+                    <div className="watchlist-group-empty">空分组，拖动股票到此处</div>
+                  )}
+                  {!collapsed && section.members.length > 0 && (
+                    <ul className="watchlist-group-members">
+                      {section.members.map((s) => (
+                        <li
+                          key={s.code}
+                          data-code={s.code}
+                          className={`${selectedCode === s.code ? 'active' : ''}${flashCode === s.code ? ' flash-match' : ''}${draggingCode === s.code ? ' drag-placeholder' : ''}${draggingCode !== null && dragOverCode === s.code ? ' drag-indicator-active' : ''}`}
+                          onClick={() => handleWatchItemSelect(s)}
+                          onContextMenu={(e) => openStockContextMenu(e, s.code, group ? group.id : null)}
+                        >
+                          <span
+                            className="watch-drag-handle"
+                            title={activitySort === 'none' && watchlistFilter === 'none' && watchlistIndustryFilter === '全部' ? '拖动排序 / 拖到其他组' : '排序中禁用拖动'}
+                            onMouseDown={(e) => handleGroupDragStart(e, s.code, group ? group.id : null)}
+                          >☰</span>
+                          {renderWatchItemBody(s)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )
+            })}
+            {groupedDisplay.length === 0 && (
+              <div className="watchlist-empty" style={{ padding: '24px 12px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                {watchlist.length === 0 ? (
+                  <>
+                    <div style={{ marginBottom: '8px', fontSize: '16px' }}>🔍</div>
+                    <div>自选列表为空</div>
+                    <div style={{ marginTop: '4px', fontSize: '12px', opacity: 0.8 }}>在上方搜索框输入代码或名称添加股票</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: '8px', fontSize: '16px' }}>🍃</div>
+                    <div>没有符合条件的股票</div>
+                    <div style={{ marginTop: '4px', fontSize: '12px', opacity: 0.8 }}>尝试调整筛选条件</div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
         <ul className="watchlist" ref={watchlistRef}>
           {displayWatchlist.map((s, idx) => {
-            const act = activityMap[s.code]
-            const scoreText = act ? Math.round(act.score).toString() : '-'
             return (
               <li
                 key={s.code}
                 data-code={s.code}
                 className={`${selectedCode === s.code ? 'active' : ''}${flashCode === s.code ? ' flash-match' : ''}${draggingIndex === idx ? ' drag-placeholder' : ''}${draggingIndex !== null && dragOverIndex === idx ? ' drag-indicator-active' : ''}`}
-                onClick={() => {
-                  setSelectedCode(s.code)
-                  setHotPanelOpen(false)
-                  setSelectedHotConceptCode(null)
-                  setProfile(null)
-                  setQuote(null)
-                  setQuoteError('')
-                  // setKlines([])
-                  // setKlineError('')
-                  setImportResult(null)
-                  setDownloadResult(null)
-                  setDownloadSuggestion('')
-                  setReport(null)
-                  setViewingHistory(null)
-                  setHistoryContent('')
-                  setComparables([])
-                  setAppliedComparables([])
-                  setCompRecommendations([])
-                  setDataHistory([])
-                  setDataMissing(false)
-                  loadReportHistory(s.code, true)
-                  loadDataHistory(s.code)
-                  loadProfile(s.code).then((p) => loadRiskRadar(s.code, p?.industry || ''))
-                  loadConcepts(s.code)
-                  loadMoneyflow(s.code)
-                  loadComparables(s.code)
-                  loadQuote(s.code)
-                  // loadKlines(s.code)
-                }}
+                onClick={() => handleWatchItemSelect(s)}
               >
                 <span
                   className="watch-drag-handle"
@@ -3021,23 +3659,7 @@ function App() {
                     window.addEventListener('mouseup', onMouseUp)
                   }}
                 >☰</span>
-                <div className="watch-info" title={`${s.name}(${s.code})`}>
-                  {s.name}<span className="code-part">({s.code})</span>
-                </div>
-                {snapshots[s.code]?.riskAlert && snapshots[s.code].riskAlert!.level !== 'low' && (
-                  <RiskBadge level={snapshots[s.code].riskAlert!.level} size="small" />
-                )}
-                <div className="watch-activity" title={act ? `${act.grade} · ${Math.round(act.score)}分` : ''}>
-                  {scoreText}
-                </div>
-                <button
-                  className="btn-remove"
-                  title="移除"
-                  onClick={(e) => handleRemove(s.code, e)}
-                  disabled={loading}
-                >
-                  ×
-                </button>
+                {renderWatchItemBody(s)}
               </li>
             )
           })}
@@ -3059,6 +3681,7 @@ function App() {
             </li>
           )}
         </ul>
+        )}
 
         <div className="watchlist-footer">
           {(watchlistFilter !== 'none' || watchlistIndustryFilter !== '全部')
@@ -4684,20 +5307,6 @@ function App() {
           </div>
         </div>
         <div className="report-body">
-        {activeReportTab === 'report' && displayContent && (
-          <nav className="toc-nav">
-            {tocSections.map((s) => (
-              <button
-                key={s.id}
-                className="toc-nav-item"
-                onClick={() => handleTocJump(s.id)}
-                title={s.label}
-              >
-                {s.label}
-              </button>
-            ))}
-          </nav>
-        )}
         <div className="report-content" ref={reportContentRef}>
           {activeReportTab === 'ai' && selectedStock ? (
             <AIResearchPanel
@@ -4982,6 +5591,19 @@ function App() {
         />
       )}
 
+      {/* 组内股票对比抽屉 */}
+      {compareGroup && (
+        <GroupCompareDrawer
+          groupName={compareGroup.name}
+          codes={compareGroup.codes}
+          onClose={() => setCompareGroup(null)}
+          onSelectStock={(code) => {
+            const item = watchlist.find((s) => s.code === code)
+            if (item) handleWatchItemSelect(item)
+          }}
+        />
+      )}
+
 
 
 
@@ -5008,6 +5630,135 @@ function App() {
         info={updateInfo}
         onClose={() => setShowUpdateModal(false)}
       />
+
+      {/* 组头右键菜单 */}
+      {groupContextMenu && (
+        <ul
+          className="group-context-menu"
+          style={{ left: groupContextMenu.x, top: groupContextMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <li
+            onClick={() => {
+              setCompareGroup({ name: groupContextMenu.group.name, codes: groupContextMenu.codes })
+              closeGroupContextMenu()
+            }}
+          >
+            对比
+          </li>
+          <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>改名</li>
+          <li
+            className="group-context-menu-danger"
+            onClick={() => handleStartDeleteGroup(groupContextMenu.group)}
+          >
+            删除
+          </li>
+        </ul>
+      )}
+
+      {/* 分组删除确认弹窗 */}
+      {groupDelete && (
+        <div className="group-modal-overlay" onClick={() => setGroupDelete(null)}>
+          <div className="group-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="group-modal-title">删除分组</div>
+            <div className="group-modal-body">
+              确定删除分组「{groupDelete.name}」吗？组内自选股不会被移除。
+            </div>
+            <div className="group-modal-actions">
+              <button className="group-modal-btn" onClick={() => setGroupDelete(null)}>
+                取消
+              </button>
+              <button className="group-modal-btn danger" onClick={handleConfirmDeleteGroup}>
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 新建分组弹窗 */}
+      {groupCreate && (
+        <div className="group-modal-overlay" onClick={() => setGroupCreate(null)}>
+          <div className="group-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="group-modal-title">新建分组</div>
+            <input
+              ref={groupCreateInputRef}
+              className="group-modal-input"
+              value={groupCreate.value}
+              placeholder="请输入分组名称"
+              onChange={(e) => setGroupCreate({ value: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmCreateGroup()
+                if (e.key === 'Escape') setGroupCreate(null)
+              }}
+            />
+            <div className="group-modal-actions">
+              <button className="group-modal-btn" onClick={() => setGroupCreate(null)}>
+                取消
+              </button>
+              <button className="group-modal-btn primary" onClick={handleConfirmCreateGroup}>
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 股票右键菜单 */}
+      {stockContextMenu && (
+        <div
+          className="stock-context-menu-wrapper"
+          style={{ left: stockContextMenu.x, top: stockContextMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <ul className="stock-context-menu">
+            <li
+              className={stockMoveSubmenu ? 'active' : ''}
+              onMouseEnter={() => openStockMoveSubmenu(stockContextMenu.code)}
+              onMouseLeave={scheduleCloseStockMoveSubmenu}
+            >
+              <span>移入分组</span>
+              {stockMoveSubmenu && (
+                <span className="stock-submenu-arrow">›</span>
+              )}
+            </li>
+            {stockContextMenu.sourceGroupId && (
+              <li
+                onMouseEnter={() => setStockMoveSubmenu(null)}
+                onClick={() =>
+                  handleRemoveStockFromGroup(stockContextMenu.code, stockContextMenu.sourceGroupId!)
+                }
+              >
+                移出分组
+              </li>
+            )}
+          </ul>
+          {stockMoveSubmenu && stockMoveSubmenu.code === stockContextMenu.code && (
+            <ul
+              className="stock-context-submenu"
+              onMouseEnter={() => openStockMoveSubmenu(stockContextMenu.code)}
+              onMouseLeave={scheduleCloseStockMoveSubmenu}
+            >
+              {(() => {
+                const candidates = watchlistGroups.filter(
+                  (g) => !stockMoveSubmenu.currentGroupIds.includes(g.id)
+                )
+                if (candidates.length === 0) {
+                  return <li className="stock-context-submenu-empty">无其他分组</li>
+                }
+                return candidates.map((g) => (
+                  <li
+                    key={g.id}
+                    onClick={() => handleMoveStockToGroup(stockContextMenu.code, g.id)}
+                  >
+                    {g.name}
+                  </li>
+                ))
+              })()}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* 全局 toast 提示 */}
       {toast && (

@@ -3,6 +3,7 @@
 
 export * from './errors'
 export * from './watchlist'
+export * from './groups'
 export * from './analysis'
 export * from './data'
 export * from './quotes'

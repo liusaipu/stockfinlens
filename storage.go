@@ -1340,3 +1340,37 @@ func (s *Storage) SaveMarginHistory(symbol string, list []downloader.MarginData)
 	}
 	return os.WriteFile(path, data, 0644)
 }
+
+// ========== 自选分组存储 ==========
+
+// WatchlistGroupsPath 返回自选分组文件路径
+func (s *Storage) WatchlistGroupsPath() string {
+	return filepath.Join(s.dataDir, "watchlist_groups.json")
+}
+
+// LoadWatchlistGroups 加载自选分组，文件不存在时返回空切片
+func (s *Storage) LoadWatchlistGroups() ([]StockGroup, error) {
+	path := s.WatchlistGroupsPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []StockGroup{}, nil
+		}
+		return nil, err
+	}
+	var groups []StockGroup
+	if err := json.Unmarshal(data, &groups); err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// SaveWatchlistGroups 保存自选分组（整组替换）
+func (s *Storage) SaveWatchlistGroups(groups []StockGroup) error {
+	path := s.WatchlistGroupsPath()
+	data, err := json.MarshalIndent(groups, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
+}

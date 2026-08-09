@@ -1554,6 +1554,86 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class GroupComparisonRow {
+	    code: string;
+	    name: string;
+	    analyzed: boolean;
+	    yearScore: number;
+	    grade: string;
+	    aScore: number;
+	    inMarketCache: boolean;
+	    revenueGrowth: number;
+	    netProfitGrowth: number;
+	    roe: number;
+	    grossMargin: number;
+	    activityScore: number;
+	    stars: number;
+	    changePercent: number;
+	    thsHotRank: number;
+	    thsHotValue: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GroupComparisonRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.name = source["name"];
+	        this.analyzed = source["analyzed"];
+	        this.yearScore = source["yearScore"];
+	        this.grade = source["grade"];
+	        this.aScore = source["aScore"];
+	        this.inMarketCache = source["inMarketCache"];
+	        this.revenueGrowth = source["revenueGrowth"];
+	        this.netProfitGrowth = source["netProfitGrowth"];
+	        this.roe = source["roe"];
+	        this.grossMargin = source["grossMargin"];
+	        this.activityScore = source["activityScore"];
+	        this.stars = source["stars"];
+	        this.changePercent = source["changePercent"];
+	        this.thsHotRank = source["thsHotRank"];
+	        this.thsHotValue = source["thsHotValue"];
+	    }
+	}
+	export class GroupHeat {
+	    groupId: string;
+	    conceptName: string;
+	    onBoard: boolean;
+	    score: number;
+	    changePercent: number;
+	    mainInflow: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GroupHeat(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.groupId = source["groupId"];
+	        this.conceptName = source["conceptName"];
+	        this.onBoard = source["onBoard"];
+	        this.score = source["score"];
+	        this.changePercent = source["changePercent"];
+	        this.mainInflow = source["mainInflow"];
+	    }
+	}
+	export class GroupSuggestion {
+	    conceptName: string;
+	    codes: string[];
+	    score: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GroupSuggestion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.conceptName = source["conceptName"];
+	        this.codes = source["codes"];
+	        this.score = source["score"];
+	    }
+	}
 	export class HistoryMeta {
 	    timestamp: string;
 	    source: string;
@@ -1793,6 +1873,26 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.timestamp = source["timestamp"];
 	        this.date_time = source["date_time"];
+	    }
+	}
+	export class StockGroup {
+	    id: string;
+	    name: string;
+	    source: string;
+	    conceptName?: string;
+	    codes: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new StockGroup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.source = source["source"];
+	        this.conceptName = source["conceptName"];
+	        this.codes = source["codes"];
 	    }
 	}
 	export class StockInfo {

@@ -1,0 +1,230 @@
+/* 组内股票对比抽屉 */
+.gcd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gcd-drawer {
+  width: min(1000px, 94vw);
+  height: 100%;
+  background: #0f1419;
+  border-left: 1px solid rgba(148, 163, 184, 0.15);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: gcd-slide-in 0.18s ease-out;
+}
+
+@keyframes gcd-slide-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.gcd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.gcd-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.gcd-subtitle {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+.gcd-close {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted, #94a3b8);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.gcd-close:hover {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-primary, #e2e8f0);
+}
+
+.gcd-body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.gcd-state {
+  padding: 32px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted, #94a3b8);
+}
+
+.gcd-state-error {
+  color: #ef4444;
+}
+
+.gcd-table-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.gcd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.gcd-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #141b24;
+  padding: 8px 10px;
+  text-align: right;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.gcd-table th.gcd-th-stock {
+  text-align: left;
+  left: 0;
+  z-index: 2;
+}
+
+.gcd-table td {
+  padding: 7px 10px;
+  text-align: right;
+  color: var(--text-primary, #e2e8f0);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.gcd-table td.gcd-td-stock {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: #0f1419;
+}
+
+.gcd-stock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gcd-stock-name {
+  font-size: 12px;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.gcd-stock-btn:hover .gcd-stock-name {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.gcd-stock-code {
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* 极值高亮：柔和底色，避免与涨跌红绿数字混淆 */
+.gcd-table td.cell-best {
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.gcd-table td.cell-worst {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.gcd-grade {
+  margin-left: 5px;
+  font-size: 10px;
+  color: #a855f7;
+}
+
+.gcd-hot-value {
+  margin-left: 5px;
+  font-size: 10px;
+  color: var(--text-muted, #94a3b8);
+}
+
+.gcd-na {
+  color: var(--text-muted, #94a3b8);
+}
+
+/* A 股配色：红涨绿跌（与 .sq-change 一致） */
+.gcd-up {
+  color: #ef4444;
+}
+
+.gcd-down {
+  color: #22c55e;
+}
+
+.gcd-footer {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+/* 浅色主题 */
+body.light .gcd-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+body.light .gcd-drawer {
+  background: #ffffff;
+  border-left-color: rgba(148, 163, 184, 0.25);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.15);
+}
+
+body.light .gcd-table th {
+  background: #f8fafc;
+}
+
+body.light .gcd-table td.gcd-td-stock {
+  background: #ffffff;
+}
+
+body.light .gcd-table td.cell-best {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+body.light .gcd-table td.cell-worst {
+  background: rgba(239, 68, 68, 0.12);
+}

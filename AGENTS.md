@@ -14,7 +14,7 @@
 ## 项目核心约束
 
 - **模块名**: `github.com/liusaipu/stockfinlens`
-- **当前版本**: `1.8.13`（唯一来源：`wails.json` → `info.productVersion`）
+- **当前版本**: `1.8.16`（唯一来源：`wails.json` → `info.productVersion`）
 - **本地数据目录**: `~/.config/stock-analyzer/`
 - **股票代码格式**: A 股上海 `603501.SH`、深圳 `000001.SZ`、港股 `00700.HK`
 - **注释语言**: 中文

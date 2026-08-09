@@ -987,64 +987,11 @@ body.light .toc-select {
   overflow-y: auto;
 }
 
-/* 报告区主体：左侧章节导航 + 右侧内容 */
+/* 报告区主体 */
 .report-body {
   flex: 1;
   display: flex;
   min-height: 0;
-}
-
-.toc-nav {
-  width: 180px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  padding: 12px 8px;
-  border-right: 1px solid #1f2933;
-  background: #0f1419;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-body.light .toc-nav {
-  border-right-color: #e5e7eb;
-  background: #ffffff;
-}
-
-.toc-nav-item {
-  padding: 6px 8px;
-  font-size: 12px;
-  text-align: left;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: #94a3b8;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: all 0.15s ease;
-}
-
-.toc-nav-item:hover {
-  background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
-}
-
-body.light .toc-nav-item {
-  color: #64748b;
-}
-
-body.light .toc-nav-item:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
-}
-
-/* 窗口较窄时隐藏章节导航 */
-@media (max-width: 1100px) {
-  .toc-nav {
-    display: none;
-  }
 }
 
 /* 返回顶部按钮（sticky 悬浮在报告容器右下角） */
@@ -3319,3 +3266,528 @@ body.light .risk-alert-body {
 }
 
 
+
+/* ===== 自选股分组视图 ===== */
+.watchlist-view-switch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #1a2330;
+}
+
+body.light .watchlist-view-switch-bar {
+  border-bottom-color: #f3f4f6;
+}
+
+.watchlist-view-switch {
+  display: flex;
+  gap: 4px;
+}
+
+.watchlist-view-switch button {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.watchlist-view-switch button.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.watchlist-new-group-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: transparent;
+  color: #3b82f6;
+  cursor: pointer;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.watchlist-new-group-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+body.light .watchlist-new-group-btn {
+  border-color: rgba(37, 99, 235, 0.4);
+  color: #2563eb;
+}
+
+body.light .watchlist-new-group-btn:hover {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+/* 建议分组 banner */
+.group-suggest-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: #94a3b8;
+  border-bottom: 1px solid #1a2330;
+  background: rgba(59, 130, 246, 0.06);
+}
+
+body.light .group-suggest-banner {
+  color: #6b7280;
+  border-bottom-color: #f3f4f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.group-suggest-label {
+  flex-shrink: 0;
+}
+
+.group-suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.group-suggest-chip {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  background: transparent;
+  color: #3b82f6;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.group-suggest-chip:hover {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.group-suggest-dismiss {
+  margin-left: auto;
+  font-size: 11px;
+  color: #64748b;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.group-suggest-dismiss:hover {
+  color: #ef4444;
+}
+
+/* 分组 section */
+.watchlist-grouped {
+  padding: 0;
+}
+
+.watchlist-group-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.watchlist-group-empty {
+  padding: 10px 12px 12px 30px;
+  font-size: 11px;
+  color: #64748b;
+  user-select: none;
+}
+
+body.light .watchlist-group-empty {
+  color: #9ca3af;
+}
+
+.watchlist-group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.06);
+  border-bottom: 1px solid #1a2330;
+  cursor: pointer;
+  user-select: none;
+}
+
+body.light .watchlist-group-header {
+  color: #374151;
+  background: rgba(148, 163, 184, 0.1);
+  border-bottom-color: #f3f4f6;
+}
+
+.watchlist-group-header-static {
+  cursor: default;
+  color: #94a3b8;
+}
+
+.watchlist-group-header-editing {
+  cursor: default;
+  gap: 6px;
+}
+
+.watchlist-group-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid #3b82f6;
+  background: #0f172a;
+  color: #e2e8f0;
+  outline: none;
+}
+
+.watchlist-group-rename-confirm {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  background: transparent;
+  color: #22c55e;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.watchlist-group-rename-confirm:hover {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+body.light .watchlist-group-rename-input {
+  background: #ffffff;
+  border-color: #2563eb;
+  color: #1f2937;
+}
+
+body.light .watchlist-group-rename-confirm {
+  border-color: rgba(34, 197, 94, 0.6);
+  color: #16a34a;
+}
+
+body.light .watchlist-group-rename-confirm:hover {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.watchlist-group-arrow {
+  flex-shrink: 0;
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.watchlist-group-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.watchlist-group-name {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchlist-group-count {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+/* 组头右键菜单 */
+.group-context-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 88px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #1e293b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.group-context-menu li {
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.group-context-menu li:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.group-context-menu .group-context-menu-danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+body.light .group-context-menu {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #1f2937;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+body.light .group-context-menu li:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+body.light .group-context-menu .group-context-menu-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* 股票右键菜单（分组视图下：移入/移出分组） */
+.stock-context-menu-wrapper {
+  position: fixed;
+  z-index: 2000;
+  display: inline-block;
+}
+
+.stock-context-menu {
+  min-width: 100px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #1e293b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.stock-context-menu li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.stock-context-menu li:hover,
+.stock-context-menu li.active {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.stock-submenu-arrow {
+  font-size: 14px;
+  line-height: 1;
+  color: #94a3b8;
+}
+
+.stock-context-submenu {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 0;
+  min-width: 120px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #1e293b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.stock-context-submenu li {
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.stock-context-submenu li:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.stock-context-submenu-empty,
+.stock-context-submenu .stock-context-submenu-empty {
+  padding: 7px 14px;
+  color: #64748b;
+  cursor: default;
+  user-select: none;
+}
+
+body.light .stock-context-menu,
+body.light .stock-context-submenu {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #1f2937;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+body.light .stock-context-menu li:hover,
+body.light .stock-context-menu li.active,
+body.light .stock-context-submenu li:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+body.light .stock-context-submenu-empty {
+  color: #9ca3af;
+}
+
+/* 分组列表项禁止右键选中文字 */
+.watchlist-group-members li,
+.watchlist-group-header,
+.watchlist-group-empty {
+  user-select: none;
+}
+
+/* 分组重命名/删除弹窗 */
+.group-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.group-modal {
+  width: 320px;
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #1e293b;
+  color: #e2e8f0;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+.group-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.group-modal-body {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  color: #cbd5e1;
+}
+
+.group-modal-input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 16px;
+  border-radius: 5px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.group-modal-input:focus {
+  border-color: #3b82f6;
+}
+
+.group-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.group-modal-btn {
+  padding: 6px 14px;
+  border-radius: 5px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.group-modal-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.group-modal-btn.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.group-modal-btn.primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.group-modal-btn.danger:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+body.light .group-modal {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #1f2937;
+}
+
+body.light .group-modal-body {
+  color: #4b5563;
+}
+
+body.light .group-modal-input {
+  background: #f9fafb;
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #1f2937;
+}
+
+body.light .group-modal-btn {
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #4b5563;
+}
+
+body.light .group-modal-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+body.light .group-modal-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+body.light .group-modal-btn.primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+body.light .group-modal-btn.danger:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
