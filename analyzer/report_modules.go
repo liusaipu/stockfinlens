@@ -300,7 +300,7 @@ func writeModule4(b *strings.Builder, steps []StepResult, latest string, comp *C
 	}
 
 	// 计算缺失活跃度的中位数替代值
-	medianActivity := medianActivityScore(all)
+	medianActivity := MedianActivityScore(all)
 
 	// 按综合得分排序
 	type scored struct {
@@ -312,7 +312,7 @@ func writeModule4(b *strings.Builder, steps []StepResult, latest string, comp *C
 	for _, m := range all {
 		scoredList = append(scoredList, scored{
 			ComparableMetrics: m,
-			score:             calcComparableScore(m, all, medianActivity),
+			score:             CalcComparableScore(m, all, medianActivity),
 		})
 	}
 	// 降序

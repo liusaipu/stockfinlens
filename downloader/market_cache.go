@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -116,12 +117,21 @@ func (m *MarketCacheManager) Load() error {
 }
 
 // Save 将缓存写入磁盘（原子写入，防止写坏）
+// 编码前先深拷贝 Items，避免并发写 map 与 json 遍历 map 触发 "concurrent map iteration and map write" panic。
 func (m *MarketCacheManager) Save() error {
 	m.mu.RLock()
-	cache := *m.cache
+	cache := MarketCache{
+		Version:   m.cache.Version,
+		CreatedAt: m.cache.CreatedAt,
+		UpdatedAt: m.cache.UpdatedAt,
+		Count:     len(m.cache.Items),
+		Items:     make(map[string]MarketCacheItem, len(m.cache.Items)),
+	}
+	for k, v := range m.cache.Items {
+		cache.Items[k] = v
+	}
 	m.mu.RUnlock()
 
-	cache.Count = len(cache.Items)
 	data, err := json.MarshalIndent(cache, "", "  ")
 	if err != nil {
 		return fmt.Errorf("序列化缓存失败: %w", err)
@@ -399,5 +409,84 @@ func (m *MarketCacheManager) UpdateAll(ctx context.Context, sflClient *SFLClient
 	if progressFn != nil {
 		progressFn(UpdateProgress{Stage: "done", Current: len(items), Total: len(items), Message: fmt.Sprintf("全市场缓存更新完成，共 %d 只股票", len(items))})
 	}
+	return nil
+}
+
+// UpdateItem 同步更新单只股票的市场缓存（含基础资料、财务指标、营收/净利同比）。
+// 用于“补齐缺失数据”时精准刷新少数股票，避免全市场更新造成的长时间等待。
+func (m *MarketCacheManager) UpdateItem(ctx context.Context, sflClient *SFLClient, tsCode string) error {
+	if sflClient == nil {
+		return fmt.Errorf("SFL 客户端未初始化")
+	}
+	if tsCode == "" {
+		return fmt.Errorf("ts_code 不能为空")
+	}
+
+	market, code := fromTsCode(tsCode)
+	now := time.Now().Format(time.RFC3339)
+
+	// 1. 基础资料
+	basic, err := sflClient.FetchStockBasic(ctx, tsCode)
+	if err != nil {
+		return fmt.Errorf("获取基础资料失败: %w", err)
+	}
+
+	item := MarketCacheItem{
+		Code:       basic.Symbol,
+		Name:       basic.Name,
+		Market:     basic.Market,
+		Industry:   basic.Industry,
+		Area:       basic.Area,
+		ListDate:   basic.ListDate,
+		UpdatedAt:  now,
+		DataSource: "sfl",
+	}
+
+	// 2. 财务指标（取最新报告期）
+	if finas, err := sflClient.FetchFinaIndicator(ctx, market, code, "", ""); err == nil && len(finas) > 0 {
+		sort.Slice(finas, func(i, j int) bool {
+			return finas[i].EndDate > finas[j].EndDate
+		})
+		f := finas[0]
+		item.ROE = f.ROE
+		item.ROEDiluted = f.ROEDiluted
+		item.ROEAvg = f.ROEAvg
+		item.GrossprofitMargin = f.GrossprofitMargin
+		item.NetprofitMargin = f.NetprofitMargin
+		item.DebtToAssets = f.DebtToAssets
+		item.CurrentRatio = f.CurrentRatio
+		item.QuickRatio = f.QuickRatio
+	} else if err != nil {
+		fmt.Printf("[MarketCache.UpdateItem] %s 财务指标获取失败: %v\n", tsCode, err)
+	}
+
+	// 3. 利润表：计算营收同比与净利同比
+	// 获取最近两年数据，按报告期匹配去年同期。
+	endDate := time.Now().Format("20060102")
+	startDate := time.Now().AddDate(-2, 0, 0).Format("20060102")
+	if incomes, err := sflClient.FetchIncome(ctx, market, code, startDate, endDate); err == nil && len(incomes) >= 2 {
+		sort.Slice(incomes, func(i, j int) bool {
+			return incomes[i].EndDate > incomes[j].EndDate
+		})
+		latest := incomes[0]
+		if latestDate, parseErr := time.Parse("20060102", latest.EndDate); parseErr == nil {
+			lastYearDate := latestDate.AddDate(-1, 0, 0).Format("20060102")
+			for i := 1; i < len(incomes); i++ {
+				if incomes[i].EndDate == lastYearDate {
+					if incomes[i].Revenue != 0 {
+						item.RevenueYoY = (latest.Revenue - incomes[i].Revenue) / incomes[i].Revenue * 100
+					}
+					if incomes[i].NetIncome != 0 {
+						item.NetProfitYoY = (latest.NetIncome - incomes[i].NetIncome) / incomes[i].NetIncome * 100
+					}
+					break
+				}
+			}
+		}
+	} else if err != nil {
+		fmt.Printf("[MarketCache.UpdateItem] %s 利润表获取失败: %v\n", tsCode, err)
+	}
+
+	m.SetItem(tsCode, item)
 	return nil
 }

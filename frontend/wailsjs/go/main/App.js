@@ -122,6 +122,10 @@ export function FetchMissingActivity(arg1) {
   return window['go']['main']['App']['FetchMissingActivity'](arg1);
 }
 
+export function FetchMissingCompositeData(arg1) {
+  return window['go']['main']['App']['FetchMissingCompositeData'](arg1);
+}
+
 export function GetAIConfig() {
   return window['go']['main']['App']['GetAIConfig']();
 }

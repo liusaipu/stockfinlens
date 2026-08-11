@@ -7,4 +7,5 @@ export const {
   SuggestWatchlistGroups,
   GetGroupHeat,
   GetGroupComparison,
+  FetchMissingCompositeData,
 } = Go_

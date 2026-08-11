@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.8.18] - 2026-08-11
+
+### 修复 (Fixes)
+- **修复组内对比「补齐缺失数据」点击无反应/闪退/未生效问题**
+  - `groups.go`：`FetchMissingCompositeData` 改为同步精准刷新单只股票市场缓存（`MarketCacheManager.UpdateItem`），不再调用异步的 `RefreshMarketCache()`，确保前端重新加载时缓存已更新。
+  - `downloader/market_cache.go`：新增 `UpdateItem` 方法，按需拉取单只股票基础资料、财务指标，并按最新两期利润表计算营收同比、净利同比；修复 `Save()` 并发遍历 map 的 panic，编码前深拷贝 `Items`。
+  - `app_analysis.go`：修复 `AnalyzeStock` 在本地财报缺失时的 nil pointer panic（`finData.Extras`）。
+- **补齐现金含量时自动下载财报**：`FetchMissingCompositeData` 对缺失现金含量的股票先调用 `DownloadReports` 自动下载财报，再执行 `AnalyzeStock`。
+- **改进缺失数据提示**：`frontend/src/GroupCompareDrawer.tsx` 将市场缓存缺失也纳入缺失判断与提示文案。
+
 ## [v1.8.16] - 2026-08-09
 
 ### 新增 (Features)

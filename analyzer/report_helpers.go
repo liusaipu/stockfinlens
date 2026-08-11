@@ -982,7 +982,8 @@ func clampActivity(v float64) float64 {
 	return v
 }
 
-func medianActivityScore(list []*ComparableMetrics) float64 {
+// MedianActivityScore 计算可比公司列表中有效活跃度的中位数，无有效样本时返回 50。
+func MedianActivityScore(list []*ComparableMetrics) float64 {
 	var vals []float64
 	for _, m := range list {
 		if m.ActivityScore >= 0 {
@@ -1006,7 +1007,7 @@ func medianActivityScore(list []*ComparableMetrics) float64 {
 	return (vals[mid-1] + vals[mid]) / 2
 }
 
-// calcComparableScore 综合得分（固定档位法）。
+// CalcComparableScore 综合得分（固定档位法）。
 // 每个指标按 bandXxx 锚点做分段线性映射到 0-100，再按权重加权求和：
 //
 //	ROE 25% / 毛利率 20% / 营收增长 15% / 负债率 10%(反向) / 现金含量 10% /
@@ -1015,7 +1016,7 @@ func medianActivityScore(list []*ComparableMetrics) float64 {
 // 历史踩坑：原来用 Min-Max within-pool，加一两家可比公司就能把 A、B 的相对排名翻转
 // （违反 IIA）。固定档位让得分只依赖该公司自身指标，与可比池组成无关，跨池可比。
 // 入参 all 现在用不到，保留是为了调用方不用改签名。
-func calcComparableScore(m *ComparableMetrics, all []*ComparableMetrics, medianActivity float64) float64 {
+func CalcComparableScore(m *ComparableMetrics, all []*ComparableMetrics, medianActivity float64) float64 {
 	_ = all
 	act := m.ActivityScore
 	if act < 0 {

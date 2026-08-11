@@ -66,6 +66,8 @@ export function FetchHotConcepts(arg1:number):Promise<downloader.HotConceptBoard
 
 export function FetchMissingActivity(arg1:Array<string>):Promise<main.FetchMissingActivityResult>;
 
+export function FetchMissingCompositeData(arg1:Array<string>):Promise<main.FetchMissingCompositeDataResult>;
+
 export function GetAIConfig():Promise<ai_researcher.AIConfig>;
 
 export function GetAutoCheckUpdate():Promise<boolean>;

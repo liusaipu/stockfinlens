@@ -770,6 +770,13 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		sensitivity = analyzer.SensitivityLevel(s)
 	}
 
+	// 财务数据可能加载失败（如本地不存在或格式异常），RunAnalysis 内部会重新加载；
+	// 这里避免直接引用 finData.Extras 导致 nil pointer panic。
+	var extras map[string]float64
+	if finData != nil {
+		extras = finData.Extras
+	}
+
 	report, err := analyzer.RunAnalysis(a.storage.DataDir(), symbol, analyzer.AnalysisOptions{
 		Comparable:  compAnalysis,
 		Quote:       quoteData,
@@ -780,7 +787,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		Moneyflow:   moneyflowData,
 		ML:          mlData,
 		RIM:         rimData,
-		Extras:      finData.Extras,
+		Extras:      extras,
 		External:    externalRiskData,
 		Sensitivity: sensitivity,
 	})

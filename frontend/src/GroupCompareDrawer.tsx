@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { GetGroupComparison } from './api'
+import { GetGroupComparison, FetchMissingCompositeData } from './api'
 import type { main } from '../wailsjs/go/models'
 import './GroupCompareDrawer.css'
 
@@ -38,12 +38,26 @@ function fmtHotValue(v: number): string {
 interface ColDef {
   key: string
   title: string
-  lowerIsBetter?: boolean // true=数值越小越优（A-Score / 热搜排名）
+  lowerIsBetter?: boolean // true=数值越小越优（A-Score / 热搜排名 / 负债率）
   value: (r: Row) => number | null
   render: (r: Row) => React.ReactNode
 }
 
 const COLUMNS: ColDef[] = [
+  {
+    key: 'composite',
+    title: '综合得分',
+    value: (r) => (r.compositeScore > 0 ? r.compositeScore : null),
+    render: (r) =>
+      r.compositeScore > 0 ? (
+        <>
+          {r.compositeScore.toFixed(1)}
+          <span className="gcd-rank">#{r.compositeRank}</span>
+        </>
+      ) : (
+        <span className="gcd-na">—</span>
+      ),
+  },
   {
     key: 'score',
     title: '18步评分',
@@ -90,10 +104,38 @@ const COLUMNS: ColDef[] = [
     render: (r) => (r.inMarketCache ? fmtPct(r.grossMargin) : <span className="gcd-na">—</span>),
   },
   {
+    key: 'debtRatio',
+    title: '负债率',
+    lowerIsBetter: true,
+    value: (r) => (r.hasDebtRatio ? r.debtRatio : null),
+    render: (r) => (
+      <span className={r.hasDebtRatio ? '' : 'gcd-imputed'}>
+        {fmtPct(r.debtRatio)}
+        {!r.hasDebtRatio && <span className="gcd-star">*</span>}
+      </span>
+    ),
+  },
+  {
+    key: 'cashRatio',
+    title: '现金含量',
+    value: (r) => (r.hasCashRatio ? r.cashRatio : null),
+    render: (r) => (
+      <span className={r.hasCashRatio ? '' : 'gcd-imputed'}>
+        {fmtPct(r.cashRatio)}
+        {!r.hasCashRatio && <span className="gcd-star">*</span>}
+      </span>
+    ),
+  },
+  {
     key: 'activity',
     title: '活跃度',
-    value: (r) => r.activityScore,
-    render: (r) => r.activityScore.toFixed(1),
+    value: (r) => (r.hasActivity ? r.activityScore : null),
+    render: (r) => (
+      <span className={r.hasActivity ? '' : 'gcd-imputed'}>
+        {r.activityScore.toFixed(1)}
+        {!r.hasActivity && <span className="gcd-star">*</span>}
+      </span>
+    ),
   },
   {
     key: 'change',
@@ -147,24 +189,62 @@ function computeHighlights(rows: Row[]): Record<string, { best: Set<string>; wor
   return result
 }
 
+function hasMissingData(rows: Row[]): boolean {
+  return rows.some(
+    (r) => !r.inMarketCache || !r.hasCashRatio || !r.hasDebtRatio || !r.hasActivity
+  )
+}
+
+function missingSummary(rows: Row[]): string {
+  const noMarket = rows.filter((r) => !r.inMarketCache).length
+  const noCash = rows.filter((r) => !r.hasCashRatio).length
+  const noDebt = rows.filter((r) => !r.hasDebtRatio).length
+  const noAct = rows.filter((r) => !r.hasActivity).length
+  const parts: string[] = []
+  if (noMarket) parts.push(`${noMarket} 只市场缓存缺失`)
+  if (noCash) parts.push(`${noCash} 只现金含量缺失`)
+  if (noDebt) parts.push(`${noDebt} 只负债率缺失`)
+  if (noAct) parts.push(`${noAct} 只活跃度缺失`)
+  return parts.join('，')
+}
+
 export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }: Props) {
   useEscClose(onClose)
 
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [fetching, setFetching] = useState(false)
+  const [fetchMessage, setFetchMessage] = useState('')
 
   const codesKey = codes.join(',')
-  useEffect(() => {
+  const load = () => {
     setLoading(true)
     setError('')
+    setFetchMessage('')
     GetGroupComparison(codesKey ? codesKey.split(',') : [])
       .then((list) => setRows(list || []))
       .catch((e: any) => setError(e?.message || '加载失败'))
       .finally(() => setLoading(false))
-  }, [codesKey])
+  }
+  useEffect(load, [codesKey])
 
   const highlights = useMemo(() => computeHighlights(rows), [rows])
+  const missing = useMemo(() => hasMissingData(rows), [rows])
+
+  const handleFetchMissing = async () => {
+    setFetching(true)
+    setFetchMessage('')
+    try {
+      const res = await FetchMissingCompositeData(codesKey ? codesKey.split(',') : [])
+      setFetchMessage(res?.message || '补齐完成')
+      load()
+    } catch (e: any) {
+      setFetchMessage(e?.message || '补齐失败')
+    } finally {
+      setFetching(false)
+    }
+  }
 
   return (
     <div className="gcd-overlay" onClick={onClose}>
@@ -185,6 +265,20 @@ export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }:
           {!loading && !error && rows.length === 0 && <div className="gcd-state">暂无对比数据</div>}
           {!loading && !error && rows.length > 0 && (
             <>
+              {missing && (
+                <div className="gcd-missing-bar">
+                  <span className="gcd-missing-text">{missingSummary(rows)}，已用组内中位数临时替代（标 *）</span>
+                  <button
+                    className="gcd-fetch-btn"
+                    onClick={handleFetchMissing}
+                    disabled={fetching}
+                    title="只补齐缺失的股票数据"
+                  >
+                    {fetching ? '补齐中...' : '补齐缺失数据'}
+                  </button>
+                </div>
+              )}
+              {fetchMessage && <div className="gcd-fetch-msg">{fetchMessage}</div>}
               <div className="gcd-table-wrap">
                 <table className="gcd-table">
                   <thead>
@@ -231,7 +325,9 @@ export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }:
                   </tbody>
                 </table>
               </div>
-              <div className="gcd-footer">绿底=组内最优，红底=组内最弱；仅统计有数据的股票</div>
+              <div className="gcd-footer">
+                绿底=组内最优，红底=组内最弱；仅统计有数据的股票。带 * 的指标使用组内中位数替代。
+              </div>
             </>
           )}
         </div>

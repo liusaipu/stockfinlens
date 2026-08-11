@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/liusaipu/stockfinlens/analyzer"
 	"github.com/liusaipu/stockfinlens/downloader"
 )
 
@@ -44,13 +45,21 @@ type GroupComparisonRow struct {
 	NetProfitGrowth float64 `json:"netProfitGrowth"`
 	ROE             float64 `json:"roe"`
 	GrossMargin     float64 `json:"grossMargin"`
+	DebtRatio       float64 `json:"debtRatio"`    // 资产负债率
+	HasDebtRatio    bool    `json:"hasDebtRatio"` // 负债率是否有效
+	CashRatio       float64 `json:"cashRatio"`    // 净利润现金含量（来自分析快照 step15）
+	HasCashRatio    bool    `json:"hasCashRatio"` // 现金含量是否有效
 	// 活跃度（复用 GetWatchlistActivity 的数据源：本地活跃度缓存）
 	ActivityScore float64 `json:"activityScore"`
+	HasActivity   bool    `json:"hasActivity"` // 活跃度是否来自真实缓存（ false=缺失用中位数替代）
 	Stars         int     `json:"stars"`
 	// 热度
 	ChangePercent float64 `json:"changePercent"` // 当日涨跌幅（托盘报价内存缓存 / 本地行情缓存）
 	ThsHotRank    int     `json:"thsHotRank"`    // 同花顺热搜排名，0=未上榜/不可用
 	ThsHotValue   float64 `json:"thsHotValue"`
+	// 综合得分（基于模块 4.2 固定档位加权算法，跨池可比）
+	CompositeScore float64 `json:"compositeScore"` // 满分 100
+	CompositeRank  int     `json:"compositeRank"`  // 组内排名，1 开始
 }
 
 // GroupHeat 概念组的板块热度
@@ -285,14 +294,98 @@ func (a *App) GetGroupComparison(codes []string) ([]GroupComparisonRow, error) {
 		}(i, code)
 	}
 	wg.Wait()
+	fillCompositeScores(rows)
 	return rows, nil
+}
+
+// fillCompositeScores 基于模块 4.2 固定档位算法为每只股票计算综合得分与组内排名。
+// 缺失的活跃度/现金含量/负债率使用组内有效样本中位数替代，保证排名连续性。
+func fillCompositeScores(rows []GroupComparisonRow) {
+	if len(rows) == 0 {
+		return
+	}
+
+	// 收集有效样本用于中位数替代
+	var cashVals, actVals, debtVals []float64
+	for i := range rows {
+		r := &rows[i]
+		if r.HasCashRatio {
+			cashVals = append(cashVals, r.CashRatio)
+		}
+		if r.HasActivity {
+			actVals = append(actVals, r.ActivityScore)
+		}
+		if r.HasDebtRatio {
+			debtVals = append(debtVals, r.DebtRatio)
+		}
+	}
+	medianCash := medianFloat64(cashVals)
+	medianAct := medianFloat64(actVals)
+	medianDebt := medianFloat64(debtVals)
+
+	// 用中位数替代缺失值，并构造 ComparableMetrics 计算得分
+	type scored struct {
+		idx   int
+		score float64
+	}
+	list := make([]scored, len(rows))
+	all := make([]*analyzer.ComparableMetrics, len(rows))
+	for i := range rows {
+		r := &rows[i]
+		if !r.HasCashRatio {
+			r.CashRatio = medianCash
+		}
+		if !r.HasActivity {
+			r.ActivityScore = medianAct
+		}
+		if !r.HasDebtRatio {
+			r.DebtRatio = medianDebt
+		}
+		m := &analyzer.ComparableMetrics{
+			Symbol:        r.Code,
+			Name:          r.Name,
+			ROE:           r.ROE,
+			GrossMargin:   r.GrossMargin,
+			RevenueGrowth: r.RevenueGrowth,
+			DebtRatio:     r.DebtRatio,
+			CashRatio:     r.CashRatio,
+			AScore:        r.AScore,
+			ActivityScore: r.ActivityScore,
+		}
+		all[i] = m
+		list[i] = scored{idx: i, score: analyzer.CalcComparableScore(m, all, medianAct)}
+	}
+
+	// 按得分降序排序（稳定排序，同分保持原顺序）
+	sort.SliceStable(list, func(i, j int) bool {
+		return list[i].score > list[j].score
+	})
+	for rank, s := range list {
+		rows[s.idx].CompositeScore = s.score
+		rows[s.idx].CompositeRank = rank + 1
+	}
+}
+
+// medianFloat64 计算浮点切片中位数，空切片返回 0。
+func medianFloat64(vals []float64) float64 {
+	if len(vals) == 0 {
+		return 0
+	}
+	sorted := make([]float64, len(vals))
+	copy(sorted, vals)
+	sort.Float64s(sorted)
+	mid := len(sorted) / 2
+	if len(sorted)%2 == 1 {
+		return sorted[mid]
+	}
+	return (sorted[mid-1] + sorted[mid]) / 2
 }
 
 // buildGroupComparisonRow 装配单只股票的对比数据（全部读本地缓存，失败字段降级为 0）
 func (a *App) buildGroupComparisonRow(code, name string, trayQuotes map[string]float64, thsHot map[string]downloader.SFLThsHotItem) GroupComparisonRow {
 	row := GroupComparisonRow{Code: code, Name: name}
 
-	// 1. 基本面：本地分析快照（18步评分 / A-Score）
+	// 1. 基本面：本地分析快照（18步评分 / A-Score / 现金含量）
 	if snapshot, err := a.LoadAnalysisSnapshot(code); err == nil && snapshot != nil {
 		row.Analyzed = true
 		row.Grade = snapshot.OverallGrade
@@ -306,7 +399,14 @@ func (a *App) buildGroupComparisonRow(code, name string, trayQuotes map[string]f
 							row.AScore = v
 						}
 					}
-					break
+				}
+				if step.StepNum == 15 {
+					if yd, ok := step.YearlyData[latest]; ok && yd != nil {
+						if v, ok2 := yd["cashRatio"].(float64); ok2 {
+							row.CashRatio = v
+							row.HasCashRatio = true
+						}
+					}
 				}
 			}
 		}
@@ -320,6 +420,8 @@ func (a *App) buildGroupComparisonRow(code, name string, trayQuotes map[string]f
 			row.NetProfitGrowth = item.NetProfitYoY
 			row.ROE = item.ROE
 			row.GrossMargin = item.GrossprofitMargin
+			row.DebtRatio = item.DebtToAssets
+			row.HasDebtRatio = item.DebtToAssets > 0
 			if row.Name == "" {
 				row.Name = item.Name
 			}
@@ -329,6 +431,7 @@ func (a *App) buildGroupComparisonRow(code, name string, trayQuotes map[string]f
 	// 3. 活跃度：本地活跃度缓存（24h TTL，过期/缺失降级为 0，不在此发起网络请求）
 	if activity, err := a.storage.LoadActivityCache(code); err == nil && activity != nil {
 		row.ActivityScore = activity.Score
+		row.HasActivity = true
 		row.Stars = activity.Stars
 	}
 
@@ -386,6 +489,181 @@ func (a *App) GetGroupHeat() ([]GroupHeat, error) {
 			heat.MainInflow = c.MainInflow
 		}
 		result = append(result, heat)
+	}
+	return result, nil
+}
+
+// FetchMissingCompositeDataResult 补齐组内综合得分缺失数据的结果
+type FetchMissingCompositeDataResult struct {
+	AnalyzedCodes   []string `json:"analyzedCodes"`
+	FailedCodes     []string `json:"failedCodes"`
+	RefreshedCache  bool     `json:"refreshedCache"`
+	ActivityMessage string   `json:"activityMessage"`
+	Message         string   `json:"message"`
+}
+
+// FetchMissingCompositeData 为组内对比补齐缺失的财务/活跃度数据（只补缺失的）。
+// - 现金含量缺失：触发财报分析（AnalyzeStock）
+// - 市场缓存缺失/负债率缺失：精准刷新单只股票市场缓存（MarketCacheManager.UpdateItem）
+// - 活跃度缺失：调用 FetchMissingActivity
+func (a *App) FetchMissingCompositeData(codes []string) (*FetchMissingCompositeDataResult, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	if len(codes) == 0 {
+		return &FetchMissingCompositeDataResult{Message: "无股票需要补齐"}, nil
+	}
+
+	rows, err := a.GetGroupComparison(codes)
+	if err != nil {
+		return nil, fmt.Errorf("加载组内对比失败: %w", err)
+	}
+
+	var needAnalyze []string
+	var needActivity []string
+	needRefreshCodes := make(map[string]struct{})
+	for _, r := range rows {
+		if !r.HasCashRatio {
+			needAnalyze = append(needAnalyze, r.Code)
+		}
+		// 市场缓存缺失时，营收/净利/ROE/毛利率/负债率全部不可用，需要刷新该股票的市场缓存
+		if !r.InMarketCache || !r.HasDebtRatio {
+			needRefreshCodes[r.Code] = struct{}{}
+		}
+		if !r.HasActivity {
+			needActivity = append(needActivity, r.Code)
+		}
+	}
+
+	result := &FetchMissingCompositeDataResult{}
+	var marketCacheMsg string // 市场缓存刷新结果，单独记录避免覆盖活跃度消息
+
+	// 1. 精准刷新缺失市场缓存的股票（负债率/营收同比/净利同比来源）
+	// 必须同步等待更新完成，否则前端立即重新加载时缓存仍是旧数据，
+	// 会出现“点了补齐缺失数据但指标还是缺失”的现象。
+	if len(needRefreshCodes) > 0 {
+		if a.marketCache == nil {
+			marketCacheMsg = "缓存管理器未初始化，市场缓存无法补齐"
+			fmt.Printf("[FetchMissingCompositeData] 缓存管理器未初始化\n")
+		} else {
+			var sflClient *downloader.SFLClient
+			if a.dataRouter != nil {
+				sflClient = a.dataRouter.GetSFLClient()
+			}
+			if sflClient == nil {
+				marketCacheMsg = "SFL 客户端不可用，市场缓存无法补齐"
+				fmt.Printf("[FetchMissingCompositeData] SFL 客户端不可用\n")
+			} else {
+				var refreshWg sync.WaitGroup
+				var refreshMu sync.Mutex
+				refreshOK := 0
+				for code := range needRefreshCodes {
+					refreshWg.Add(1)
+					go func(c string) {
+						defer refreshWg.Done()
+						defer func() {
+							if r := recover(); r != nil {
+								fmt.Printf("[FetchMissingCompositeData] %s 刷新市场缓存 panic: %v\n", c, r)
+								refreshMu.Lock()
+								result.FailedCodes = append(result.FailedCodes, c)
+								refreshMu.Unlock()
+							}
+						}()
+						if err := a.marketCache.UpdateItem(a.ctx, sflClient, c); err != nil {
+							fmt.Printf("[FetchMissingCompositeData] %s 刷新市场缓存失败: %v\n", c, err)
+							refreshMu.Lock()
+							result.FailedCodes = append(result.FailedCodes, c)
+							refreshMu.Unlock()
+						} else {
+							refreshMu.Lock()
+							refreshOK++
+							refreshMu.Unlock()
+						}
+					}(code)
+				}
+				refreshWg.Wait()
+				if refreshOK > 0 {
+					result.RefreshedCache = true
+					// 所有 UpdateItem 只更新内存，这里统一落盘一次，避免并发 Save 遍历 map 触发 panic
+					if err := a.marketCache.Save(); err != nil {
+						fmt.Printf("[FetchMissingCompositeData] 保存市场缓存失败: %v\n", err)
+						marketCacheMsg = fmt.Sprintf("保存市场缓存失败: %v", err)
+					}
+				}
+				if len(result.FailedCodes) > 0 && refreshOK == 0 {
+					marketCacheMsg = fmt.Sprintf("市场缓存刷新失败 %d 只", len(result.FailedCodes))
+				}
+			}
+		}
+	}
+
+	// 2. 并发分析缺失现金含量的股票
+	// 现金含量来自分析快照 step15，而 AnalyzeStock 需要本地财报 JSON；
+	// 若财务数据不存在，先调用 DownloadReports 自动下载，再分析。
+	if len(needAnalyze) > 0 {
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		for _, code := range needAnalyze {
+			wg.Add(1)
+			go func(c string) {
+				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("[FetchMissingCompositeData] %s 分析 panic: %v\n", c, r)
+						mu.Lock()
+						result.FailedCodes = append(result.FailedCodes, c)
+						mu.Unlock()
+					}
+				}()
+				// 先尝试下载/补全财务数据
+				if _, err := a.DownloadReports(c, 0); err != nil {
+					fmt.Printf("[FetchMissingCompositeData] %s 下载财报失败: %v\n", c, err)
+					// 下载失败仍尝试分析，可能本地已有旧数据
+				}
+				_, err := a.AnalyzeStock(c, false)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					fmt.Printf("[FetchMissingCompositeData] %s 分析失败: %v\n", c, err)
+					result.FailedCodes = append(result.FailedCodes, c)
+				} else {
+					result.AnalyzedCodes = append(result.AnalyzedCodes, c)
+				}
+			}(code)
+		}
+		wg.Wait()
+	}
+
+	// 3. 补齐缺失活跃度
+	if len(needActivity) > 0 {
+		actRes, err := a.FetchMissingActivity(needActivity)
+		if err != nil {
+			result.ActivityMessage = fmt.Sprintf("活跃度获取失败: %v", err)
+		} else if actRes != nil {
+			result.ActivityMessage = fmt.Sprintf("成功 %d 只，失败 %d 只", actRes.SuccessCount, len(actRes.FailedCodes))
+		}
+	}
+
+	parts := []string{}
+	if len(result.AnalyzedCodes) > 0 {
+		parts = append(parts, fmt.Sprintf("分析 %d 只", len(result.AnalyzedCodes)))
+	}
+	if result.RefreshedCache {
+		parts = append(parts, "刷新市场缓存")
+	}
+	if marketCacheMsg != "" {
+		parts = append(parts, marketCacheMsg)
+	}
+	if len(needActivity) > 0 && result.ActivityMessage != "" {
+		parts = append(parts, result.ActivityMessage)
+	}
+	if len(result.FailedCodes) > 0 {
+		parts = append(parts, fmt.Sprintf("失败 %d 只", len(result.FailedCodes)))
+	}
+	if len(parts) == 0 {
+		result.Message = "无缺失数据，无需补齐"
+	} else {
+		result.Message = strings.Join(parts, "；")
 	}
 	return result, nil
 }

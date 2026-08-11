@@ -1500,6 +1500,26 @@ export namespace main {
 	        this.message = source["message"];
 	    }
 	}
+	export class FetchMissingCompositeDataResult {
+	    analyzedCodes: string[];
+	    failedCodes: string[];
+	    refreshedCache: boolean;
+	    activityMessage: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FetchMissingCompositeDataResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.analyzedCodes = source["analyzedCodes"];
+	        this.failedCodes = source["failedCodes"];
+	        this.refreshedCache = source["refreshedCache"];
+	        this.activityMessage = source["activityMessage"];
+	        this.message = source["message"];
+	    }
+	}
 	export class FinancialTrendItem {
 	    year: string;
 	    roe?: number;
@@ -1566,11 +1586,18 @@ export namespace main {
 	    netProfitGrowth: number;
 	    roe: number;
 	    grossMargin: number;
+	    debtRatio: number;
+	    hasDebtRatio: boolean;
+	    cashRatio: number;
+	    hasCashRatio: boolean;
 	    activityScore: number;
+	    hasActivity: boolean;
 	    stars: number;
 	    changePercent: number;
 	    thsHotRank: number;
 	    thsHotValue: number;
+	    compositeScore: number;
+	    compositeRank: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new GroupComparisonRow(source);
@@ -1589,11 +1616,18 @@ export namespace main {
 	        this.netProfitGrowth = source["netProfitGrowth"];
 	        this.roe = source["roe"];
 	        this.grossMargin = source["grossMargin"];
+	        this.debtRatio = source["debtRatio"];
+	        this.hasDebtRatio = source["hasDebtRatio"];
+	        this.cashRatio = source["cashRatio"];
+	        this.hasCashRatio = source["hasCashRatio"];
 	        this.activityScore = source["activityScore"];
+	        this.hasActivity = source["hasActivity"];
 	        this.stars = source["stars"];
 	        this.changePercent = source["changePercent"];
 	        this.thsHotRank = source["thsHotRank"];
 	        this.thsHotValue = source["thsHotValue"];
+	        this.compositeScore = source["compositeScore"];
+	        this.compositeRank = source["compositeRank"];
 	    }
 	}
 	export class GroupHeat {
