@@ -485,6 +485,14 @@ function App() {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const [groupSuggestions, setGroupSuggestions] = useState<main.GroupSuggestion[]>([])
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
+  const [suggestTooltip, setSuggestTooltip] = useState<{
+    conceptName: string
+    codes: string[]
+    x: number
+    y: number
+  } | null>(null)
+  const suggestTooltipTimerRef = useRef<number | null>(null)
+  const hoveredSuggestRef = useRef<string | null>(null)
   // 组对比抽屉：组头「对比」按钮设置，GroupCompareDrawer 展示组内股票对比表
   const [compareGroup, setCompareGroup] = useState<{ name: string; codes: string[] } | null>(null)
   // 组头右键菜单（Wails webview 里 window.prompt/confirm 会被屏蔽，用自定义弹窗）
@@ -495,7 +503,7 @@ function App() {
     codes: string[]
   } | null>(null)
   const [groupDelete, setGroupDelete] = useState<main.StockGroup | null>(null)
-  const [groupCreate, setGroupCreate] = useState<{ value: string } | null>(null)
+  const [groupCreate, setGroupCreate] = useState<{ value: string; moveCode?: string } | null>(null)
   // 组头就地重命名
   const [inlineRename, setInlineRename] = useState<{ groupId: string; value: string } | null>(null)
   const inlineRenameInputRef = useRef<HTMLInputElement | null>(null)
@@ -510,6 +518,8 @@ function App() {
     code: string
     currentGroupIds: string[]
   } | null>(null)
+  const [stockSubmenuOffsetY, setStockSubmenuOffsetY] = useState(0)
+  const stockSubmenuRef = useRef<HTMLUListElement | null>(null)
   const groupCreateInputRef = useRef<HTMLInputElement | null>(null)
   const stockSubmenuCloseTimer = useRef<number | null>(null)
   const flashTimeoutRef = useRef<number | null>(null)
@@ -1538,8 +1548,8 @@ function App() {
     }
   }
 
-  const handleRemove = async (code: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  // 从自选列表移除指定股票（UI + 分组 + 筛选数据同步）
+  const removeFromWatchlist = useCallback(async (code: string) => {
     setLoading(true)
     try {
       await RemoveFromWatchlist(code)
@@ -1579,7 +1589,20 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [watchlistGroups, selectedCode, showToast])
+
+  // 右键菜单删除自选：先确认再执行
+  const handleDeleteFromContextMenu = useCallback(async (code: string) => {
+    const stock = watchlist.find((s) => s.code === code)
+    const confirmed = await ConfirmDialog(
+      '确认删除',
+      `确定从自选列表删除 ${stock ? `${stock.name} (${code})` : code} 吗？`
+    )
+    if (!confirmed) return
+    setStockContextMenu(null)
+    setStockMoveSubmenu(null)
+    await removeFromWatchlist(code)
+  }, [watchlist, removeFromWatchlist])
 
   // ===== 自选股分组操作 =====
 
@@ -1654,8 +1677,11 @@ function App() {
       window.clearTimeout(stockSubmenuCloseTimer.current)
       stockSubmenuCloseTimer.current = null
     }
-    const currentGroupIds = watchlistGroups.filter((g) => g.codes.includes(code)).map((g) => g.id)
-    setStockMoveSubmenu({ code, currentGroupIds })
+    setStockMoveSubmenu((prev) => {
+      if (prev && prev.code === code) return prev
+      const currentGroupIds = watchlistGroups.filter((g) => g.codes.includes(code)).map((g) => g.id)
+      return { code, currentGroupIds }
+    })
   }, [watchlistGroups])
 
   const scheduleCloseStockMoveSubmenu = useCallback(() => {
@@ -1732,6 +1758,27 @@ function App() {
     }
   }, [!!groupCreate])
 
+  // 股票二级菜单靠近窗口底部时自动上移，确保完整显示
+  // 使用 scrollHeight 按菜单自然高度计算，避免已应用 offset 后重复测量导致跳动
+  useEffect(() => {
+    if (!stockMoveSubmenu || !stockContextMenu || !stockSubmenuRef.current) {
+      setStockSubmenuOffsetY(0)
+      return
+    }
+    const submenu = stockSubmenuRef.current
+    const height = submenu.scrollHeight
+    const viewportHeight = window.innerHeight
+    const margin = 8
+    const naturalBottom = stockContextMenu.y + height
+    if (naturalBottom > viewportHeight - margin) {
+      const targetTop = viewportHeight - margin - height
+      const newOffset = Math.min(0, Math.max(targetTop - stockContextMenu.y, margin - stockContextMenu.y))
+      setStockSubmenuOffsetY(newOffset)
+    } else {
+      setStockSubmenuOffsetY(0)
+    }
+  }, [stockMoveSubmenu, stockContextMenu])
+
   // 一键采纳建议建组（id 留空由后端生成），成功后自动切到分组视图
   const handleAdoptSuggestion = (suggestion: main.GroupSuggestion) => {
     const newGroup: main.StockGroup = {
@@ -1744,6 +1791,35 @@ function App() {
     persistWatchlistGroups([...watchlistGroups, newGroup])
     handleSetViewMode('grouped')
   }
+
+  // 建议分组 hover 500ms 后显示成分 tooltip
+  const handleSuggestMouseEnter = useCallback(
+    (e: React.MouseEvent<HTMLElement>, sg: main.GroupSuggestion) => {
+      hoveredSuggestRef.current = sg.conceptName
+      if (suggestTooltipTimerRef.current) window.clearTimeout(suggestTooltipTimerRef.current)
+      const target = e.currentTarget
+      suggestTooltipTimerRef.current = window.setTimeout(() => {
+        if (hoveredSuggestRef.current !== sg.conceptName) return
+        const rect = target.getBoundingClientRect()
+        setSuggestTooltip({
+          conceptName: sg.conceptName,
+          codes: sg.codes,
+          x: rect.right + 6,
+          y: rect.top + rect.height / 2,
+        })
+      }, 500)
+    },
+    []
+  )
+
+  const handleSuggestMouseLeave = useCallback(() => {
+    hoveredSuggestRef.current = null
+    if (suggestTooltipTimerRef.current) {
+      window.clearTimeout(suggestTooltipTimerRef.current)
+      suggestTooltipTimerRef.current = null
+    }
+    setSuggestTooltip(null)
+  }, [])
 
   // 手动新建空分组
   const handleConfirmCreateGroup = useCallback(() => {
@@ -1762,7 +1838,7 @@ function App() {
       name: trimmed,
       source: 'manual',
       conceptName: '',
-      codes: [],
+      codes: groupCreate.moveCode ? [groupCreate.moveCode] : [],
     } as main.StockGroup
     persistWatchlistGroups([...watchlistGroups, newGroup])
     setGroupCreate(null)
@@ -1952,14 +2028,6 @@ function App() {
         <div className="watch-activity" title={act ? `${act.grade} · ${Math.round(act.score)}分` : ''}>
           {scoreText}
         </div>
-        <button
-          className="btn-remove"
-          title="移除"
-          onClick={(e) => handleRemove(s.code, e)}
-          disabled={loading}
-        >
-          ×
-        </button>
       </>
     )
   }
@@ -3423,8 +3491,9 @@ function App() {
                 <button
                   key={sg.conceptName}
                   className="group-suggest-chip"
-                  title={`按概念「${sg.conceptName}」一键建组`}
                   onClick={() => handleAdoptSuggestion(sg)}
+                  onMouseEnter={(e) => handleSuggestMouseEnter(e, sg)}
+                  onMouseLeave={handleSuggestMouseLeave}
                 >
                   {sg.conceptName} ({sg.codes.length}只)
                 </button>
@@ -3554,6 +3623,7 @@ function App() {
                 data-code={s.code}
                 className={`${selectedCode === s.code ? 'active' : ''}${flashCode === s.code ? ' flash-match' : ''}${draggingIndex === idx ? ' drag-placeholder' : ''}${draggingIndex !== null && dragOverIndex === idx ? ' drag-indicator-active' : ''}`}
                 onClick={() => handleWatchItemSelect(s)}
+                onContextMenu={(e) => openStockContextMenu(e, s.code, null)}
               >
                 <span
                   className="watch-drag-handle"
@@ -5686,7 +5756,7 @@ function App() {
               className="group-modal-input"
               value={groupCreate.value}
               placeholder="请输入分组名称"
-              onChange={(e) => setGroupCreate({ value: e.target.value })}
+              onChange={(e) => setGroupCreate({ ...groupCreate, value: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleConfirmCreateGroup()
                 if (e.key === 'Escape') setGroupCreate(null)
@@ -5732,10 +5802,19 @@ function App() {
                 移出分组
               </li>
             )}
+            <li
+              className="stock-context-menu-delete"
+              onMouseEnter={() => setStockMoveSubmenu(null)}
+              onClick={() => handleDeleteFromContextMenu(stockContextMenu.code)}
+            >
+              删除自选
+            </li>
           </ul>
           {stockMoveSubmenu && stockMoveSubmenu.code === stockContextMenu.code && (
             <ul
+              ref={stockSubmenuRef}
               className="stock-context-submenu"
+              style={{ top: stockSubmenuOffsetY }}
               onMouseEnter={() => openStockMoveSubmenu(stockContextMenu.code)}
               onMouseLeave={scheduleCloseStockMoveSubmenu}
             >
@@ -5743,20 +5822,57 @@ function App() {
                 const candidates = watchlistGroups.filter(
                   (g) => !stockMoveSubmenu.currentGroupIds.includes(g.id)
                 )
-                if (candidates.length === 0) {
-                  return <li className="stock-context-submenu-empty">无其他分组</li>
-                }
-                return candidates.map((g) => (
-                  <li
-                    key={g.id}
-                    onClick={() => handleMoveStockToGroup(stockContextMenu.code, g.id)}
-                  >
-                    {g.name}
-                  </li>
-                ))
+                return (
+                  <>
+                    {candidates.length === 0 ? (
+                      <li className="stock-context-submenu-empty">无其他分组</li>
+                    ) : (
+                      candidates.map((g) => (
+                        <li
+                          key={g.id}
+                          onClick={() => handleMoveStockToGroup(stockContextMenu.code, g.id)}
+                        >
+                          {g.name}
+                        </li>
+                      ))
+                    )}
+                    <li
+                      className="stock-context-submenu-new"
+                      onClick={() => {
+                        setGroupCreate({ value: '', moveCode: stockContextMenu.code })
+                        setStockContextMenu(null)
+                        setStockMoveSubmenu(null)
+                      }}
+                    >
+                      + 新建
+                    </li>
+                  </>
+                )
               })()}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* 建议分组 hover tooltip */}
+      {suggestTooltip && (
+        <div
+          className="group-suggest-tooltip"
+          style={{ left: suggestTooltip.x, top: suggestTooltip.y }}
+        >
+          <div className="group-suggest-tooltip-title">
+            {suggestTooltip.conceptName}（{suggestTooltip.codes.length}只）
+          </div>
+          <div className="group-suggest-tooltip-list">
+            {suggestTooltip.codes.map((code) => {
+              const stock = STOCKS.find((s) => s.code === code)
+              return (
+                <div key={code}>
+                  {stock ? `${stock.name} (${code})` : code}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

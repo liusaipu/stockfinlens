@@ -3389,6 +3389,48 @@ body.light .group-suggest-banner {
   color: #ef4444;
 }
 
+.group-suggest-tooltip {
+  position: fixed;
+  z-index: 2000;
+  max-width: 240px;
+  padding: 8px 12px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  color: #e2e8f0;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.group-suggest-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  white-space: nowrap;
+}
+
+.group-suggest-tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+body.light .group-suggest-tooltip {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #1f2937;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+body.light .group-suggest-tooltip-title {
+  border-bottom-color: rgba(148, 163, 184, 0.35);
+}
+
 /* 分组 section */
 .watchlist-grouped {
   padding: 0;
@@ -3595,6 +3637,22 @@ body.light .group-context-menu .group-context-menu-danger:hover {
   background: rgba(59, 130, 246, 0.18);
 }
 
+.stock-context-menu-delete {
+  color: #ef4444;
+}
+
+.stock-context-menu-delete:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+body.light .stock-context-menu-delete {
+  color: #dc2626;
+}
+
+body.light .stock-context-menu-delete:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
 .stock-submenu-arrow {
   font-size: 14px;
   line-height: 1;
@@ -3606,6 +3664,8 @@ body.light .group-context-menu .group-context-menu-danger:hover {
   left: calc(100% + 4px);
   top: 0;
   min-width: 120px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   margin: 0;
   padding: 4px 0;
   list-style: none;
@@ -3636,6 +3696,10 @@ body.light .group-context-menu .group-context-menu-danger:hover {
   user-select: none;
 }
 
+.stock-context-submenu-new {
+  color: #60a5fa;
+}
+
 body.light .stock-context-menu,
 body.light .stock-context-submenu {
   background: #ffffff;
@@ -3652,6 +3716,10 @@ body.light .stock-context-submenu li:hover {
 
 body.light .stock-context-submenu-empty {
   color: #9ca3af;
+}
+
+body.light .stock-context-submenu-new {
+  color: #2563eb;
 }
 
 /* 分组列表项禁止右键选中文字 */
