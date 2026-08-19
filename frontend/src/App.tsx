@@ -1781,6 +1781,14 @@ function App() {
 
   // 一键采纳建议建组（id 留空由后端生成），成功后自动切到分组视图
   const handleAdoptSuggestion = (suggestion: main.GroupSuggestion) => {
+    // 采纳后立刻清除 hover tooltip，避免列表残留不消失
+    hoveredSuggestRef.current = null
+    if (suggestTooltipTimerRef.current) {
+      window.clearTimeout(suggestTooltipTimerRef.current)
+      suggestTooltipTimerRef.current = null
+    }
+    setSuggestTooltip(null)
+
     const newGroup: main.StockGroup = {
       id: '',
       name: suggestion.conceptName,

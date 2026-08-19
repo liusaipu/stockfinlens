@@ -8,6 +8,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -47,6 +48,10 @@ func main() {
 		BackgroundColour:         &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:                app.startup,
 		EnableDefaultContextMenu: true,
+		Windows: &windows.Options{
+			// 保持标题栏为深色，避免窗口顶部出现白色/空白条带
+			Theme: windows.Dark,
+		},
 		Bind: []interface{}{
 			app,
 		},
