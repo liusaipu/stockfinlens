@@ -70,10 +70,18 @@ body.light {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
   position: relative;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 主题切换按钮 */
@@ -94,9 +102,13 @@ body.light {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: all 0.15s, top 0.15s;
   box-sizing: border-box;
   -webkit-appearance: none;
+}
+
+body.windows-titlebar .theme-toggle {
+  top: 40px;
 }
 
 .theme-toggle:hover {
@@ -3295,6 +3307,7 @@ body.light .watchlist-view-switch-bar {
   color: #94a3b8;
   cursor: pointer;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .watchlist-view-switch button.active {
@@ -3304,15 +3317,19 @@ body.light .watchlist-view-switch-bar {
 }
 
 .watchlist-new-group-btn {
-  padding: 3px 10px;
-  font-size: 11px;
+  padding: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
   border-radius: 4px;
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  border: none;
   background: transparent;
   color: #3b82f6;
   cursor: pointer;
-  line-height: 1.4;
-  white-space: nowrap;
+  line-height: 1;
 }
 
 .watchlist-new-group-btn:hover {
@@ -3320,12 +3337,44 @@ body.light .watchlist-view-switch-bar {
 }
 
 body.light .watchlist-new-group-btn {
-  border-color: rgba(37, 99, 235, 0.4);
   color: #2563eb;
 }
 
 body.light .watchlist-new-group-btn:hover {
   background: rgba(37, 99, 235, 0.1);
+}
+
+.watchlist-global-toggle {
+  font-size: 16px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  transition: transform 0.2s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.watchlist-global-toggle.expanded {
+  transform: rotate(90deg);
+}
+
+.watchlist-global-toggle:hover {
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+body.light .watchlist-global-toggle {
+  color: #6b7280;
+}
+
+body.light .watchlist-global-toggle:hover {
+  color: #374151;
+  background: rgba(148, 163, 184, 0.15);
 }
 
 /* 建议分组 banner */

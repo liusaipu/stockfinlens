@@ -1,0 +1,95 @@
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  min-height: 32px;
+  background: #0f1419;
+  border-bottom: 1px solid #1f2933;
+  user-select: none;
+  /* Wails 通过该 CSS 属性识别可拖拽区域 */
+  --wails-draggable: drag;
+}
+
+body.light .titlebar {
+  background: #f3f4f6;
+  border-bottom-color: #e5e7eb;
+}
+
+.titlebar-drag {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+  padding-left: 10px;
+}
+
+.titlebar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.titlebar-text {
+  font-size: 13px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+body.light .titlebar-text {
+  color: #1f2937;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  /* 按钮区域不可拖拽，确保点击事件能正常响应 */
+  --wails-draggable: no-drag;
+}
+
+.titlebar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  outline: none;
+}
+
+body.light .titlebar-btn {
+  color: #4b5563;
+}
+
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+body.light .titlebar-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1f2937;
+}
+
+.titlebar-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+/* 修复 Wails 无边框窗口中按钮点击无响应的问题 */
+.titlebar-btn * {
+  pointer-events: none;
+}

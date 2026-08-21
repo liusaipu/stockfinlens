@@ -18,6 +18,7 @@ import html2pdf from 'html2pdf.js'
 import { EventsOn, WindowGetSize } from '../wailsjs/runtime'
 import { RiskBadge } from './components/RiskBadge'
 import { RiskAlertBanner } from './components/RiskAlertBanner'
+import { TitleBar } from './components/TitleBar'
 import ReactMarkdown from 'react-markdown'
 import type { ai_researcher } from '../wailsjs/go/models'
 
@@ -583,6 +584,22 @@ function App() {
       localStorage.setItem('watchlistViewMode', mode)
     } catch {
       // ignore
+    }
+  }
+
+  // 分组视图：一键全部展开 / 全部收起
+  const handleToggleAllGroups = () => {
+    const groupIds = watchlistGroups.map((g) => g.id)
+    if (groupIds.length === 0) return
+    const allExpanded = groupIds.every((id) => !collapsedGroups[id])
+    if (allExpanded) {
+      const next: Record<string, boolean> = {}
+      groupIds.forEach((id) => {
+        next[id] = true
+      })
+      setCollapsedGroups(next)
+    } else {
+      setCollapsedGroups({})
     }
   }
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false)
@@ -3252,6 +3269,10 @@ function App() {
 
   return (
     <div className="app">
+      {/* Windows 无边框窗口自定义标题栏 */}
+      <TitleBar />
+
+      <div className="app-body">
       {/* 设置按钮 */}
       <Settings 
         settings={settings} 
@@ -3459,13 +3480,27 @@ function App() {
             <div />
           )}
           {viewMode === 'grouped' && (
-            <button
-              className="watchlist-new-group-btn"
-              title="新建自定义分组"
-              onClick={() => setGroupCreate({ value: '' })}
-            >
-              + 新建分组
-            </button>
+            <>
+              <span
+                className={`watchlist-global-toggle ${
+                  watchlistGroups.length > 0 &&
+                  watchlistGroups.every((g) => !collapsedGroups[g.id])
+                    ? 'expanded'
+                    : ''
+                }`}
+                title="全部展开 / 全部收起"
+                onClick={handleToggleAllGroups}
+              >
+                ›
+              </span>
+              <button
+                className="watchlist-new-group-btn"
+                title="新建自定义分组"
+                onClick={() => setGroupCreate({ value: '' })}
+              >
+                +
+              </button>
+            </>
           )}
         </div>
 
@@ -5890,6 +5925,7 @@ function App() {
           {toast.message}
         </div>
       )}
+    </div>
     </div>
   )
 }

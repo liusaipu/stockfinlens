@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"os"
+	"runtime"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
@@ -48,8 +49,9 @@ func main() {
 		BackgroundColour:         &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:                app.startup,
 		EnableDefaultContextMenu: true,
+		// Windows 使用无边框窗口，避免系统标题栏下方出现空白菜单栏/留白
+		Frameless: runtime.GOOS == "windows",
 		Windows: &windows.Options{
-			// 保持标题栏为深色，避免窗口顶部出现白色/空白条带
 			Theme: windows.Dark,
 		},
 		Bind: []interface{}{
