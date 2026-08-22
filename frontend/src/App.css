@@ -3283,7 +3283,7 @@ body.light .risk-alert-body {
 .watchlist-view-switch-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   padding: 6px 12px;
   border-bottom: 1px solid #1a2330;
@@ -3330,6 +3330,7 @@ body.light .watchlist-view-switch-bar {
   color: #3b82f6;
   cursor: pointer;
   line-height: 1;
+  margin-left: auto;
 }
 
 .watchlist-new-group-btn:hover {
@@ -3577,6 +3578,14 @@ body.light .watchlist-group-rename-confirm {
 
 body.light .watchlist-group-rename-confirm:hover {
   background: rgba(34, 197, 94, 0.1);
+}
+
+.watchlist-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  flex: 1;
 }
 
 .watchlist-group-arrow {

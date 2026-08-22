@@ -3475,32 +3475,32 @@ function App() {
               >
                 分组
               </button>
+              {viewMode === 'grouped' && (
+                <span
+                  className={`watchlist-global-toggle ${
+                    watchlistGroups.length > 0 &&
+                    watchlistGroups.every((g) => !collapsedGroups[g.id])
+                      ? 'expanded'
+                      : ''
+                  }`}
+                  title="全部展开 / 全部收起"
+                  onClick={handleToggleAllGroups}
+                >
+                  ›
+                </span>
+              )}
             </div>
           ) : (
             <div />
           )}
           {viewMode === 'grouped' && (
-            <>
-              <span
-                className={`watchlist-global-toggle ${
-                  watchlistGroups.length > 0 &&
-                  watchlistGroups.every((g) => !collapsedGroups[g.id])
-                    ? 'expanded'
-                    : ''
-                }`}
-                title="全部展开 / 全部收起"
-                onClick={handleToggleAllGroups}
-              >
-                ›
-              </span>
-              <button
-                className="watchlist-new-group-btn"
-                title="新建自定义分组"
-                onClick={() => setGroupCreate({ value: '' })}
-              >
-                +
-              </button>
-            </>
+            <button
+              className="watchlist-new-group-btn"
+              title="新建自定义分组"
+              onClick={() => setGroupCreate({ value: '' })}
+            >
+              +
+            </button>
           )}
         </div>
 
@@ -3567,20 +3567,22 @@ function App() {
                           openGroupContextMenu(e, group, section.members.map((m) => m.code))
                         }
                       >
-                        <span className={`watchlist-group-arrow ${collapsed ? '' : 'expanded'}`}>{'›'}</span>
-                        <input
-                          ref={inlineRenameInputRef}
-                          className="watchlist-group-rename-input"
-                          value={inlineRename.value}
-                          onChange={(e) =>
-                            setInlineRename({ ...inlineRename, value: e.target.value })
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleConfirmInlineRename()
-                            if (e.key === 'Escape') handleCancelInlineRename()
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <span className="watchlist-group-title">
+                          <span className={`watchlist-group-arrow ${collapsed ? '' : 'expanded'}`}>{'›'}</span>
+                          <input
+                            ref={inlineRenameInputRef}
+                            className="watchlist-group-rename-input"
+                            value={inlineRename.value}
+                            onChange={(e) =>
+                              setInlineRename({ ...inlineRename, value: e.target.value })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleConfirmInlineRename()
+                              if (e.key === 'Escape') handleCancelInlineRename()
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </span>
                         <button
                           className="watchlist-group-rename-confirm"
                           title="确认"
@@ -3602,8 +3604,10 @@ function App() {
                           openGroupContextMenu(e, group, section.members.map((m) => m.code))
                         }
                       >
-                        <span className={`watchlist-group-arrow ${collapsed ? '' : 'expanded'}`}>{'›'}</span>
-                        <span className="watchlist-group-name" title={group.name}>{group.name}</span>
+                        <span className="watchlist-group-title">
+                          <span className={`watchlist-group-arrow ${collapsed ? '' : 'expanded'}`}>{'›'}</span>
+                          <span className="watchlist-group-name" title={group.name}>{group.name}</span>
+                        </span>
                         <span className="watchlist-group-count">· {section.members.length}</span>
                       </div>
                     )
