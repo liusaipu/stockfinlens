@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,6 +21,43 @@ const (
 	apiTimeout      = 10 * time.Second
 	downloadTimeout = 60 * time.Second
 )
+
+// ProxyConfig 网络代理配置
+type ProxyConfig struct {
+	Enabled  bool
+	URL      string
+	Username string
+	Password string
+}
+
+var proxyConfig ProxyConfig
+
+// SetProxyConfig 设置更新模块使用的代理
+func SetProxyConfig(cfg ProxyConfig) {
+	proxyConfig = cfg
+}
+
+// createHTTPClient 创建带代理支持的 HTTP 客户端
+func createHTTPClient(timeout time.Duration) *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+	}
+
+	if proxyConfig.Enabled && proxyConfig.URL != "" {
+		proxyURL, err := url.Parse(proxyConfig.URL)
+		if err == nil {
+			if proxyConfig.Username != "" {
+				proxyURL.User = url.UserPassword(proxyConfig.Username, proxyConfig.Password)
+			}
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+}
 
 // UpdateInfo 更新信息
 type UpdateInfo struct {
@@ -51,7 +89,7 @@ type githubAsset struct {
 
 // CheckUpdate 检查是否有新版本
 func CheckUpdate(currentVersion string) (*UpdateInfo, error) {
-	client := &http.Client{Timeout: apiTimeout}
+	client := createHTTPClient(apiTimeout)
 	req, err := http.NewRequest("GET", githubAPIURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
@@ -165,7 +203,7 @@ func buildDownloadSources(originalURL, tag, assetName string) []string {
 
 // downloadFile 从 URL 下载文件到本地路径
 func downloadFile(url, localPath string, timeout time.Duration, progressFn func(int)) (string, error) {
-	client := &http.Client{Timeout: timeout}
+	client := createHTTPClient(timeout)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err

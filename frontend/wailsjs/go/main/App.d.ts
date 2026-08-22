@@ -100,6 +100,8 @@ export function GetModule4Status(arg1:string):Promise<boolean>;
 
 export function GetPolicyLibraryMeta():Promise<Record<string, string>>;
 
+export function GetProxyConfig():Promise<main.ProxyConfig>;
+
 export function GetReport(arg1:string,arg2:string):Promise<string>;
 
 export function GetReportHistory(arg1:string):Promise<Array<string>>;
@@ -189,6 +191,8 @@ export function SearchStocks(arg1:string):Promise<Array<main.StockInfo>>;
 export function SendNotification(arg1:string,arg2:string):Promise<void>;
 
 export function SetAutoCheckUpdate(arg1:boolean):Promise<void>;
+
+export function SetProxyConfig(arg1:main.ProxyConfig):Promise<void>;
 
 export function SetRiskSensitivity(arg1:string):Promise<void>;
 

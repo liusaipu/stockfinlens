@@ -190,6 +190,10 @@ export function GetPolicyLibraryMeta() {
   return window['go']['main']['App']['GetPolicyLibraryMeta']();
 }
 
+export function GetProxyConfig() {
+  return window['go']['main']['App']['GetProxyConfig']();
+}
+
 export function GetReport(arg1, arg2) {
   return window['go']['main']['App']['GetReport'](arg1, arg2);
 }
@@ -368,6 +372,10 @@ export function SendNotification(arg1, arg2) {
 
 export function SetAutoCheckUpdate(arg1) {
   return window['go']['main']['App']['SetAutoCheckUpdate'](arg1);
+}
+
+export function SetProxyConfig(arg1) {
+  return window['go']['main']['App']['SetProxyConfig'](arg1);
 }
 
 export function SetRiskSensitivity(arg1) {

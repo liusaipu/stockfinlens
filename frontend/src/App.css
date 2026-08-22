@@ -3522,6 +3522,14 @@ body.light .watchlist-group-header {
   border-bottom-color: #f3f4f6;
 }
 
+.watchlist-group-header:not(.watchlist-group-header-static):not(.watchlist-group-header-editing):hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+body.light .watchlist-group-header:not(.watchlist-group-header-static):not(.watchlist-group-header-editing):hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
 .watchlist-group-header-static {
   cursor: default;
   color: #94a3b8;
@@ -3618,7 +3626,7 @@ body.light .watchlist-group-rename-confirm:hover {
 .group-context-menu {
   position: fixed;
   z-index: 2000;
-  min-width: 88px;
+  min-width: 140px;
   margin: 0;
   padding: 4px 0;
   list-style: none;
@@ -3631,6 +3639,10 @@ body.light .watchlist-group-rename-confirm:hover {
 }
 
 .group-context-menu li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 7px 14px;
   cursor: pointer;
   transition: background 0.15s;
@@ -3640,18 +3652,61 @@ body.light .watchlist-group-rename-confirm:hover {
   background: rgba(59, 130, 246, 0.18);
 }
 
+.group-context-menu .group-context-menu-danger {
+  color: #f87171;
+}
+
 .group-context-menu .group-context-menu-danger:hover {
   background: rgba(239, 68, 68, 0.18);
 }
 
-body.light .group-context-menu {
+.group-context-menu-arrow {
+  font-size: 14px;
+  line-height: 1;
+  color: #94a3b8;
+}
+
+/* 组合并子菜单 */
+.group-context-submenu {
+  position: fixed;
+  z-index: 2001;
+  min-width: 120px;
+  max-height: calc(100vh - 16px);
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #1e293b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  color: #e2e8f0;
+  overflow-y: auto;
+}
+
+.group-context-submenu li {
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-context-submenu li:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+body.light .group-context-menu,
+body.light .group-context-submenu {
   background: #ffffff;
   border-color: rgba(148, 163, 184, 0.35);
   color: #1f2937;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-body.light .group-context-menu li:hover {
+body.light .group-context-menu li:hover,
+body.light .group-context-submenu li:hover {
   background: rgba(59, 130, 246, 0.12);
 }
 

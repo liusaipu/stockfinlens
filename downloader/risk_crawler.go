@@ -1,7 +1,7 @@
 package downloader
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -107,13 +108,16 @@ func FetchRiskCrawlerData(symbol string) (*RiskCrawlerData, error) {
 	}
 
 	python := resolveRiskCrawlerPython()
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, python, script)
+	cmd := exec.Command(python, script)
 	cmd.Env = append(os.Environ(), "TQDM_DISABLE=1", "PYTHONUNBUFFERED=1")
 
 	// Windows: 隐藏 CMD 窗口
 	setHideWindow(cmd)
+	// Unix: 创建新进程组，便于超时后整体 kill
+	if runtime.GOOS != "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	}
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -123,14 +127,37 @@ func FetchRiskCrawlerData(symbol string) (*RiskCrawlerData, error) {
 		_ = stdin.Close()
 	}()
 
-	out, err := cmd.Output()
-	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("爬虫失败: %s | stderr: %s", err, string(ee.Stderr))
-		}
-		return nil, err
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("启动爬虫失败: %w", err)
 	}
 
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-time.After(30 * time.Second):
+		if cmd.Process != nil {
+			if runtime.GOOS == "windows" {
+				_ = cmd.Process.Kill()
+			} else {
+				// 负 PID 表示 kill 整个进程组
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			}
+		}
+		return nil, fmt.Errorf("爬虫执行超时 (>30s): %s", symbol)
+	case err := <-done:
+		if err != nil {
+			return nil, fmt.Errorf("爬虫失败: %w | stderr: %s", err, stderr.String())
+		}
+	}
+
+	out := stdout.Bytes()
 	var resp RiskCrawlerData
 	if err := json.Unmarshal(out, &resp); err != nil {
 		return nil, fmt.Errorf("解析爬虫结果失败: %w | raw: %s", err, string(out))

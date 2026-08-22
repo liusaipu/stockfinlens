@@ -1083,11 +1083,20 @@ func (s *Storage) CleanOldHotConceptHistory(maxDays int) error {
 
 // ========== App 配置存储 ==========
 
+// ProxyConfig 网络代理配置
+type ProxyConfig struct {
+	Enabled  bool   `json:"enabled"`  // 是否启用代理
+	URL      string `json:"url"`      // 代理地址，如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080
+	Username string `json:"username"` // 可选认证用户名
+	Password string `json:"password"` // 可选认证密码
+}
+
 // AppConfig 应用级配置（自动更新等）
 type AppConfig struct {
-	AutoCheckUpdate bool   `json:"autoCheckUpdate"` // 默认 true
-	LastCheckDate   string `json:"lastCheckDate"`   // YYYY-MM-DD
-	SkipVersion     string `json:"skipVersion"`     // 用户选择"跳过此版本"
+	AutoCheckUpdate bool        `json:"autoCheckUpdate"` // 默认 true
+	LastCheckDate   string      `json:"lastCheckDate"`   // YYYY-MM-DD
+	SkipVersion     string      `json:"skipVersion"`     // 用户选择"跳过此版本"
+	Proxy           ProxyConfig `json:"proxy"`           // 网络代理配置
 }
 
 // AppConfigPath 返回 App 配置文件路径

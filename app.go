@@ -256,6 +256,14 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.appConfig = appCfg
 
+	// 应用代理配置到更新模块
+	updater.SetProxyConfig(updater.ProxyConfig{
+		Enabled:  appCfg.Proxy.Enabled,
+		URL:      appCfg.Proxy.URL,
+		Username: appCfg.Proxy.Username,
+		Password: appCfg.Proxy.Password,
+	})
+
 	// 读取当前版本号（从 wails.json）
 	a.currentVersion = readWailsVersion()
 
@@ -3892,6 +3900,32 @@ func (a *App) SkipVersion(version string) error {
 	}
 	a.appConfig.SkipVersion = version
 	return a.storage.SaveAppConfig(a.appConfig)
+}
+
+// GetProxyConfig 获取网络代理配置（Wails 绑定）
+func (a *App) GetProxyConfig() (*ProxyConfig, error) {
+	if a.appConfig == nil {
+		return &ProxyConfig{}, nil
+	}
+	return &a.appConfig.Proxy, nil
+}
+
+// SetProxyConfig 保存网络代理配置并立即生效（Wails 绑定）
+func (a *App) SetProxyConfig(cfg ProxyConfig) error {
+	if a.appConfig == nil {
+		a.appConfig = &AppConfig{}
+	}
+	a.appConfig.Proxy = cfg
+	if err := a.storage.SaveAppConfig(a.appConfig); err != nil {
+		return fmt.Errorf("保存代理配置失败: %w", err)
+	}
+	updater.SetProxyConfig(updater.ProxyConfig{
+		Enabled:  cfg.Enabled,
+		URL:      cfg.URL,
+		Username: cfg.Username,
+		Password: cfg.Password,
+	})
+	return nil
 }
 
 // GetCurrentVersion 获取当前版本号（Wails 绑定）

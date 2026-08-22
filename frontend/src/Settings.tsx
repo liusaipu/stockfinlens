@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './Settings.css'
-import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection } from './api'
+import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection, GetProxyConfig, SetProxyConfig } from './api'
 import type { main, ai_researcher } from '../wailsjs/go/models'
 import { ClipboardGetText, ClipboardSetText } from '../wailsjs/go/main/App'
 import { UpdateModal } from './UpdateModal'
@@ -234,8 +234,27 @@ export function Settings({
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [foundUpdateInfo, setFoundUpdateInfo] = useState<any>(null)
 
+  // 代理配置状态
+  const [proxyCfg, setProxyCfg] = useState<{ enabled: boolean; url: string; username: string; password: string }>({
+    enabled: false,
+    url: '',
+    username: '',
+    password: '',
+  })
+  const [proxySaving, setProxySaving] = useState(false)
+  const [proxySaveStatus, setProxySaveStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
+  const [proxyExpanded, setProxyExpanded] = useState(false)
+
   // 加载数据源配置
   useEffect(() => {
+    GetProxyConfig().then((cfg) => {
+      setProxyCfg({
+        enabled: cfg.enabled || false,
+        url: cfg.url || '',
+        username: cfg.username || '',
+        password: cfg.password || '',
+      })
+    }).catch(() => {})
     GetSFLConfig().then((cfg) => {
       setSflCfg(cfg)
     }).catch(() => {
@@ -457,6 +476,24 @@ export function Settings({
       setUpdateChecking(false)
     }
   }, [])
+
+  const handleSaveProxy = useCallback(async () => {
+    setProxySaving(true)
+    setProxySaveStatus({type: null, message: ''})
+    try {
+      await SetProxyConfig({
+        enabled: proxyCfg.enabled,
+        url: proxyCfg.url.trim(),
+        username: proxyCfg.username.trim(),
+        password: proxyCfg.password,
+      } as main.ProxyConfig)
+      setProxySaveStatus({type: 'success', message: '代理配置已保存'})
+    } catch (err: any) {
+      setProxySaveStatus({type: 'error', message: err?.message || '保存失败'})
+    } finally {
+      setProxySaving(false)
+    }
+  }, [proxyCfg])
 
   return (
     <>
@@ -1197,6 +1234,97 @@ export function Settings({
                   {updateCheckResult.message}
                 </div>
               )}
+
+              {/* 网络代理 */}
+              <div className="settings-divider" style={{ margin: '16px 0' }} />
+              <div className="settings-data-section" style={{ textAlign: 'left' }}>
+                <div
+                  className="settings-data-title"
+                  onClick={() => setProxyExpanded((v) => !v)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <span>🌐 网络代理</span>
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{proxyExpanded ? '▾' : '▸'}</span>
+                </div>
+                <div className="settings-data-desc">
+                  为自动更新下载配置代理，支持 http / https / socks5
+                </div>
+
+                {proxyExpanded && (
+                  <>
+                    <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
+                      <label>启用代理</label>
+                      <div className="settings-toggle-switch">
+                        <label className="switch">
+                          <input
+                            type="checkbox"
+                            checked={proxyCfg.enabled}
+                            onChange={(e) => setProxyCfg({ ...proxyCfg, enabled: e.target.checked })}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="settings-item" style={{ marginTop: 8 }}>
+                      <label>代理地址</label>
+                      <input
+                        type="text"
+                        value={proxyCfg.url}
+                        onChange={(e) => setProxyCfg({ ...proxyCfg, url: e.target.value })}
+                        placeholder="http://127.0.0.1:7890"
+                        disabled={!proxyCfg.enabled}
+                        style={{ width: '100%', marginTop: 4 }}
+                      />
+                    </div>
+
+                    <div className="settings-item" style={{ marginTop: 8 }}>
+                      <label>用户名（可选）</label>
+                      <input
+                        type="text"
+                        value={proxyCfg.username}
+                        onChange={(e) => setProxyCfg({ ...proxyCfg, username: e.target.value })}
+                        placeholder="留空表示无需认证"
+                        disabled={!proxyCfg.enabled}
+                        style={{ width: '100%', marginTop: 4 }}
+                      />
+                    </div>
+
+                    <div className="settings-item" style={{ marginTop: 8 }}>
+                      <label>密码（可选）</label>
+                      <input
+                        type="password"
+                        value={proxyCfg.password}
+                        onChange={(e) => setProxyCfg({ ...proxyCfg, password: e.target.value })}
+                        placeholder="留空表示无需认证"
+                        disabled={!proxyCfg.enabled}
+                        style={{ width: '100%', marginTop: 4 }}
+                      />
+                    </div>
+
+                    {proxySaveStatus.type && (
+                      <div className="settings-action-status" style={{ marginTop: 8 }}>
+                        {proxySaveStatus.type === 'success' ? (
+                          <span className="status-success">{proxySaveStatus.message}</span>
+                        ) : (
+                          <span className="status-error">{proxySaveStatus.message}</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button
+                        className="settings-data-btn"
+                        onClick={handleSaveProxy}
+                        disabled={proxySaving}
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        {proxySaving ? '保存中...' : '💾 保存代理配置'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* 运行环境 */}
               <div className="settings-divider" style={{ margin: '16px 0' }} />

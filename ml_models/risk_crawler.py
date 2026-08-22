@@ -14,10 +14,27 @@ import json
 import sys
 import datetime
 import os
+import threading
 
 # 禁用可能的本地代理干扰
 for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
     os.environ.pop(k, None)
+
+# 全局超时：避免 akshare 网络请求挂起导致 Go 端测试整体超时
+CRAWLER_TIMEOUT_SECONDS = 25
+
+def _timeout_exit():
+    result = {
+        "pledge_ratio": None,
+        "inquiry_count_1y": None,
+        "reduction_count_1y": None,
+        "error": f"爬虫执行超时（>{CRAWLER_TIMEOUT_SECONDS}s）",
+    }
+    print(json.dumps(result, ensure_ascii=False), flush=True)
+    os._exit(1)
+
+_timeout_timer = threading.Timer(CRAWLER_TIMEOUT_SECONDS, _timeout_exit)
+_timeout_timer.start()
 
 try:
     import akshare as ak
@@ -107,4 +124,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        _timeout_timer.cancel()

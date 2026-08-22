@@ -1706,6 +1706,24 @@ export namespace main {
 	        this.cashFlow = source["cashFlow"];
 	    }
 	}
+	export class ProxyConfig {
+	    enabled: boolean;
+	    url: string;
+	    username: string;
+	    password: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProxyConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.url = source["url"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	    }
+	}
 	export class PythonPackage {
 	    name: string;
 	    moduleName: string;

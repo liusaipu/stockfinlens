@@ -20,4 +20,6 @@ export const {
   DownloadUpdate,
   ApplyUpdate,
   GetCurrentVersion,
+  GetProxyConfig,
+  SetProxyConfig,
 } = Go_

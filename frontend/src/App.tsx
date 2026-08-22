@@ -498,13 +498,27 @@ function App() {
   const [compareGroup, setCompareGroup] = useState<{ name: string; codes: string[] } | null>(null)
   // 组头右键菜单（Wails webview 里 window.prompt/confirm 会被屏蔽，用自定义弹窗）
   const [groupContextMenu, setGroupContextMenu] = useState<{
-    x: number
-    y: number
+    left: number
+    top: number
     group: main.StockGroup
     codes: string[]
   } | null>(null)
   const [groupDelete, setGroupDelete] = useState<main.StockGroup | null>(null)
   const [groupCreate, setGroupCreate] = useState<{ value: string; moveCode?: string } | null>(null)
+  // 组合并：选择目标分组
+  const [groupMergeSubmenu, setGroupMergeSubmenu] = useState<{
+    left: number
+    top: number
+    sourceGroup: main.StockGroup
+    targetGroups: main.StockGroup[]
+  } | null>(null)
+  // 组合并：确认合并后名称
+  const [groupMergeModal, setGroupMergeModal] = useState<{
+    sourceGroup: main.StockGroup
+    targetGroup: main.StockGroup
+    mergedName: string
+  } | null>(null)
+  const groupMergeSubmenuTimer = useRef<number | null>(null)
   // 组头就地重命名
   const [inlineRename, setInlineRename] = useState<{ groupId: string; value: string } | null>(null)
   const inlineRenameInputRef = useRef<HTMLInputElement | null>(null)
@@ -1627,7 +1641,13 @@ function App() {
     (e: React.MouseEvent, group: main.StockGroup, codes: string[]) => {
       e.preventDefault()
       e.stopPropagation()
-      setGroupContextMenu({ x: e.clientX, y: e.clientY, group, codes })
+      const menuWidth = 140
+      const menuHeight = 130
+      const x = e.clientX
+      const y = e.clientY
+      const left = x + menuWidth > window.innerWidth ? Math.max(0, x - menuWidth) : x
+      const top = y + menuHeight > window.innerHeight ? Math.max(0, y - menuHeight) : y
+      setGroupContextMenu({ left, top, group, codes })
     },
     []
   )
@@ -1676,6 +1696,99 @@ function App() {
     persistWatchlistGroups(watchlistGroups.filter((g) => g.id !== groupDelete.id))
     setGroupDelete(null)
   }, [groupDelete, watchlistGroups, persistWatchlistGroups])
+
+  // 组合并：打开目标分组选择子菜单
+  const openGroupMergeSubmenu = useCallback(
+    (sourceGroup: main.StockGroup) => {
+      if (groupMergeSubmenuTimer.current) {
+        window.clearTimeout(groupMergeSubmenuTimer.current)
+        groupMergeSubmenuTimer.current = null
+      }
+      const targets = watchlistGroups.filter((g) => g.id !== sourceGroup.id)
+      if (targets.length === 0) {
+        showToast('没有其他可合并的分组')
+        return
+      }
+      const x = groupContextMenu?.left || 0
+      const y = groupContextMenu?.top || 0
+      const parentWidth = 140
+      const submenuMaxWidth = 220
+      const itemTopOffset = 34
+      const itemHeight = 30
+      const rightSpace = window.innerWidth - x - parentWidth
+      const left = rightSpace >= submenuMaxWidth ? x + parentWidth : Math.max(8, x - submenuMaxWidth)
+      const preferredTop = y + itemTopOffset
+      const submenuHeight = targets.length * itemHeight + 8
+      const bottomSpace = window.innerHeight - preferredTop
+      const top =
+        bottomSpace >= submenuHeight ? preferredTop : Math.max(8, window.innerHeight - submenuHeight - 8)
+      setGroupMergeSubmenu({
+        left,
+        top,
+        sourceGroup,
+        targetGroups: targets,
+      })
+    },
+    [watchlistGroups, groupContextMenu?.left, groupContextMenu?.top, showToast]
+  )
+
+  // 组合并：延迟关闭子菜单（给鼠标移入子菜单留出时间）
+  const scheduleCloseGroupMergeSubmenu = useCallback(() => {
+    if (groupMergeSubmenuTimer.current) window.clearTimeout(groupMergeSubmenuTimer.current)
+    groupMergeSubmenuTimer.current = window.setTimeout(() => {
+      setGroupMergeSubmenu(null)
+      groupMergeSubmenuTimer.current = null
+    }, 120)
+  }, [])
+
+  // 组合并：选择目标分组后打开重命名确认弹窗
+  const handleSelectMergeTarget = useCallback((targetGroup: main.StockGroup) => {
+    if (groupMergeSubmenuTimer.current) {
+      window.clearTimeout(groupMergeSubmenuTimer.current)
+      groupMergeSubmenuTimer.current = null
+    }
+    setGroupMergeModal({
+      sourceGroup: groupMergeSubmenu!.sourceGroup,
+      targetGroup,
+      mergedName: targetGroup.name,
+    })
+    setGroupMergeSubmenu(null)
+    setGroupContextMenu(null)
+  }, [groupMergeSubmenu])
+
+  // 组合并：确认执行合并
+  const handleConfirmMergeGroup = useCallback(() => {
+    if (!groupMergeModal) return
+    const { sourceGroup, targetGroup, mergedName } = groupMergeModal
+    const trimmedName = mergedName.trim()
+    if (!trimmedName) {
+      showToast('分组名称不能为空')
+      return
+    }
+    if (
+      isDuplicateGroupName(
+        trimmedName,
+        sourceGroup.id === targetGroup.id ? undefined : sourceGroup.id
+      )
+    ) {
+      showToast('已存在同名分组')
+      return
+    }
+    persistWatchlistGroups(
+      watchlistGroups
+        .filter((g) => g.id !== sourceGroup.id)
+        .map((g) =>
+          g.id === targetGroup.id
+            ? {
+                ...g,
+                name: trimmedName,
+                codes: [...new Set([...g.codes, ...sourceGroup.codes])],
+              }
+            : g
+        )
+    )
+    setGroupMergeModal(null)
+  }, [groupMergeModal, watchlistGroups, persistWatchlistGroups, isDuplicateGroupName, showToast])
 
   // 股票右键菜单：移入/移出分组
   const openStockContextMenu = useCallback(
@@ -1737,7 +1850,10 @@ function App() {
   // 右键菜单打开后，点击窗口其他区域/滚动/缩放时关闭
   useEffect(() => {
     if (!groupContextMenu) return
-    const close = () => setGroupContextMenu(null)
+    const close = () => {
+      setGroupContextMenu(null)
+      setGroupMergeSubmenu(null)
+    }
     window.addEventListener('mousedown', close)
     window.addEventListener('resize', close)
     window.addEventListener('scroll', close, true)
@@ -5752,7 +5868,7 @@ function App() {
       {groupContextMenu && (
         <ul
           className="group-context-menu"
-          style={{ left: groupContextMenu.x, top: groupContextMenu.y }}
+          style={{ left: groupContextMenu.left, top: groupContextMenu.top }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <li
@@ -5761,16 +5877,82 @@ function App() {
               closeGroupContextMenu()
             }}
           >
-            对比
+            组内股票对比
           </li>
-          <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>改名</li>
+          <li
+            onMouseEnter={() => openGroupMergeSubmenu(groupContextMenu.group)}
+            onMouseLeave={scheduleCloseGroupMergeSubmenu}
+            onClick={() => openGroupMergeSubmenu(groupContextMenu.group)}
+          >
+            <span>合并分组</span>
+            <span className="group-context-menu-arrow">›</span>
+          </li>
+          <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>分组改名</li>
           <li
             className="group-context-menu-danger"
             onClick={() => handleStartDeleteGroup(groupContextMenu.group)}
           >
-            删除
+            删除分组
           </li>
         </ul>
+      )}
+
+      {/* 组合并目标分组子菜单 */}
+      {groupMergeSubmenu && (
+        <ul
+          className="group-context-submenu"
+          style={{ left: groupMergeSubmenu.left, top: groupMergeSubmenu.top }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseEnter={() => {
+            if (groupMergeSubmenuTimer.current) {
+              window.clearTimeout(groupMergeSubmenuTimer.current)
+              groupMergeSubmenuTimer.current = null
+            }
+          }}
+          onMouseLeave={scheduleCloseGroupMergeSubmenu}
+        >
+          {groupMergeSubmenu.targetGroups.map((g) => (
+            <li key={g.id} onClick={() => handleSelectMergeTarget(g)}>
+              {g.name}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 组合并确认弹窗 */}
+      {groupMergeModal && (
+        <div className="group-modal-overlay" onClick={() => setGroupMergeModal(null)}>
+          <div className="group-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="group-modal-title">合并分组</div>
+            <div className="group-modal-body">
+              <div style={{ marginBottom: 12 }}>
+                将「{groupMergeModal.sourceGroup.name}」合并到「{groupMergeModal.targetGroup.name}」
+              </div>
+              <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+                合并后分组名称
+              </label>
+              <input
+                type="text"
+                value={groupMergeModal.mergedName}
+                onChange={(e) => setGroupMergeModal({ ...groupMergeModal, mergedName: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleConfirmMergeGroup()
+                  if (e.key === 'Escape') setGroupMergeModal(null)
+                }}
+                autoFocus
+                style={{ width: '100%', padding: '6px 8px', fontSize: 13 }}
+              />
+            </div>
+            <div className="group-modal-actions">
+              <button className="group-modal-btn" onClick={() => setGroupMergeModal(null)}>
+                取消
+              </button>
+              <button className="group-modal-btn primary" onClick={handleConfirmMergeGroup}>
+                合并
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 分组删除确认弹窗 */}
