@@ -73,7 +73,7 @@ func TestFormatPublishedAt(t *testing.T) {
 	}
 }
 
-// TestMatchPlatformAsset 验证平台 asset 匹配
+// TestMatchPlatformAsset 验证平台 asset 匹配（macOS 优先 universal，其次 arm64）
 func TestMatchPlatformAsset(t *testing.T) {
 	assets := []githubAsset{
 		{Name: "stockfinlens-macos-universal-v1.3.33.dmg", BrowserDownloadURL: "https://example.com/mac.dmg"},
@@ -102,6 +102,21 @@ func TestMatchPlatformAsset(t *testing.T) {
 	default:
 		if url != "" || name != "" {
 			t.Errorf("其他平台应返回空, got url=%q name=%q", url, name)
+		}
+	}
+
+	// 验证 universal 不存在时回退到 arm64
+	if runtime.GOOS == "darwin" {
+		arm64Assets := []githubAsset{
+			{Name: "stockfinlens-macos-arm64-v1.3.33.dmg", BrowserDownloadURL: "https://example.com/mac-arm64.dmg"},
+			{Name: "stockfinlens-windows-amd64-v1.3.33.zip", BrowserDownloadURL: "https://example.com/win.zip"},
+		}
+		url, name := matchPlatformAsset(arm64Assets)
+		if url != "https://example.com/mac-arm64.dmg" {
+			t.Errorf("macOS 无 universal 时应回退 arm64, got %q", url)
+		}
+		if name != "stockfinlens-macos-arm64-v1.3.33.dmg" {
+			t.Errorf("macOS arm64 资产名错误, got %q", name)
 		}
 	}
 }

@@ -87,10 +87,26 @@ type githubAsset struct {
 	Size               int64  `json:"size"`
 }
 
-// CheckUpdate 检查是否有新版本
+// CheckUpdate 检查是否有新版本。
+// 优先直连 GitHub API，失败时回退到 gh-proxy.com 镜像，以应对代理 IP 被限流等情况。
 func CheckUpdate(currentVersion string) (*UpdateInfo, error) {
+	sources := []string{githubAPIURL, "https://gh-proxy.com/" + githubAPIURL}
+	var lastErr error
+	for i, src := range sources {
+		fmt.Printf("[Updater] 尝试检查更新源 %d/%d...\n", i+1, len(sources))
+		info, err := checkUpdateFromURL(currentVersion, src)
+		if err == nil {
+			return info, nil
+		}
+		lastErr = err
+		fmt.Printf("[Updater] 源 %d 失败: %v\n", i+1, err)
+	}
+	return nil, fmt.Errorf("所有更新检查源均失败: %w", lastErr)
+}
+
+func checkUpdateFromURL(currentVersion, apiURL string) (*UpdateInfo, error) {
 	client := createHTTPClient(apiTimeout)
-	req, err := http.NewRequest("GET", githubAPIURL, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
 	}
@@ -137,21 +153,24 @@ func CheckUpdate(currentVersion string) (*UpdateInfo, error) {
 	return info, nil
 }
 
-// matchPlatformAsset 根据当前平台匹配对应的 release asset
+// matchPlatformAsset 根据当前平台匹配对应的 release asset。
+// macOS 优先 universal，其次 arm64；Windows 优先 amd64。
 func matchPlatformAsset(assets []githubAsset) (url, name string) {
-	var wantSuffix string
+	var wantSuffixes []string
 	switch runtime.GOOS {
 	case "windows":
-		wantSuffix = "windows-amd64-"
+		wantSuffixes = []string{"windows-amd64-"}
 	case "darwin":
-		wantSuffix = "macos-universal-"
+		wantSuffixes = []string{"macos-universal-", "macos-arm64-"}
 	default:
 		return "", ""
 	}
 
-	for _, a := range assets {
-		if strings.Contains(a.Name, wantSuffix) {
-			return a.BrowserDownloadURL, a.Name
+	for _, suffix := range wantSuffixes {
+		for _, a := range assets {
+			if strings.Contains(a.Name, suffix) {
+				return a.BrowserDownloadURL, a.Name
+			}
 		}
 	}
 	return "", ""
