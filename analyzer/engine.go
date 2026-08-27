@@ -21,6 +21,7 @@ type AnalysisOptions struct {
 	Extras      map[string]float64
 	External    *ExternalRiskData
 	Sensitivity SensitivityLevel // 零值视为 SensitivityStandard
+	CompanyName string           // 公司名称，用于报告标题；为空时回退到 symbol
 }
 
 // RunAnalysis 执行完整的财报透视分析，返回报告。
@@ -125,13 +126,17 @@ func RunAnalysis(baseDir, symbol string, opts AnalysisOptions) (*AnalysisReport,
 	quarterlyAlert := BuildQuarterlyAlert(data)
 	ttmMetrics := BuildTTMMetrics(data)
 
-	md := GenerateMarkdown(symbol, data.Years, steps, scores, opts.Comparable, industry, opts.Quote, opts.Sentiment, opts.Policy, opts.Technical, opts.Activity, opts.Moneyflow, opts.ML, opts.RIM, riskAlert, data.QualityWarnings, nil, quarterlyAlert, ttmMetrics)
+	companyName := opts.CompanyName
+	if companyName == "" {
+		companyName = symbol
+	}
+	md := GenerateMarkdown(companyName, symbol, data.Years, steps, scores, opts.Comparable, industry, opts.Quote, opts.Sentiment, opts.Policy, opts.Technical, opts.Activity, opts.Moneyflow, opts.ML, opts.RIM, riskAlert, data.QualityWarnings, nil, quarterlyAlert, ttmMetrics)
 
 	hr := ExtractHighlightsAndRisks(steps, data.Years)
 
 	report := &AnalysisReport{
 		Symbol:          symbol,
-		CompanyName:     symbol,
+		CompanyName:     companyName,
 		GeneratedAt:     time.Now().Format("2006-01-02 15:04"),
 		Years:           data.Years,
 		StepResults:     steps,

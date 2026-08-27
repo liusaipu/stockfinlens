@@ -93,21 +93,25 @@ stockfinlens/
 
 配置文件：`~/.config/stock-analyzer/ai_config.json`
 
+> 如何申请 Tavily / DeepSeek / Kimi API Key 并填入设置，请参阅项目首页 [README.md](../README.md) 中的「**AI 投研设置指南**」。
+
 | 层级 | 参数 | 说明 | 默认值 |
 |------|------|------|--------|
 | 连接层 | `llm_provider` | LLM 供应商：`kimi` / `kimi-code` / `deepseek` | `deepseek` |
 | 连接层 | `llm_api_key` | LLM API Key | `''` |
 | 连接层 | `llm_base_url` | OpenAI-compatible 端点 | `https://api.deepseek.com/v1` |
-| 连接层 | `llm_model` | DeepSeek 模型名 | `deepseek-v4-pro` |
+| 连接层 | `llm_model` | 模型名称，可通过 UI「更新模型」按钮拉取服务商最新列表 | `deepseek-v4-pro` |
 | 连接层 | `llm_timeout` | 请求超时（秒） | `90` |
 | 生成层 | `temperature` | 创造性/稳定性控制 | `0.2` |
-| 生成层 | `max_tokens` | 单次输出上限 | `4096` |
+| 生成层 | `max_tokens` | 单次输出上限 | `8192` |
 | 生成层 | `top_p` | 采样多样性 | `1.0` |
 | 搜索层 | `search_provider` | 搜索引擎：`tavily` | `tavily` |
-| 搜索层 | `search_api_key` | Tavily API Key | `''` |
+| 搜索层 | `search_api_key` | Tavily API Key（兼容旧配置单 Key） | `''` |
+| 搜索层 | `search_api_keys` | Tavily API Key 列表，最多 5 个，自动轮询 | `[]` |
 | 搜索层 | `search_depth` | `basic` / `advanced` | `advanced` |
-| 搜索层 | `max_results` | 每次查询返回条数 | `10` |
-| 搜索层 | `search_recency_days` | 只搜最近 N 天 | `90` |
+| 搜索层 | `search_timeout` | Tavily 请求超时（秒） | `180` |
+| 搜索层 | `max_results` | 每次查询返回条数 | `20` |
+| 搜索层 | `search_recency_days` | 只搜最近 N 天 | `180` |
 | 业务层 | `focus_regions` | 国际市场关注区域 | `['us', 'jp']` |
 | 业务层 | `output_language` | 输出语言 | `zh-CN` |
 | 业务层 | `enable_social` | 是否抓取社交情绪 | `true` |

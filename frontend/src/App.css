@@ -84,48 +84,6 @@ body.light {
   overflow: hidden;
 }
 
-/* 主题切换按钮 */
-.theme-toggle {
-  position: fixed;
-  top: 8px;
-  right: 12px;
-  z-index: 200;
-  width: 30px;
-  height: 30px;
-  line-height: 1;
-  padding: 0;
-  border: 1px solid #2a3a4a;
-  border-radius: 4px;
-  background: #141b24;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s, top 0.15s;
-  box-sizing: border-box;
-  -webkit-appearance: none;
-}
-
-body.windows-titlebar .theme-toggle {
-  top: 40px;
-}
-
-.theme-toggle:hover {
-  border-color: #3b82f6;
-  background: #1b2631;
-}
-
-body.light .theme-toggle {
-  background: #ffffff;
-  border-color: #d1d5db;
-}
-
-body.light .theme-toggle:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
 /* 左栏 */
 .sidebar {
   width: 230px;

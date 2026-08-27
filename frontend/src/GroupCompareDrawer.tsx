@@ -208,6 +208,8 @@ function missingSummary(rows: Row[]): string {
   return parts.join('，')
 }
 
+type SortDir = 'asc' | 'desc' | null
+
 export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }: Props) {
   useEscClose(onClose)
 
@@ -216,6 +218,37 @@ export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }:
   const [error, setError] = useState('')
   const [fetching, setFetching] = useState(false)
   const [fetchMessage, setFetchMessage] = useState('')
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>(null)
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else if (sortDir === 'desc') {
+        setSortKey(null)
+        setSortDir(null)
+      } else {
+        setSortDir('asc')
+      }
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedRows = useMemo(() => {
+    if (!sortKey || !sortDir) return rows
+    const col = COLUMNS.find((c) => c.key === sortKey)
+    if (!col) return rows
+    return [...rows].sort((a, b) => {
+      const va = col.value(a)
+      const vb = col.value(b)
+      if (va === null && vb === null) return 0
+      if (va === null) return 1
+      if (vb === null) return -1
+      return sortDir === 'asc' ? va - vb : vb - va
+    })
+  }, [rows, sortKey, sortDir])
 
   const codesKey = codes.join(',')
   const load = () => {
@@ -284,13 +317,30 @@ export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }:
                   <thead>
                     <tr>
                       <th className="gcd-th-stock">股票</th>
-                      {COLUMNS.map((col) => (
-                        <th key={col.key}>{col.title}</th>
-                      ))}
+                      {COLUMNS.map((col) => {
+                        const sortable = col.key !== 'hot'
+                        const active = sortKey === col.key
+                        const cls = [
+                          sortable ? 'gcd-sortable' : '',
+                          active && sortDir ? `gcd-sorted-${sortDir}` : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')
+                        return (
+                          <th
+                            key={col.key}
+                            className={cls}
+                            onClick={sortable ? () => handleSort(col.key) : undefined}
+                            title={sortable ? '点击排序' : undefined}
+                          >
+                            {col.title}
+                          </th>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
+                    {sortedRows.map((r) => (
                       <tr key={r.code}>
                         <td className="gcd-td-stock">
                           <button

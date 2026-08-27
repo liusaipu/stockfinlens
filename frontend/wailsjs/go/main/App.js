@@ -282,6 +282,10 @@ export function InstallPythonDependencies(arg1) {
   return window['go']['main']['App']['InstallPythonDependencies'](arg1);
 }
 
+export function ListLLMModels(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ListLLMModels'](arg1, arg2, arg3);
+}
+
 export function LoadAIResearchReport(arg1) {
   return window['go']['main']['App']['LoadAIResearchReport'](arg1);
 }

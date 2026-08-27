@@ -9,7 +9,7 @@
 集成 **AI 投研助手**：Tavily 联网搜索 + Kimi/DeepSeek 大模型，一键生成带信源的结构化投研报告。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.22-blue)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25.0-blue)](https://golang.org)
 [![Stars](https://img.shields.io/github/stars/liusaipu/stockfinlens?style=social)](https://github.com/liusaipu/stockfinlens/stargazers)
 
 [English](./README_EN.md) | 简体中文
@@ -118,6 +118,14 @@ A-Score = 财务造假层(60%) + 破产风险层(20%) + 非财务信号层(20%)
 - 成分股一键快速分析（基本面/流动性/舆情/风口关联四宫格）
 - 热点与自选股完全隔离，互不影响
 
+### 📁 自选股分组
+
+支持平铺/分组两种视图，一只股票唯一归属一个分组：
+
+- 右键股票「移入分组」可移动到目标分组，同时自动从原分组移出
+- 分组内支持拖拽排序，跨组拖拽直接完成移动
+- 概念/主题一键建组，自动把相关股票归入新组并清理旧归属
+
 ### 📉 技术形态与交易活跃度
 
 技术面与资金面双重验证：
@@ -160,6 +168,41 @@ A-Score = 财务造假层(60%) + 破产风险层(20%) + 非财务信号层(20%)
 ![AI 投研助手](docs/screenshots/ai-research.png)
 
 配置文件位置：`~/.config/stock-analyzer/ai_config.json`
+
+#### AI 投研设置指南
+
+首次使用需要在「**设置 → AI 投研**」中完成两项配置：**联网搜索（Tavily）** 和 **大模型（LLM）**。配置即时生效，点击「测试连接」验证通过后即可在个股页面点击「AI 投研」生成报告。
+
+**1. 配置 Tavily 联网搜索**
+
+Tavily 是专为 AI 应用设计的搜索引擎，用于抓取股票相关的公开新闻、公告、研报与社交情绪。
+
+- 访问 [tavily.com](https://tavily.com) 注册账号
+- 进入 Dashboard 的 **API Keys** 页面，点击 **Create API Key** 生成 Key（格式通常为 `tvly-...`）
+- 将 Key 填入「**Tavily API Key**」输入框；最多可填写 5 个 Key（用逗号、换行或空格分隔），系统会自动轮询以应对额度耗尽
+- 搜索深度建议保持 `advanced`，单次查询结果数默认 20 条，时效范围默认 180 天
+
+**2. 配置大模型（LLM）**
+
+应用支持 DeepSeek、Kimi（Moonshot 开放平台）和 Kimi Code 三类 OpenAI-compatible 接口。
+
+- **DeepSeek（推荐）**
+  - 访问 [platform.deepseek.com](https://platform.deepseek.com) 注册并充值
+  - 在 **API Keys** 页面创建 Key
+  - Base URL 保持默认 `https://api.deepseek.com/v1`
+  - 模型推荐 `deepseek-v4-pro`（质量更高）或 `deepseek-v4-flash`（更快更便宜）
+- **Kimi（Moonshot）**
+  - 访问 [platform.moonshot.cn](https://platform.moonshot.cn) 注册并创建 API Key
+  - Base URL 保持默认 `https://api.moonshot.cn/v1`
+  - 模型推荐 `kimi-k2.6` 或 `kimi-k2.5`
+- **Kimi Code**
+  - 访问 [kimi.com/code](https://kimi.com/code) 申请 API Key
+  - Base URL 保持默认 `https://api.kimi.com/coding/v1`
+  - 模型推荐 `kimi-k2.6`
+
+填写 API Key 后，点击「**模型名称**」右侧的「**更新模型**」按钮，应用会调用服务商 `/models` 接口拉取当前账号可用的最新模型列表；如果拉取失败，下拉框会回退到内置推荐模型。配置完成后点击「**测试连接**」，成功即可开始使用。
+
+> 💡 **省钱建议**：投研报告 JSON 较长，建议 `max_tokens` 不低于 4096（默认 8192）；Tavily 免费额度有限，可准备多个 Key 备用。
 
 ---
 
@@ -260,7 +303,9 @@ wails build
 **本地存储路径**：`~/.config/stock-analyzer/`
 
 - `watchlist.json`：自选股票列表（最多100只）
+- `watchlist_groups.json`：自选股分组（一只股票唯一归属一个分组）
 - `comparables.json`：可比公司配置
+- `ai_config.json`：AI 投研配置（LLM + Tavily）
 - `data/{symbol}/`：当前生效的财报 JSON
 - `data/{symbol}/history/`：历史归档（保留最近3批，支持回溯）
 - `reports/{symbol}/`：生成的 Markdown 分析报告

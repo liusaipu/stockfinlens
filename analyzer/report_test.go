@@ -96,8 +96,11 @@ func TestGenerateMarkdownMock(t *testing.T) {
 		"2023": {RawScore: 75.0, Grade: "B-", PassCount: 10, FailCount: 5},
 	}
 
-	md := GenerateMarkdown("603501 豪威集团", years, steps, scores, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
-	if !strings.Contains(md, "603501 豪威集团") {
+	md := GenerateMarkdown("豪威集团", "603501", years, steps, scores, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if !strings.Contains(md, "豪威集团") {
+		t.Error("missing company name")
+	}
+	if !strings.Contains(md, "603501") {
 		t.Error("missing symbol")
 	}
 	if !strings.Contains(md, "82") && !strings.Contains(md, "87") {

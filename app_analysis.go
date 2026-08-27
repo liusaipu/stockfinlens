@@ -777,6 +777,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		extras = finData.Extras
 	}
 
+	companyName := nameMap[symbol]
 	report, err := analyzer.RunAnalysis(a.storage.DataDir(), symbol, analyzer.AnalysisOptions{
 		Comparable:  compAnalysis,
 		Quote:       quoteData,
@@ -790,6 +791,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		Extras:      extras,
 		External:    externalRiskData,
 		Sensitivity: sensitivity,
+		CompanyName: companyName,
 	})
 	if err != nil {
 		return nil, err
@@ -803,7 +805,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 		if policyData != nil && policyData.Industry != "" {
 			industryComp = analyzer.CompareWithIndustry(policyData.Industry, report.StepResults, report.Years[0])
 		}
-		report.MarkdownContent = analyzer.GenerateMarkdown(symbol, report.Years, report.StepResults, report.ScoreDetails, compAnalysis, industryComp, quoteData, sentimentData, policyData, technicalData, activityData, moneyflowData, mlData, rimData, report.RiskAlert, report.QualityWarnings, diff, report.QuarterlyAlert, report.TTMMetrics)
+		report.MarkdownContent = analyzer.GenerateMarkdown(companyName, symbol, report.Years, report.StepResults, report.ScoreDetails, compAnalysis, industryComp, quoteData, sentimentData, policyData, technicalData, activityData, moneyflowData, mlData, rimData, report.RiskAlert, report.QualityWarnings, diff, report.QuarterlyAlert, report.TTMMetrics)
 	}
 	// 自动保存报告到本地
 	_, _ = a.storage.SaveReport(symbol, report.MarkdownContent, overwriteLatest)

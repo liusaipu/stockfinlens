@@ -7,7 +7,7 @@ import (
 )
 
 // GenerateMarkdown 生成增强版 Markdown 格式的投资分析报告（14模块标准框架）
-func GenerateMarkdown(symbol string, years []string, steps []StepResult, scores map[string]*YearScore, comp *ComparableAnalysis, industry *IndustryComparison, quote *QuoteData, sentiment *SentimentData, policy *PolicyMatchData, technical *TechnicalData, activity *ActivityData, moneyflow *MoneyflowData, ml *MLPredictionData, rim *RIMData, riskAlert *RiskAlertSummary, qualityWarnings []string, diff *AnalysisDiff, quarterlyAlert *QuarterlyAlert, ttmMetrics *TTMMetrics) string {
+func GenerateMarkdown(companyName, symbol string, years []string, steps []StepResult, scores map[string]*YearScore, comp *ComparableAnalysis, industry *IndustryComparison, quote *QuoteData, sentiment *SentimentData, policy *PolicyMatchData, technical *TechnicalData, activity *ActivityData, moneyflow *MoneyflowData, ml *MLPredictionData, rim *RIMData, riskAlert *RiskAlertSummary, qualityWarnings []string, diff *AnalysisDiff, quarterlyAlert *QuarterlyAlert, ttmMetrics *TTMMetrics) string {
 	if len(years) == 0 {
 		return "# 无数据\n\n未找到可用的财务数据。"
 	}
@@ -21,7 +21,11 @@ func GenerateMarkdown(symbol string, years []string, steps []StepResult, scores 
 	var b strings.Builder
 
 	// ==================== 封面 ====================
-	b.WriteString(fmt.Sprintf("# %s 深度投资分析报告\n\n", symbol))
+	titleName := companyName
+	if titleName == "" {
+		titleName = symbol
+	}
+	b.WriteString(fmt.Sprintf("# %s 财报透镜分析报告\n\n", titleName))
 	b.WriteString(fmt.Sprintf("**股票代码**: %s  \n", symbol))
 	b.WriteString("**分析框架**: 财报透视分析框架  \n")
 	b.WriteString(fmt.Sprintf("**最新报告期**: %s  \n", latest))

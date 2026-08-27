@@ -146,6 +146,8 @@ export function InitIndustryDatabase():Promise<void>;
 
 export function InstallPythonDependencies(arg1:Array<string>):Promise<void>;
 
+export function ListLLMModels(arg1:string,arg2:string,arg3:string):Promise<Array<ai_researcher.ModelInfo>>;
+
 export function LoadAIResearchReport(arg1:string):Promise<ai_researcher.AIResearchReport>;
 
 export function LoadAnalysisSnapshot(arg1:string):Promise<analyzer.AnalysisReport>;

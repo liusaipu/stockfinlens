@@ -3517,6 +3517,62 @@ func (a *App) TestAIConnection(cfg ai_researcher.AIConfig) (*ai_researcher.TestC
 	return researcher.TestConnection()
 }
 
+// ListLLMModels 获取指定 LLM 服务商当前可用的模型列表。
+// 参数直接取自前端当前表单，provider 用于兜底展示与过滤。
+func (a *App) ListLLMModels(provider, baseURL, apiKey string) ([]ai_researcher.ModelInfo, error) {
+	if a.storage == nil {
+		return nil, fmt.Errorf("存储未初始化")
+	}
+	client := ai_researcher.NewLLMClient(apiKey, baseURL, "", 60)
+	models, err := client.ListModels()
+	if err != nil {
+		return nil, err
+	}
+	// 对常见供应商做排序：把官方主推/常用的模型置顶
+	models = sortLLMModels(provider, models)
+	return models, nil
+}
+
+// sortLLMModels 根据 provider 给常用模型更高优先级，其他按 ID 字母序排列。
+func sortLLMModels(provider string, models []ai_researcher.ModelInfo) []ai_researcher.ModelInfo {
+	var order []string
+	switch provider {
+	case "deepseek":
+		order = []string{
+			"deepseek-v4-pro",
+			"deepseek-v4-flash",
+			"deepseek-chat",
+			"deepseek-reasoner",
+		}
+	case "kimi", "kimi-code":
+		order = []string{
+			"kimi-k2.6",
+			"kimi-k2.5",
+			"kimi-k2.7-code",
+			"kimi-k2.7-code-highspeed",
+		}
+	}
+	priority := make(map[string]int, len(order))
+	for i, id := range order {
+		priority[id] = i
+	}
+	sort.SliceStable(models, func(i, j int) bool {
+		pi, oki := priority[models[i].ID]
+		pj, okj := priority[models[j].ID]
+		if oki && okj {
+			return pi < pj
+		}
+		if oki {
+			return true
+		}
+		if okj {
+			return false
+		}
+		return models[i].ID < models[j].ID
+	})
+	return models
+}
+
 // AnalyzeStockWithAI 对指定股票执行 AI 投研分析
 // forceRefresh 为 true 时跳过缓存，强制重新搜索分析
 func (a *App) AnalyzeStockWithAI(symbol string, name string, forceRefresh bool) (*ai_researcher.AIResearchReport, error) {

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -113,10 +112,6 @@ func FetchRiskCrawlerData(symbol string) (*RiskCrawlerData, error) {
 
 	// Windows: 隐藏 CMD 窗口
 	setHideWindow(cmd)
-	// Unix: 创建新进程组，便于超时后整体 kill
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	}
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -143,12 +138,7 @@ func FetchRiskCrawlerData(symbol string) (*RiskCrawlerData, error) {
 	select {
 	case <-time.After(30 * time.Second):
 		if cmd.Process != nil {
-			if runtime.GOOS == "windows" {
-				_ = cmd.Process.Kill()
-			} else {
-				// 负 PID 表示 kill 整个进程组
-				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-			}
+			_ = cmd.Process.Kill()
 		}
 		return nil, fmt.Errorf("爬虫执行超时 (>30s): %s", symbol)
 	case err := <-done:

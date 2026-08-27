@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './Settings.css'
-import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection, GetProxyConfig, SetProxyConfig } from './api'
+import { GetSFLConfig, SaveSFLConfig, VerifySFLToken, CheckForUpdate, SetAutoCheckUpdate, GetAIConfig, SaveAIConfig, TestAIConnection, ListLLMModels, GetProxyConfig, SetProxyConfig } from './api'
 import type { main, ai_researcher } from '../wailsjs/go/models'
 import { ClipboardGetText, ClipboardSetText } from '../wailsjs/go/main/App'
 import { UpdateModal } from './UpdateModal'
@@ -218,6 +218,9 @@ export function Settings({
   const [showLLMKey, setShowLLMKey] = useState(false)
   const [showSearchKey, setShowSearchKey] = useState(false)
   const [clipboardError, setClipboardError] = useState<string | null>(null)
+  const [llmModelsMap, setLlmModelsMap] = useState<Record<string, ai_researcher.ModelInfo[]>>({})
+  const [updatingLLMModels, setUpdatingLLMModels] = useState(false)
+  const [llmModelsError, setLlmModelsError] = useState<string | null>(null)
 
   // 解析 Tavily Key 输入字符串为数组
   const parseSearchKeys = (input: string): string[] => {
@@ -307,6 +310,24 @@ export function Settings({
       setSflSaving(false)
     }
   }, [sflCfg])
+
+  const handleUpdateLLMModels = useCallback(async () => {
+    if (!aiCfg) return
+    if (!aiCfg.llm_api_key) {
+      setLlmModelsError('请先填写 API Key')
+      return
+    }
+    setUpdatingLLMModels(true)
+    setLlmModelsError(null)
+    try {
+      const models = await ListLLMModels(aiCfg.llm_provider, aiCfg.llm_base_url, aiCfg.llm_api_key)
+      setLlmModelsMap(prev => ({...prev, [aiCfg.llm_provider]: models || []}))
+    } catch (err: any) {
+      setLlmModelsError(err?.message || '更新模型列表失败')
+    } finally {
+      setUpdatingLLMModels(false)
+    }
+  }, [aiCfg])
 
   const handleTestAI = useCallback(async () => {
     if (!aiCfg) return
@@ -897,47 +918,95 @@ export function Settings({
                           />
                         </div>
 
-                        <div className="settings-item" style={{ marginTop: 8 }}>
-                          <label>模型名称</label>
-                          {aiCfg.llm_provider === 'deepseek' ? (
-                            <select
-                              value={aiCfg.llm_model}
-                              onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
-                              style={{ width: '100%', marginTop: 4, padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
-                            >
-                              <option value="deepseek-v4-pro">deepseek-v4-pro（默认推荐）</option>
-                              <option value="deepseek-v4-flash">deepseek-v4-flash（更快更便宜）</option>
-                              <option value="deepseek-chat">deepseek-chat（旧版，2026-07-24 停用）</option>
-                              <option value="deepseek-reasoner">deepseek-reasoner（旧版推理，2026-07-24 停用）</option>
-                            </select>
-                          ) : aiCfg.llm_provider === 'kimi' || aiCfg.llm_provider === 'kimi-code' ? (
-                            <select
-                              value={aiCfg.llm_model}
-                              onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
-                              style={{ width: '100%', marginTop: 4, padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
-                            >
-                              <option value="kimi-k2.6">kimi-k2.6（默认推荐）</option>
-                              <option value="kimi-k2.5">kimi-k2.5</option>
-                              <option value="kimi-k2.7-code">kimi-k2.7-code（编程专用）</option>
-                              <option value="kimi-k2.7-code-highspeed">kimi-k2.7-code-highspeed（高速版）</option>
-                            </select>
-                          ) : (
-                            <input
-                              type="text"
-                              value={aiCfg.llm_model}
-                              onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
-                              placeholder="模型名称"
-                              style={{ width: '100%', marginTop: 4 }}
-                            />
-                          )}
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                            {aiCfg.llm_provider === 'deepseek'
-                              ? 'DeepSeek V4 新模型：pro 质量更高，flash 速度更快、成本更低'
-                              : aiCfg.llm_provider === 'kimi' || aiCfg.llm_provider === 'kimi-code'
-                                ? 'Kimi K2 系列新模型：k2.6 综合能力最强，k2.7-code 更适合代码场景；Kimi Code 端点会自动处理 temperature'
-                                : '可手动输入模型名'}
-                          </div>
-                        </div>
+                        {(() => {
+                          const defaultModels: Record<string, { id: string; label: string }[]> = {
+                            deepseek: [
+                              { id: 'deepseek-v4-pro', label: 'deepseek-v4-pro（默认推荐）' },
+                              { id: 'deepseek-v4-flash', label: 'deepseek-v4-flash（更快更便宜）' },
+                              { id: 'deepseek-chat', label: 'deepseek-chat（旧版，2026-07-24 停用）' },
+                              { id: 'deepseek-reasoner', label: 'deepseek-reasoner（旧版推理，2026-07-24 停用）' },
+                            ],
+                            kimi: [
+                              { id: 'kimi-k2.6', label: 'kimi-k2.6（默认推荐）' },
+                              { id: 'kimi-k2.5', label: 'kimi-k2.5' },
+                              { id: 'kimi-k2.7-code', label: 'kimi-k2.7-code（编程专用）' },
+                              { id: 'kimi-k2.7-code-highspeed', label: 'kimi-k2.7-code-highspeed（高速版）' },
+                            ],
+                            'kimi-code': [
+                              { id: 'kimi-k2.6', label: 'kimi-k2.6（默认推荐）' },
+                              { id: 'kimi-k2.5', label: 'kimi-k2.5' },
+                              { id: 'kimi-k2.7-code', label: 'kimi-k2.7-code（编程专用）' },
+                              { id: 'kimi-k2.7-code-highspeed', label: 'kimi-k2.7-code-highspeed（高速版）' },
+                            ],
+                          }
+                          const fetched = llmModelsMap[aiCfg.llm_provider] || []
+                          const fallback = defaultModels[aiCfg.llm_provider] || []
+                          const optionMap = new Map<string, string>()
+                          fetched.forEach(m => optionMap.set(m.id, m.name || m.id))
+                          fallback.forEach(m => {
+                            if (!optionMap.has(m.id)) optionMap.set(m.id, m.label)
+                          })
+                          const currentModel = aiCfg.llm_model
+                          if (currentModel && !optionMap.has(currentModel)) {
+                            optionMap.set(currentModel, currentModel)
+                          }
+                          const options = Array.from(optionMap.entries()).map(([id, label]) => ({ id, label }))
+                          return (
+                            <div className="settings-item" style={{ marginTop: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label>模型名称</label>
+                                {aiCfg.llm_provider !== 'custom' && (
+                                  <button
+                                    type="button"
+                                    onClick={handleUpdateLLMModels}
+                                    disabled={updatingLLMModels || !aiCfg.llm_api_key}
+                                    style={{
+                                      fontSize: 11,
+                                      padding: '2px 8px',
+                                      borderRadius: 4,
+                                      border: '1px solid rgba(148,163,184,0.3)',
+                                      background: updatingLLMModels ? 'rgba(148,163,184,0.15)' : 'rgba(15,23,42,0.6)',
+                                      color: updatingLLMModels ? '#64748b' : '#e2e8f0',
+                                      cursor: updatingLLMModels || !aiCfg.llm_api_key ? 'not-allowed' : 'pointer',
+                                    }}
+                                    title={!aiCfg.llm_api_key ? '请先填写 API Key' : '从服务商获取最新模型列表'}
+                                  >
+                                    {updatingLLMModels ? '更新中…' : '更新模型'}
+                                  </button>
+                                )}
+                              </div>
+                              {aiCfg.llm_provider !== 'custom' ? (
+                                <select
+                                  value={aiCfg.llm_model}
+                                  onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
+                                  style={{ width: '100%', marginTop: 4, padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: 13 }}
+                                >
+                                  {options.map(m => (
+                                    <option key={m.id} value={m.id}>{m.label}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={aiCfg.llm_model}
+                                  onChange={(e) => setAiCfg({ ...aiCfg, llm_model: e.target.value })}
+                                  placeholder="模型名称"
+                                  style={{ width: '100%', marginTop: 4 }}
+                                />
+                              )}
+                              {llmModelsError && (
+                                <div style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>{llmModelsError}</div>
+                              )}
+                              <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                                {aiCfg.llm_provider === 'deepseek'
+                                  ? 'DeepSeek V4 新模型：pro 质量更高，flash 速度更快、成本更低'
+                                  : aiCfg.llm_provider === 'kimi' || aiCfg.llm_provider === 'kimi-code'
+                                    ? 'Kimi K2 系列新模型：k2.6 综合能力最强，k2.7-code 更适合代码场景；Kimi Code 端点会自动处理 temperature'
+                                    : '可手动输入模型名'}
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         <div className="settings-item settings-item-inline" style={{ marginTop: 8 }}>
                           <label>请求超时</label>

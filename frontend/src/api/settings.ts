@@ -12,6 +12,7 @@ export const {
   GetAIConfig,
   SaveAIConfig,
   TestAIConnection,
+  ListLLMModels,
   AnalyzeStockWithAI,
   LoadAIResearchReport,
   CancelAIResearch,

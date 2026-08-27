@@ -263,6 +263,89 @@ func logRawLLMResponse(body []byte) {
 	_, _ = fmt.Fprintf(f, "[%s]\n%s\n\n", time.Now().Format(time.RFC3339), truncated)
 }
 
+// ModelInfo 单个模型信息
+type ModelInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// modelListResponse /models 端点响应
+type modelListResponse struct {
+	Object string `json:"object"`
+	Data   []struct {
+		ID      string `json:"id"`
+		Object  string `json:"object"`
+		Created int64  `json:"created"`
+		OwnedBy string `json:"owned_by"`
+	} `json:"data"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// ListModels 调用 LLM 服务商的 /models 端点获取可用模型列表。
+// 会对结果做简单过滤，保留看起来可用于 chat/completions 的模型。
+func (c *LLMClient) ListModels() ([]ModelInfo, error) {
+	if c.apiKey == "" {
+		return nil, fmt.Errorf("LLM API Key 为空")
+	}
+	if c.baseURL == "" {
+		return nil, fmt.Errorf("LLM Base URL 为空")
+	}
+
+	url := c.baseURL
+	if url[len(url)-1:] != "/" {
+		url += "/"
+	}
+	url += "models"
+
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建模型列表请求失败: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("获取模型列表失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取模型列表响应失败: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("模型列表返回错误状态码 %d: %s", resp.StatusCode, string(body))
+	}
+
+	var listResp modelListResponse
+	if err := json.Unmarshal(body, &listResp); err != nil {
+		return nil, fmt.Errorf("解析模型列表失败: %w", err)
+	}
+	if listResp.Error != nil && listResp.Error.Message != "" {
+		return nil, fmt.Errorf("模型列表 API 错误: %s", listResp.Error.Message)
+	}
+
+	models := make([]ModelInfo, 0, len(listResp.Data))
+	for _, m := range listResp.Data {
+		if m.ID == "" || m.Object != "model" {
+			continue
+		}
+		// 简单过滤：排除 embedding/tts/whisper 等非对话模型
+		id := strings.ToLower(m.ID)
+		if strings.Contains(id, "embed") || strings.Contains(id, "tts") || strings.Contains(id, "whisper") || strings.Contains(id, "dall") || strings.Contains(id, "moderation") {
+			continue
+		}
+		name := m.ID
+		if m.OwnedBy != "" {
+			name = fmt.Sprintf("%s（%s）", m.ID, m.OwnedBy)
+		}
+		models = append(models, ModelInfo{ID: m.ID, Name: name})
+	}
+	return models, nil
+}
+
 // Test 测试 LLM 连接是否可用
 func (c *LLMClient) Test() error {
 	_, err := c.Complete(context.Background(), "You are a helpful assistant.", "Hi", normalizeTemperature(c.model, 0.2), 10, normalizeTopP(c.model, 1.0), false)

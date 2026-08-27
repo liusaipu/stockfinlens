@@ -407,8 +407,8 @@ function App() {
 
   const [concepts, setConcepts] = useState<downloader.StockConcepts | null>(null)
   const [moneyflow, setMoneyflow] = useState<main.StockMoneyflowResult | null>(null)
-  const [todayMoneyflowExpanded, setTodayMoneyflowExpanded] = useState(true)
-  const [recentMoneyflowExpanded, setRecentMoneyflowExpanded] = useState(true)
+  const [todayMoneyflowExpanded, setTodayMoneyflowExpanded] = useState(false)
+  const [recentMoneyflowExpanded, setRecentMoneyflowExpanded] = useState(false)
 
   const [moneyflowRefreshing, setMoneyflowRefreshing] = useState(false)
   const [sflConfig, setSflConfig] = useState<main.SFLConfig | null>(null)
@@ -1825,9 +1825,13 @@ function App() {
   const handleMoveStockToGroup = useCallback(
     (code: string, targetGroupId: string) => {
       persistWatchlistGroups(
-        watchlistGroups.map((g) =>
-          g.id === targetGroupId ? { ...g, codes: [...new Set([...g.codes, code])] } : g
-        )
+        watchlistGroups.map((g) => {
+          const codes = g.codes.filter((c) => c !== code)
+          if (g.id === targetGroupId) {
+            return { ...g, codes: [...codes, code] }
+          }
+          return { ...g, codes }
+        })
       )
       setStockContextMenu(null)
       setStockMoveSubmenu(null)
@@ -1922,14 +1926,20 @@ function App() {
     }
     setSuggestTooltip(null)
 
+    const codes = suggestion.codes || []
+    // 股票只能属于一个分组：先把这些股票从其他分组移出，再加入新概念分组
+    const nextGroups = watchlistGroups.map((g) => ({
+      ...g,
+      codes: g.codes.filter((c) => !codes.includes(c)),
+    }))
     const newGroup: main.StockGroup = {
       id: '',
       name: suggestion.conceptName,
       source: 'concept',
       conceptName: suggestion.conceptName,
-      codes: suggestion.codes,
+      codes,
     } as main.StockGroup
-    persistWatchlistGroups([...watchlistGroups, newGroup])
+    persistWatchlistGroups([...nextGroups, newGroup])
     handleSetViewMode('grouped')
   }
 
@@ -1974,14 +1984,20 @@ function App() {
       showToast('已存在同名分组')
       return
     }
+    const codes = groupCreate.moveCode ? [groupCreate.moveCode] : []
+    // 股票只能属于一个分组：若新建组包含某只股票，先把它从其他分组移出
+    const nextGroups = watchlistGroups.map((g) => ({
+      ...g,
+      codes: g.codes.filter((c) => !codes.includes(c)),
+    }))
     const newGroup: main.StockGroup = {
       id: '',
       name: trimmed,
       source: 'manual',
       conceptName: '',
-      codes: groupCreate.moveCode ? [groupCreate.moveCode] : [],
+      codes,
     } as main.StockGroup
-    persistWatchlistGroups([...watchlistGroups, newGroup])
+    persistWatchlistGroups([...nextGroups, newGroup])
     setGroupCreate(null)
     handleSetViewMode('grouped')
   }, [groupCreate, watchlistGroups, persistWatchlistGroups, isDuplicateGroupName, showToast])
@@ -5341,9 +5357,9 @@ function App() {
                   className={`report-tab-btn ${activeReportTab === 'report' ? 'active' : ''}`}
                   onClick={() => setActiveReportTab('report')}
                   disabled={!displayContent}
-                  title={!displayContent ? '请先执行财报分析' : '查看财报分析报告'}
+                  title={!displayContent ? '请先执行财报分析' : '查看财报透镜分析报告'}
                 >
-                  财报报告
+                  透镜报告
                 </button>
                 <button
                   className={`report-tab-btn ${activeReportTab === 'ai' ? 'active' : ''}`}
@@ -5877,14 +5893,14 @@ function App() {
               closeGroupContextMenu()
             }}
           >
-            组内股票对比
+            组内对比
           </li>
           <li
             onMouseEnter={() => openGroupMergeSubmenu(groupContextMenu.group)}
             onMouseLeave={scheduleCloseGroupMergeSubmenu}
             onClick={() => openGroupMergeSubmenu(groupContextMenu.group)}
           >
-            <span>合并分组</span>
+            <span>分组合并</span>
             <span className="group-context-menu-arrow">›</span>
           </li>
           <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>分组改名</li>
@@ -5892,7 +5908,7 @@ function App() {
             className="group-context-menu-danger"
             onClick={() => handleStartDeleteGroup(groupContextMenu.group)}
           >
-            删除分组
+            分组删除
           </li>
         </ul>
       )}
