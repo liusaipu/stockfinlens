@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.8.29] - 2026-08-27
+
+### 修复 (Fixes)
+- **修复 macOS 自动更新下载失败**：发布包从 `macos-universal` 改为 `macos-arm64` 后，更新器的 asset 匹配逻辑未同步，导致检测到新版本但提示「没有可用的下载链接」。现在 `matchPlatformAsset` 优先匹配 universal，不存在时回退到 arm64。
+- **修复代理下更新检查 403**：开启网络代理后，若代理出口 IP 触发 GitHub API 未认证限流，会返回 403。`CheckUpdate` 现在失败后自动回退到 `gh-proxy.com` 镜像源检查更新。
+
 ## [v1.8.28] - 2026-08-27
 
 ### 新增 (Features)
