@@ -54,9 +54,11 @@ type GroupComparisonRow struct {
 	HasActivity   bool    `json:"hasActivity"` // 活跃度是否来自真实缓存（ false=缺失用中位数替代）
 	Stars         int     `json:"stars"`
 	// 热度
-	ChangePercent float64 `json:"changePercent"` // 当日涨跌幅（托盘报价内存缓存 / 本地行情缓存）
-	ThsHotRank    int     `json:"thsHotRank"`    // 同花顺热搜排名，0=未上榜/不可用
-	ThsHotValue   float64 `json:"thsHotValue"`
+	ChangePercent         float64 `json:"changePercent"`         // 当日涨跌幅（托盘报价内存缓存 / 本地行情缓存）
+	HalfYearChangePercent float64 `json:"halfYearChangePercent"` // 半年涨幅（本地日K缓存，不发起网络请求）
+	HasHalfYearChange     bool    `json:"hasHalfYearChange"`     // 半年涨幅是否有效
+	ThsHotRank            int     `json:"thsHotRank"`            // 同花顺热搜排名，0=未上榜/不可用
+	ThsHotValue           float64 `json:"thsHotValue"`
 	// 综合得分（基于模块 4.2 固定档位加权算法，跨池可比）
 	CompositeScore float64 `json:"compositeScore"` // 满分 100
 	CompositeRank  int     `json:"compositeRank"`  // 组内排名，1 开始
@@ -299,14 +301,14 @@ func (a *App) GetGroupComparison(codes []string) ([]GroupComparisonRow, error) {
 }
 
 // fillCompositeScores 基于模块 4.2 固定档位算法为每只股票计算综合得分与组内排名。
-// 缺失的活跃度/现金含量/负债率使用组内有效样本中位数替代，保证排名连续性。
+// 缺失的活跃度/现金含量/负债率/半年涨幅使用组内有效样本中位数替代，保证排名连续性。
 func fillCompositeScores(rows []GroupComparisonRow) {
 	if len(rows) == 0 {
 		return
 	}
 
 	// 收集有效样本用于中位数替代
-	var cashVals, actVals, debtVals []float64
+	var cashVals, actVals, debtVals, halfYearVals []float64
 	for i := range rows {
 		r := &rows[i]
 		if r.HasCashRatio {
@@ -318,10 +320,14 @@ func fillCompositeScores(rows []GroupComparisonRow) {
 		if r.HasDebtRatio {
 			debtVals = append(debtVals, r.DebtRatio)
 		}
+		if r.HasHalfYearChange {
+			halfYearVals = append(halfYearVals, r.HalfYearChangePercent)
+		}
 	}
 	medianCash := medianFloat64(cashVals)
 	medianAct := medianFloat64(actVals)
 	medianDebt := medianFloat64(debtVals)
+	medianHalfYear := medianFloat64(halfYearVals)
 
 	// 用中位数替代缺失值，并构造 ComparableMetrics 计算得分
 	type scored struct {
@@ -329,7 +335,6 @@ func fillCompositeScores(rows []GroupComparisonRow) {
 		score float64
 	}
 	list := make([]scored, len(rows))
-	all := make([]*analyzer.ComparableMetrics, len(rows))
 	for i := range rows {
 		r := &rows[i]
 		if !r.HasCashRatio {
@@ -340,6 +345,9 @@ func fillCompositeScores(rows []GroupComparisonRow) {
 		}
 		if !r.HasDebtRatio {
 			r.DebtRatio = medianDebt
+		}
+		if !r.HasHalfYearChange {
+			r.HalfYearChangePercent = medianHalfYear
 		}
 		m := &analyzer.ComparableMetrics{
 			Symbol:        r.Code,
@@ -352,8 +360,7 @@ func fillCompositeScores(rows []GroupComparisonRow) {
 			AScore:        r.AScore,
 			ActivityScore: r.ActivityScore,
 		}
-		all[i] = m
-		list[i] = scored{idx: i, score: analyzer.CalcComparableScore(m, all, medianAct)}
+		list[i] = scored{idx: i, score: analyzer.CalcGroupComparisonScore(m, medianAct, r.HalfYearChangePercent)}
 	}
 
 	// 按得分降序排序（稳定排序，同分保持原顺序）
@@ -379,6 +386,60 @@ func medianFloat64(vals []float64) float64 {
 		return sorted[mid]
 	}
 	return (sorted[mid-1] + sorted[mid]) / 2
+}
+
+// parseKlineTime 解析 K 线时间，兼容 "20060102" 与 "2006-01-02" 两种格式。
+func parseKlineTime(s string) (time.Time, bool) {
+	if t, err := time.Parse("20060102", s); err == nil {
+		return t, true
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t, true
+	}
+	return time.Time{}, false
+}
+
+// calcHalfYearChange 从本地日K缓存计算近半年涨幅。
+// 取最新收盘价与 6 个月前（含当日）最近一根有效 K 线收盘价对比，失败返回 (0, false)。
+func calcHalfYearChange(klines []downloader.KlineData) (float64, bool) {
+	if len(klines) < 2 {
+		return 0, false
+	}
+	latest := klines[len(klines)-1]
+	if latest.Close <= 0 {
+		return 0, false
+	}
+	latestTime, ok := parseKlineTime(latest.Time)
+	if !ok {
+		return 0, false
+	}
+	targetTime := latestTime.AddDate(0, -6, 0)
+	var best downloader.KlineData
+	bestDiff := time.Duration(1<<63 - 1)
+	found := false
+	for _, k := range klines {
+		if k.Close <= 0 {
+			continue
+		}
+		kt, ok := parseKlineTime(k.Time)
+		if !ok {
+			continue
+		}
+		// 只取 6 个月前及更早的 K 线，避免用不足半年的数据
+		if kt.After(targetTime) {
+			continue
+		}
+		diff := targetTime.Sub(kt)
+		if diff < bestDiff {
+			bestDiff = diff
+			best = k
+			found = true
+		}
+	}
+	if !found || best.Close <= 0 {
+		return 0, false
+	}
+	return (latest.Close - best.Close) / best.Close * 100, true
 }
 
 // buildGroupComparisonRow 装配单只股票的对比数据（全部读本地缓存，失败字段降级为 0）
@@ -442,7 +503,15 @@ func (a *App) buildGroupComparisonRow(code, name string, trayQuotes map[string]f
 		row.ChangePercent = quote.ChangePercent
 	}
 
-	// 5. 同花顺热搜（榜单已在 GetGroupComparison 拉取一次）
+	// 5. 半年涨幅：本地日K缓存，不发起网络请求
+	if klines, err := a.storage.LoadStockKlines(code, "daily"); err == nil && len(klines) >= 2 {
+		if v, ok := calcHalfYearChange(klines); ok {
+			row.HalfYearChangePercent = v
+			row.HasHalfYearChange = true
+		}
+	}
+
+	// 6. 同花顺热搜（榜单已在 GetGroupComparison 拉取一次）
 	if item, ok := thsHot[code]; ok {
 		row.ThsHotRank = item.Rank
 		row.ThsHotValue = item.Hot
@@ -502,10 +571,11 @@ type FetchMissingCompositeDataResult struct {
 	Message         string   `json:"message"`
 }
 
-// FetchMissingCompositeData 为组内对比补齐缺失的财务/活跃度数据（只补缺失的）。
+// FetchMissingCompositeData 为组内对比补齐缺失的财务/活跃度/半年涨幅数据（只补缺失的）。
 // - 现金含量缺失：触发财报分析（AnalyzeStock）
 // - 市场缓存缺失/负债率缺失：精准刷新单只股票市场缓存（MarketCacheManager.UpdateItem）
 // - 活跃度缺失：调用 FetchMissingActivity
+// - 半年涨幅缺失：刷新本地日K缓存（GetStockKlines）
 func (a *App) FetchMissingCompositeData(codes []string) (*FetchMissingCompositeDataResult, error) {
 	if a.storage == nil {
 		return nil, fmt.Errorf("存储未初始化")
@@ -521,6 +591,7 @@ func (a *App) FetchMissingCompositeData(codes []string) (*FetchMissingCompositeD
 
 	var needAnalyze []string
 	var needActivity []string
+	var needHalfYear []string
 	needRefreshCodes := make(map[string]struct{})
 	for _, r := range rows {
 		if !r.HasCashRatio {
@@ -532,6 +603,9 @@ func (a *App) FetchMissingCompositeData(codes []string) (*FetchMissingCompositeD
 		}
 		if !r.HasActivity {
 			needActivity = append(needActivity, r.Code)
+		}
+		if !r.HasHalfYearChange {
+			needHalfYear = append(needHalfYear, r.Code)
 		}
 	}
 
@@ -644,6 +718,53 @@ func (a *App) FetchMissingCompositeData(codes []string) (*FetchMissingCompositeD
 		}
 	}
 
+	// 4. 补齐缺失半年涨幅：刷新本地日K缓存（GetStockKlines 会自动处理缓存缺失/过期）
+	halfYearMsg := ""
+	if len(needHalfYear) > 0 {
+		var halfYearWg sync.WaitGroup
+		var halfYearMu sync.Mutex
+		halfYearOK := 0
+		halfYearFailed := make(map[string]struct{})
+		for _, code := range needHalfYear {
+			halfYearWg.Add(1)
+			go func(c string) {
+				defer halfYearWg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("[FetchMissingCompositeData] %s 刷新K线 panic: %v\n", c, r)
+						halfYearMu.Lock()
+						halfYearFailed[c] = struct{}{}
+						halfYearMu.Unlock()
+					}
+				}()
+				if _, err := a.GetStockKlines(c, "daily"); err != nil {
+					fmt.Printf("[FetchMissingCompositeData] %s 刷新K线失败: %v\n", c, err)
+					halfYearMu.Lock()
+					halfYearFailed[c] = struct{}{}
+					halfYearMu.Unlock()
+				} else {
+					halfYearMu.Lock()
+					halfYearOK++
+					halfYearMu.Unlock()
+				}
+			}(code)
+		}
+		halfYearWg.Wait()
+		if halfYearOK > 0 {
+			halfYearMsg = fmt.Sprintf("刷新K线 %d 只", halfYearOK)
+		}
+		if len(halfYearFailed) > 0 {
+			if halfYearMsg != "" {
+				halfYearMsg += fmt.Sprintf("，失败 %d 只", len(halfYearFailed))
+			} else {
+				halfYearMsg = fmt.Sprintf("K线刷新失败 %d 只", len(halfYearFailed))
+			}
+			for c := range halfYearFailed {
+				result.FailedCodes = append(result.FailedCodes, c)
+			}
+		}
+	}
+
 	parts := []string{}
 	if len(result.AnalyzedCodes) > 0 {
 		parts = append(parts, fmt.Sprintf("分析 %d 只", len(result.AnalyzedCodes)))
@@ -656,6 +777,9 @@ func (a *App) FetchMissingCompositeData(codes []string) (*FetchMissingCompositeD
 	}
 	if len(needActivity) > 0 && result.ActivityMessage != "" {
 		parts = append(parts, result.ActivityMessage)
+	}
+	if halfYearMsg != "" {
+		parts = append(parts, halfYearMsg)
 	}
 	if len(result.FailedCodes) > 0 {
 		parts = append(parts, fmt.Sprintf("失败 %d 只", len(result.FailedCodes)))

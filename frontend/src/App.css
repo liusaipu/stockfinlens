@@ -3672,6 +3672,19 @@ body.light .group-context-menu .group-context-menu-danger:hover {
   background: rgba(239, 68, 68, 0.12);
 }
 
+.group-context-submenu li.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.group-context-submenu li.disabled:hover {
+  background: transparent;
+}
+
+body.light .group-context-submenu li.disabled:hover {
+  background: transparent;
+}
+
 /* 股票右键菜单（分组视图下：移入/移出分组） */
 .stock-context-menu-wrapper {
   position: fixed;
@@ -3929,4 +3942,129 @@ body.light .group-modal-btn.primary:hover {
 body.light .group-modal-btn.danger:hover {
   border-color: #dc2626;
   color: #dc2626;
+}
+
+/* 组内添加弹窗：候选下拉列表 */
+.group-add-stock-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 2100;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #1e293b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.group-add-stock-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.group-add-stock-dropdown .dropdown-item:hover,
+.group-add-stock-dropdown .dropdown-item.active {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+body.light .group-add-stock-dropdown {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+body.light .group-add-stock-dropdown .dropdown-item:hover,
+body.light .group-add-stock-dropdown .dropdown-item.active {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.group-modal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 组内添加弹窗：已选股票标签 */
+.group-add-stock-selected {
+  margin-top: 12px;
+}
+
+.group-add-stock-selected-label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.group-add-stock-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.group-add-stock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.group-add-stock-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-left: 2px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.group-add-stock-chip-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.group-add-stock-dropdown .stock-check {
+  font-size: 12px;
+  color: #60a5fa;
+  margin-left: 4px;
+}
+
+body.light .group-add-stock-chip {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1f2937;
+}
+
+body.light .group-add-stock-chip-remove {
+  color: #6b7280;
+}
+
+body.light .group-add-stock-chip-remove:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+body.light .group-add-stock-dropdown .stock-check {
+  color: #2563eb;
 }

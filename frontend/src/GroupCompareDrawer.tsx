@@ -146,6 +146,19 @@ const COLUMNS: ColDef[] = [
     ),
   },
   {
+    key: 'halfYearChange',
+    title: '半年涨幅',
+    value: (r) => (r.hasHalfYearChange ? r.halfYearChangePercent : null),
+    render: (r) =>
+      r.hasHalfYearChange ? (
+        <span className={r.halfYearChangePercent >= 0 ? 'gcd-up' : 'gcd-down'}>
+          {fmtPct(r.halfYearChangePercent, 2)}
+        </span>
+      ) : (
+        <span className="gcd-na">—</span>
+      ),
+  },
+  {
     key: 'hot',
     title: '热搜',
     lowerIsBetter: true,
@@ -191,7 +204,12 @@ function computeHighlights(rows: Row[]): Record<string, { best: Set<string>; wor
 
 function hasMissingData(rows: Row[]): boolean {
   return rows.some(
-    (r) => !r.inMarketCache || !r.hasCashRatio || !r.hasDebtRatio || !r.hasActivity
+    (r) =>
+      !r.inMarketCache ||
+      !r.hasCashRatio ||
+      !r.hasDebtRatio ||
+      !r.hasActivity ||
+      !r.hasHalfYearChange
   )
 }
 
@@ -200,11 +218,13 @@ function missingSummary(rows: Row[]): string {
   const noCash = rows.filter((r) => !r.hasCashRatio).length
   const noDebt = rows.filter((r) => !r.hasDebtRatio).length
   const noAct = rows.filter((r) => !r.hasActivity).length
+  const noHalfYear = rows.filter((r) => !r.hasHalfYearChange).length
   const parts: string[] = []
   if (noMarket) parts.push(`${noMarket} 只市场缓存缺失`)
   if (noCash) parts.push(`${noCash} 只现金含量缺失`)
   if (noDebt) parts.push(`${noDebt} 只负债率缺失`)
   if (noAct) parts.push(`${noAct} 只活跃度缺失`)
+  if (noHalfYear) parts.push(`${noHalfYear} 只半年涨幅缺失`)
   return parts.join('，')
 }
 
@@ -218,8 +238,8 @@ export function GroupCompareDrawer({ groupName, codes, onClose, onSelectStock }:
   const [error, setError] = useState('')
   const [fetching, setFetching] = useState(false)
   const [fetchMessage, setFetchMessage] = useState('')
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<SortDir>(null)
+  const [sortKey, setSortKey] = useState<string | null>('composite')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const handleSort = (key: string) => {
     if (sortKey === key) {

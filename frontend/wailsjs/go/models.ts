@@ -1608,6 +1608,8 @@ export namespace main {
 	    hasActivity: boolean;
 	    stars: number;
 	    changePercent: number;
+	    halfYearChangePercent: number;
+	    hasHalfYearChange: boolean;
 	    thsHotRank: number;
 	    thsHotValue: number;
 	    compositeScore: number;
@@ -1638,6 +1640,8 @@ export namespace main {
 	        this.hasActivity = source["hasActivity"];
 	        this.stars = source["stars"];
 	        this.changePercent = source["changePercent"];
+	        this.halfYearChangePercent = source["halfYearChangePercent"];
+	        this.hasHalfYearChange = source["hasHalfYearChange"];
 	        this.thsHotRank = source["thsHotRank"];
 	        this.thsHotValue = source["thsHotValue"];
 	        this.compositeScore = source["compositeScore"];

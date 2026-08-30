@@ -485,7 +485,14 @@ function App() {
   )
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const [groupSuggestions, setGroupSuggestions] = useState<main.GroupSuggestion[]>([])
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false)
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(() => {
+    try {
+      const dismissedAt = localStorage.getItem('groupSuggestionsDismissedAt')
+      return dismissedAt === new Date().toISOString().slice(0, 10)
+    } catch {
+      return false
+    }
+  })
   const [suggestTooltip, setSuggestTooltip] = useState<{
     conceptName: string
     codes: string[]
@@ -505,6 +512,12 @@ function App() {
   } | null>(null)
   const [groupDelete, setGroupDelete] = useState<main.StockGroup | null>(null)
   const [groupCreate, setGroupCreate] = useState<{ value: string; moveCode?: string } | null>(null)
+  // 组内添加股票弹窗
+  const [groupAddStockModal, setGroupAddStockModal] = useState<{
+    group: main.StockGroup
+    query: string
+    selected: Stock[]
+  } | null>(null)
   // 组合并：选择目标分组
   const [groupMergeSubmenu, setGroupMergeSubmenu] = useState<{
     left: number
@@ -519,6 +532,14 @@ function App() {
     mergedName: string
   } | null>(null)
   const groupMergeSubmenuTimer = useRef<number | null>(null)
+  // 分组移动：上下/置顶/置底子菜单
+  const [groupMoveSubmenu, setGroupMoveSubmenu] = useState<{
+    left: number
+    top: number
+    sourceGroup: main.StockGroup
+    sourceIndex: number
+  } | null>(null)
+  const groupMoveSubmenuTimer = useRef<number | null>(null)
   // 组头就地重命名
   const [inlineRename, setInlineRename] = useState<{ groupId: string; value: string } | null>(null)
   const inlineRenameInputRef = useRef<HTMLInputElement | null>(null)
@@ -536,6 +557,7 @@ function App() {
   const [stockSubmenuOffsetY, setStockSubmenuOffsetY] = useState(0)
   const stockSubmenuRef = useRef<HTMLUListElement | null>(null)
   const groupCreateInputRef = useRef<HTMLInputElement | null>(null)
+  const groupAddStockInputRef = useRef<HTMLInputElement | null>(null)
   const stockSubmenuCloseTimer = useRef<number | null>(null)
   const flashTimeoutRef = useRef<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -573,10 +595,13 @@ function App() {
     GetWatchlistGroups()
       .then((groups) => setWatchlistGroups(groups || []))
       .catch((err) => console.error('[GetWatchlistGroups] error', err))
-    SuggestWatchlistGroups()
-      .then((list) => setGroupSuggestions(list || []))
-      .catch((err) => console.error('[SuggestWatchlistGroups] error', err))
-  }, [])
+    // 当天已忽略建议时不再请求，避免无意义刷新与再次弹出
+    if (!suggestionsDismissed) {
+      SuggestWatchlistGroups()
+        .then((list) => setGroupSuggestions(list || []))
+        .catch((err) => console.error('[SuggestWatchlistGroups] error', err))
+    }
+  }, [suggestionsDismissed])
 
   // 整组替换保存，成功后重新拉取分组 / 建议 / 热度
   const persistWatchlistGroups = useCallback(
@@ -1000,6 +1025,21 @@ function App() {
         (pinyinMap.get(s.code) || '').includes(lower)
     ).slice(0, 10)
   }, [query, pinyinMap])
+
+  // 组内添加弹窗：候选股票过滤（已选项不再出现在下拉中）
+  const groupAddStockSuggestions = useMemo(() => {
+    const q = groupAddStockModal?.query.trim() ?? ''
+    const selectedCodes = new Set(groupAddStockModal?.selected.map((s) => s.code) ?? [])
+    if (!q) return []
+    const lower = q.toLowerCase()
+    return STOCKS.filter(
+      (s) =>
+        !selectedCodes.has(s.code) &&
+        (s.code.toLowerCase().includes(lower) ||
+          s.name.toLowerCase().includes(lower) ||
+          (pinyinMap.get(s.code) || '').includes(lower))
+    ).slice(0, 10)
+  }, [groupAddStockModal?.query, groupAddStockModal?.selected, pinyinMap])
 
   const selectedStock = useMemo(
     () => watchlist.find((s) => s.code === selectedCode) || null,
@@ -1642,7 +1682,7 @@ function App() {
       e.preventDefault()
       e.stopPropagation()
       const menuWidth = 140
-      const menuHeight = 130
+      const menuHeight = 190
       const x = e.clientX
       const y = e.clientY
       const left = x + menuWidth > window.innerWidth ? Math.max(0, x - menuWidth) : x
@@ -1704,6 +1744,8 @@ function App() {
         window.clearTimeout(groupMergeSubmenuTimer.current)
         groupMergeSubmenuTimer.current = null
       }
+      // 打开合并子菜单时关闭移动子菜单，避免两个子菜单同时出现
+      setGroupMoveSubmenu(null)
       const targets = watchlistGroups.filter((g) => g.id !== sourceGroup.id)
       if (targets.length === 0) {
         showToast('没有其他可合并的分组')
@@ -1740,6 +1782,79 @@ function App() {
       groupMergeSubmenuTimer.current = null
     }, 120)
   }, [])
+
+  // 分组移动：打开移动子菜单
+  const openGroupMoveSubmenu = useCallback(
+    (sourceGroup: main.StockGroup) => {
+      if (groupMoveSubmenuTimer.current) {
+        window.clearTimeout(groupMoveSubmenuTimer.current)
+        groupMoveSubmenuTimer.current = null
+      }
+      // 打开移动子菜单时关闭合并子菜单
+      setGroupMergeSubmenu(null)
+      const sourceIndex = watchlistGroups.findIndex((g) => g.id === sourceGroup.id)
+      if (sourceIndex === -1) return
+      const x = groupContextMenu?.left || 0
+      const y = groupContextMenu?.top || 0
+      const parentWidth = 140
+      const submenuMaxWidth = 120
+      const itemTopOffset = 124
+      const itemHeight = 30
+      const submenuHeight = 4 * itemHeight + 8
+      const rightSpace = window.innerWidth - x - parentWidth
+      const left = rightSpace >= submenuMaxWidth ? x + parentWidth : Math.max(8, x - submenuMaxWidth)
+      const preferredTop = y + itemTopOffset
+      const bottomSpace = window.innerHeight - preferredTop
+      const top =
+        bottomSpace >= submenuHeight ? preferredTop : Math.max(8, window.innerHeight - submenuHeight - 8)
+      setGroupMoveSubmenu({
+        left,
+        top,
+        sourceGroup,
+        sourceIndex,
+      })
+    },
+    [watchlistGroups, groupContextMenu?.left, groupContextMenu?.top]
+  )
+
+  // 分组移动：延迟关闭子菜单
+  const scheduleCloseGroupMoveSubmenu = useCallback(() => {
+    if (groupMoveSubmenuTimer.current) window.clearTimeout(groupMoveSubmenuTimer.current)
+    groupMoveSubmenuTimer.current = window.setTimeout(() => {
+      setGroupMoveSubmenu(null)
+      groupMoveSubmenuTimer.current = null
+    }, 120)
+  }, [])
+
+  // 分组移动：执行移动（向上/向下/最上/最下）
+  const handleMoveGroup = useCallback(
+    (direction: 'up' | 'down' | 'top' | 'bottom') => {
+      if (!groupMoveSubmenu) return
+      const { sourceIndex } = groupMoveSubmenu
+      const nextGroups = [...watchlistGroups]
+      const [moved] = nextGroups.splice(sourceIndex, 1)
+      let targetIndex = sourceIndex
+      switch (direction) {
+        case 'up':
+          targetIndex = Math.max(0, sourceIndex - 1)
+          break
+        case 'down':
+          targetIndex = Math.min(nextGroups.length, sourceIndex + 1)
+          break
+        case 'top':
+          targetIndex = 0
+          break
+        case 'bottom':
+          targetIndex = nextGroups.length
+          break
+      }
+      nextGroups.splice(targetIndex, 0, moved)
+      persistWatchlistGroups(nextGroups)
+      setGroupMoveSubmenu(null)
+      setGroupContextMenu(null)
+    },
+    [groupMoveSubmenu, watchlistGroups, persistWatchlistGroups]
+  )
 
   // 组合并：选择目标分组后打开重命名确认弹窗
   const handleSelectMergeTarget = useCallback((targetGroup: main.StockGroup) => {
@@ -1787,8 +1902,72 @@ function App() {
             : g
         )
     )
+    setGroupMergeSubmenu(null)
+    setGroupMoveSubmenu(null)
     setGroupMergeModal(null)
   }, [groupMergeModal, watchlistGroups, persistWatchlistGroups, isDuplicateGroupName, showToast])
+
+  // 组内添加股票：打开弹窗
+  const handleOpenAddStockToGroup = useCallback((group: main.StockGroup) => {
+    setGroupAddStockModal({ group, query: '', selected: [] })
+    setGroupContextMenu(null)
+  }, [])
+
+  // 组内添加股票：切换候选选中状态
+  const handleSelectAddStockSuggestion = useCallback((stock: Stock) => {
+    setGroupAddStockModal((prev) => {
+      if (!prev) return null
+      const exists = prev.selected.some((s) => s.code === stock.code)
+      const nextSelected = exists
+        ? prev.selected.filter((s) => s.code !== stock.code)
+        : [...prev.selected, stock]
+      return { ...prev, query: '', selected: nextSelected }
+    })
+  }, [])
+
+  // 组内添加股票：从已选中移除
+  const handleRemoveSelectedAddStock = useCallback((code: string) => {
+    setGroupAddStockModal((prev) =>
+      prev ? { ...prev, selected: prev.selected.filter((s) => s.code !== code) } : null
+    )
+  }, [])
+
+  // 组内添加股票：确认（未在自选则先添加，再批量移入/加入目标分组）
+  const handleConfirmAddStockToGroup = useCallback(async () => {
+    if (!groupAddStockModal?.selected.length) {
+      showToast('请先选择股票')
+      return
+    }
+    const { selected, group } = groupAddStockModal
+    const selectedCodes = new Set(selected.map((s) => s.code))
+    try {
+      // 把未在自选的股票先加入自选
+      const notInWatchlist = selected.filter((s) => !watchlist.some((w) => w.code === s.code))
+      for (const s of notInWatchlist) {
+        await AddToWatchlist(s.code)
+      }
+      if (notInWatchlist.length > 0) {
+        const list = await GetWatchlist()
+        setWatchlist(list || [])
+      }
+      // 一只股票只能属于一个分组：从其他分组移除并加入目标分组
+      const nextGroups = watchlistGroups.map((g) => {
+        const codes = g.codes.filter((c) => !selectedCodes.has(c))
+        if (g.id === group.id) {
+          return { ...g, codes: [...codes, ...selected.map((s) => s.code)] }
+        }
+        return { ...g, codes }
+      })
+      persistWatchlistGroups(nextGroups)
+      setGroupAddStockModal(null)
+      showToast(
+        `已将 ${selected.length} 只股票加入 ${group.name}`,
+        'success'
+      )
+    } catch (err) {
+      showToast(String(err))
+    }
+  }, [groupAddStockModal, watchlist, watchlistGroups, persistWatchlistGroups, showToast])
 
   // 股票右键菜单：移入/移出分组
   const openStockContextMenu = useCallback(
@@ -1857,6 +2036,7 @@ function App() {
     const close = () => {
       setGroupContextMenu(null)
       setGroupMergeSubmenu(null)
+      setGroupMoveSubmenu(null)
     }
     window.addEventListener('mousedown', close)
     window.addEventListener('resize', close)
@@ -1894,6 +2074,12 @@ function App() {
       groupCreateInputRef.current?.focus()
     }
   }, [!!groupCreate])
+
+  useEffect(() => {
+    if (groupAddStockModal) {
+      groupAddStockInputRef.current?.focus()
+    }
+  }, [!!groupAddStockModal])
 
   // 股票二级菜单靠近窗口底部时自动上移，确保完整显示
   // 使用 scrollHeight 按菜单自然高度计算，避免已应用 offset 后重复测量导致跳动
@@ -3674,7 +3860,18 @@ function App() {
                 </button>
               ))}
             </div>
-            <button className="group-suggest-dismiss" onClick={() => setSuggestionsDismissed(true)}>
+            <button
+              className="group-suggest-dismiss"
+              onClick={() => {
+                const today = new Date().toISOString().slice(0, 10)
+                try {
+                  localStorage.setItem('groupSuggestionsDismissedAt', today)
+                } catch {
+                  // ignore
+                }
+                setSuggestionsDismissed(true)
+              }}
+            >
               忽略
             </button>
           </div>
@@ -5895,6 +6092,7 @@ function App() {
           >
             组内对比
           </li>
+          <li onClick={() => handleOpenAddStockToGroup(groupContextMenu.group)}>组内添加</li>
           <li
             onMouseEnter={() => openGroupMergeSubmenu(groupContextMenu.group)}
             onMouseLeave={scheduleCloseGroupMergeSubmenu}
@@ -5904,6 +6102,14 @@ function App() {
             <span className="group-context-menu-arrow">›</span>
           </li>
           <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>分组改名</li>
+          <li
+            onMouseEnter={() => openGroupMoveSubmenu(groupContextMenu.group)}
+            onMouseLeave={scheduleCloseGroupMoveSubmenu}
+            onClick={() => openGroupMoveSubmenu(groupContextMenu.group)}
+          >
+            <span>分组移动</span>
+            <span className="group-context-menu-arrow">›</span>
+          </li>
           <li
             className="group-context-menu-danger"
             onClick={() => handleStartDeleteGroup(groupContextMenu.group)}
@@ -5932,6 +6138,47 @@ function App() {
               {g.name}
             </li>
           ))}
+        </ul>
+      )}
+
+      {/* 分组移动子菜单 */}
+      {groupMoveSubmenu && (
+        <ul
+          className="group-context-submenu"
+          style={{ left: groupMoveSubmenu.left, top: groupMoveSubmenu.top }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseEnter={() => {
+            if (groupMoveSubmenuTimer.current) {
+              window.clearTimeout(groupMoveSubmenuTimer.current)
+              groupMoveSubmenuTimer.current = null
+            }
+          }}
+          onMouseLeave={scheduleCloseGroupMoveSubmenu}
+        >
+          <li
+            className={groupMoveSubmenu.sourceIndex === 0 ? 'disabled' : ''}
+            onClick={() => handleMoveGroup('up')}
+          >
+            向上
+          </li>
+          <li
+            className={groupMoveSubmenu.sourceIndex === watchlistGroups.length - 1 ? 'disabled' : ''}
+            onClick={() => handleMoveGroup('down')}
+          >
+            向下
+          </li>
+          <li
+            className={groupMoveSubmenu.sourceIndex === 0 ? 'disabled' : ''}
+            onClick={() => handleMoveGroup('top')}
+          >
+            最上
+          </li>
+          <li
+            className={groupMoveSubmenu.sourceIndex === watchlistGroups.length - 1 ? 'disabled' : ''}
+            onClick={() => handleMoveGroup('bottom')}
+          >
+            最下
+          </li>
         </ul>
       )}
 
@@ -5965,6 +6212,81 @@ function App() {
               </button>
               <button className="group-modal-btn primary" onClick={handleConfirmMergeGroup}>
                 合并
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 组内添加股票弹窗 */}
+      {groupAddStockModal && (
+        <div className="group-modal-overlay" onClick={() => setGroupAddStockModal(null)}>
+          <div className="group-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="group-modal-title">组内添加 · {groupAddStockModal.group.name}</div>
+            <div className="group-modal-body">
+              <div style={{ position: 'relative' }}>
+                <input
+                  ref={groupAddStockInputRef}
+                  type="text"
+                  className="group-modal-input"
+                  placeholder="输入代码、名称或拼音首字母"
+                  value={groupAddStockModal.query}
+                  onChange={(e) =>
+                    setGroupAddStockModal({ ...groupAddStockModal, query: e.target.value })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setGroupAddStockModal(null)
+                  }}
+                />
+                {groupAddStockSuggestions.length > 0 && (
+                  <ul className="group-add-stock-dropdown">
+                    {groupAddStockSuggestions.map((s) => {
+                      const isSelected = groupAddStockModal.selected.some((x) => x.code === s.code)
+                      return (
+                        <li
+                          key={s.code}
+                          className={`dropdown-item ${isSelected ? 'active' : ''}`}
+                          onClick={() => handleSelectAddStockSuggestion(s)}
+                        >
+                          <span className="stock-code">{s.code}</span>
+                          <span className="stock-name">{s.name}</span>
+                          {isSelected && <span className="stock-check">✓</span>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+              {groupAddStockModal.selected.length > 0 && (
+                <div className="group-add-stock-selected">
+                  <div className="group-add-stock-selected-label">已选择：</div>
+                  <div className="group-add-stock-chips">
+                    {groupAddStockModal.selected.map((s) => (
+                      <span key={s.code} className="group-add-stock-chip">
+                        {s.name}
+                        <button
+                          className="group-add-stock-chip-remove"
+                          onClick={() => handleRemoveSelectedAddStock(s.code)}
+                          title="移除"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="group-modal-actions">
+              <button className="group-modal-btn" onClick={() => setGroupAddStockModal(null)}>
+                取消
+              </button>
+              <button
+                className="group-modal-btn primary"
+                disabled={groupAddStockModal.selected.length === 0}
+                onClick={handleConfirmAddStockToGroup}
+              >
+                确认{groupAddStockModal.selected.length > 0 ? ` (${groupAddStockModal.selected.length})` : ''}
               </button>
             </div>
           </div>

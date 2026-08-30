@@ -9,7 +9,7 @@
 }
 
 .gcd-drawer {
-  width: min(1000px, 94vw);
+  width: min(1280px, 96vw);
   height: 100%;
   background: #0f1419;
   border-left: 1px solid rgba(148, 163, 184, 0.15);

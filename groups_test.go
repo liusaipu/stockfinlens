@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/liusaipu/stockfinlens/analyzer"
+	"github.com/liusaipu/stockfinlens/downloader"
 )
 
 func TestFillCompositeScores(t *testing.T) {
@@ -76,5 +77,24 @@ func TestCalcComparableScoreExported(t *testing.T) {
 	score := analyzer.CalcComparableScore(m, []*analyzer.ComparableMetrics{m}, 80)
 	if score <= 0 || score > 100 {
 		t.Errorf("综合得分应在 0-100 之间，实际 %.2f", score)
+	}
+}
+
+func TestCalcHalfYearChange(t *testing.T) {
+	// K 线时间格式为 "20060102"
+	klines := []downloader.KlineData{
+		{Time: "20241218", Close: 100},
+		{Time: "20250118", Close: 110},
+		{Time: "20260218", Close: 120},
+		{Time: "20260618", Close: 130},
+	}
+	chg, ok := calcHalfYearChange(klines)
+	if !ok {
+		t.Fatal("应能计算半年涨幅")
+	}
+	// 最新 20260618，目标 20251218 左右，最近为 20250118（110）
+	want := (130.0 - 110.0) / 110.0 * 100
+	if diff := chg - want; diff < -0.01 || diff > 0.01 {
+		t.Errorf("半年涨幅应为 %.2f，实际 %.2f", want, chg)
 	}
 }

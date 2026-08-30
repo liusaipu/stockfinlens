@@ -1031,6 +1031,27 @@ func CalcComparableScore(m *ComparableMetrics, all []*ComparableMetrics, medianA
 		clampActivity(act)*0.10
 }
 
+// 半年涨幅档位：-100% → 0 分，0% → 60 分，50% → 95 分，100% → 100 分
+var bandHalfYearChange = []scoreBandPoint{{-100, 0}, {-50, 20}, {-20, 40}, {0, 60}, {20, 80}, {50, 95}, {100, 100}}
+
+// CalcGroupComparisonScore 组内对比综合得分（含半年涨幅）。
+// 权重：ROE 25% / 毛利率 20% / 营收增长 10% / 负债率 10%(反向) / 现金含量 7.5% /
+// A-Score 10%(反向) / 活跃度 10% / 半年涨幅 7.5%
+func CalcGroupComparisonScore(m *ComparableMetrics, medianActivity, halfYearChange float64) float64 {
+	act := m.ActivityScore
+	if act < 0 {
+		act = medianActivity
+	}
+	return scoreByBand(m.ROE, bandROE)*0.25 +
+		scoreByBand(m.GrossMargin, bandGM)*0.20 +
+		scoreByBand(m.RevenueGrowth, bandGrowth)*0.10 +
+		scoreByBand(m.DebtRatio, bandDebt)*0.10 +
+		scoreByBand(m.CashRatio, bandCash)*0.075 +
+		scoreByBand(m.AScore, bandAScore)*0.10 +
+		clampActivity(act)*0.10 +
+		scoreByBand(halfYearChange, bandHalfYearChange)*0.075
+}
+
 // HighlightRisk 亮点与风险摘要
 type HighlightRisk struct {
 	Highlights []string `json:"highlights"`
