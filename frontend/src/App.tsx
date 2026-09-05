@@ -510,7 +510,10 @@ function App() {
     group: main.StockGroup
     codes: string[]
   } | null>(null)
-  const [groupDelete, setGroupDelete] = useState<main.StockGroup | null>(null)
+  const [groupDelete, setGroupDelete] = useState<{
+    group: main.StockGroup
+    mode: 'group-only' | 'stocks-only' | 'group-and-stocks'
+  } | null>(null)
   const [groupCreate, setGroupCreate] = useState<{ value: string; moveCode?: string } | null>(null)
   // 组内添加股票弹窗
   const [groupAddStockModal, setGroupAddStockModal] = useState<{
@@ -540,6 +543,13 @@ function App() {
     sourceIndex: number
   } | null>(null)
   const groupMoveSubmenuTimer = useRef<number | null>(null)
+  // 分组删除子菜单
+  const [groupDeleteSubmenu, setGroupDeleteSubmenu] = useState<{
+    left: number
+    top: number
+    sourceGroup: main.StockGroup
+  } | null>(null)
+  const groupDeleteSubmenuTimer = useRef<number | null>(null)
   // 组头就地重命名
   const [inlineRename, setInlineRename] = useState<{ groupId: string; value: string } | null>(null)
   const inlineRenameInputRef = useRef<HTMLInputElement | null>(null)
@@ -1726,16 +1736,82 @@ function App() {
 
   const handleCancelInlineRename = useCallback(() => setInlineRename(null), [])
 
-  const handleStartDeleteGroup = useCallback((group: main.StockGroup) => {
-    setGroupDelete(group)
-    setGroupContextMenu(null)
-  }, [])
+  const handleStartDeleteGroup = useCallback(
+    (group: main.StockGroup, mode: 'group-only' | 'stocks-only' | 'group-and-stocks') => {
+      if (groupDeleteSubmenuTimer.current) {
+        window.clearTimeout(groupDeleteSubmenuTimer.current)
+        groupDeleteSubmenuTimer.current = null
+      }
+      setGroupDelete({ group, mode })
+      setGroupContextMenu(null)
+      setGroupDeleteSubmenu(null)
+    },
+    []
+  )
 
-  const handleConfirmDeleteGroup = useCallback(() => {
+  const handleConfirmDeleteGroup = useCallback(async () => {
     if (!groupDelete) return
-    persistWatchlistGroups(watchlistGroups.filter((g) => g.id !== groupDelete.id))
+    const { group, mode } = groupDelete
+    const codes = group.codes || []
+    const codeSet = new Set(codes)
+
+    if (mode === 'group-only') {
+      persistWatchlistGroups(watchlistGroups.filter((g) => g.id !== group.id))
+    } else {
+      if (codes.length > 0) {
+        try {
+          // 逐个删除，避免并发写 watchlist.json 导致文件损坏
+          for (const code of codes) {
+            await RemoveFromWatchlist(code)
+          }
+          const list = await GetWatchlist()
+          setWatchlist(list || [])
+          const nextGroups =
+            mode === 'stocks-only'
+              ? watchlistGroups.map((g) =>
+                  g.id === group.id
+                    ? { ...g, codes: [] }
+                    : { ...g, codes: g.codes.filter((c) => !codeSet.has(c)) }
+                )
+              : watchlistGroups
+                  .filter((g) => g.id !== group.id)
+                  .map((g) => ({ ...g, codes: g.codes.filter((c) => !codeSet.has(c)) }))
+          setWatchlistGroups(nextGroups)
+          SaveWatchlistGroups(nextGroups).catch((err) =>
+            console.warn('[SaveWatchlistGroups] 批量删除组内股票后同步分组失败:', err)
+          )
+          GetWatchlistFilterData().then((fd) => {
+            const map: Record<string, WatchlistFilterItem> = {}
+            ;(fd || []).forEach((item) => {
+              map[item.code] = item
+            })
+            setFilterData(map)
+          })
+          if (selectedCode && codeSet.has(selectedCode)) {
+            setSelectedCode(null)
+            setProfile(null)
+            setQuote(null)
+            setQuoteError('')
+            setImportResult(null)
+            setDownloadResult(null)
+            setDownloadSuggestion('')
+            setReport(null)
+            setViewingHistory(null)
+            setHistoryContent('')
+            setDataHistory([])
+            setComparables([])
+            setConcepts(null)
+          }
+          showToast(`已删除 ${codes.length} 只自选股`, 'success')
+        } catch (err) {
+          showToast(String(err))
+        }
+      } else if (mode === 'group-and-stocks') {
+        persistWatchlistGroups(watchlistGroups.filter((g) => g.id !== group.id))
+      }
+    }
     setGroupDelete(null)
-  }, [groupDelete, watchlistGroups, persistWatchlistGroups])
+  }, [groupDelete, watchlistGroups, persistWatchlistGroups, selectedCode, showToast])
 
   // 组合并：打开目标分组选择子菜单
   const openGroupMergeSubmenu = useCallback(
@@ -1744,8 +1820,9 @@ function App() {
         window.clearTimeout(groupMergeSubmenuTimer.current)
         groupMergeSubmenuTimer.current = null
       }
-      // 打开合并子菜单时关闭移动子菜单，避免两个子菜单同时出现
+      // 打开合并子菜单时关闭移动/删除子菜单，避免多个子菜单同时出现
       setGroupMoveSubmenu(null)
+      setGroupDeleteSubmenu(null)
       const targets = watchlistGroups.filter((g) => g.id !== sourceGroup.id)
       if (targets.length === 0) {
         showToast('没有其他可合并的分组')
@@ -1755,7 +1832,7 @@ function App() {
       const y = groupContextMenu?.top || 0
       const parentWidth = 140
       const submenuMaxWidth = 220
-      const itemTopOffset = 34
+      const itemTopOffset = 92
       const itemHeight = 30
       const rightSpace = window.innerWidth - x - parentWidth
       const left = rightSpace >= submenuMaxWidth ? x + parentWidth : Math.max(8, x - submenuMaxWidth)
@@ -1790,8 +1867,9 @@ function App() {
         window.clearTimeout(groupMoveSubmenuTimer.current)
         groupMoveSubmenuTimer.current = null
       }
-      // 打开移动子菜单时关闭合并子菜单
+      // 打开移动子菜单时关闭合并/删除子菜单
       setGroupMergeSubmenu(null)
+      setGroupDeleteSubmenu(null)
       const sourceIndex = watchlistGroups.findIndex((g) => g.id === sourceGroup.id)
       if (sourceIndex === -1) return
       const x = groupContextMenu?.left || 0
@@ -1824,6 +1902,47 @@ function App() {
       setGroupMoveSubmenu(null)
       groupMoveSubmenuTimer.current = null
     }, 120)
+  }, [])
+
+  // 分组删除：打开子菜单
+  const openGroupDeleteSubmenu = useCallback(
+    (sourceGroup: main.StockGroup) => {
+      if (groupDeleteSubmenuTimer.current) {
+        window.clearTimeout(groupDeleteSubmenuTimer.current)
+        groupDeleteSubmenuTimer.current = null
+      }
+      // 打开删除子菜单时关闭合并/移动子菜单
+      setGroupMergeSubmenu(null)
+      setGroupMoveSubmenu(null)
+      const x = groupContextMenu?.left || 0
+      const y = groupContextMenu?.top || 0
+      const parentWidth = 140
+      const submenuMaxWidth = 140
+      const itemTopOffset = 148
+      const itemHeight = 30
+      const submenuHeight = 3 * itemHeight + 8
+      const rightSpace = window.innerWidth - x - parentWidth
+      const left = rightSpace >= submenuMaxWidth ? x + parentWidth : Math.max(8, x - submenuMaxWidth)
+      const preferredTop = y + itemTopOffset
+      const bottomSpace = window.innerHeight - preferredTop
+      const top =
+        bottomSpace >= submenuHeight ? preferredTop : Math.max(8, window.innerHeight - submenuHeight - 8)
+      setGroupDeleteSubmenu({
+        left,
+        top,
+        sourceGroup,
+      })
+    },
+    [groupContextMenu?.left, groupContextMenu?.top]
+  )
+
+  // 分组删除：延迟关闭子菜单（给鼠标移入子菜单留更长时间）
+  const scheduleCloseGroupDeleteSubmenu = useCallback(() => {
+    if (groupDeleteSubmenuTimer.current) window.clearTimeout(groupDeleteSubmenuTimer.current)
+    groupDeleteSubmenuTimer.current = window.setTimeout(() => {
+      setGroupDeleteSubmenu(null)
+      groupDeleteSubmenuTimer.current = null
+    }, 300)
   }, [])
 
   // 分组移动：执行移动（向上/向下/最上/最下）
@@ -2037,6 +2156,7 @@ function App() {
       setGroupContextMenu(null)
       setGroupMergeSubmenu(null)
       setGroupMoveSubmenu(null)
+      setGroupDeleteSubmenu(null)
     }
     window.addEventListener('mousedown', close)
     window.addEventListener('resize', close)
@@ -6093,6 +6213,7 @@ function App() {
             组内对比
           </li>
           <li onClick={() => handleOpenAddStockToGroup(groupContextMenu.group)}>组内添加</li>
+          <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>分组改名</li>
           <li
             onMouseEnter={() => openGroupMergeSubmenu(groupContextMenu.group)}
             onMouseLeave={scheduleCloseGroupMergeSubmenu}
@@ -6101,7 +6222,6 @@ function App() {
             <span>分组合并</span>
             <span className="group-context-menu-arrow">›</span>
           </li>
-          <li onClick={() => handleStartInlineRename(groupContextMenu.group)}>分组改名</li>
           <li
             onMouseEnter={() => openGroupMoveSubmenu(groupContextMenu.group)}
             onMouseLeave={scheduleCloseGroupMoveSubmenu}
@@ -6112,9 +6232,11 @@ function App() {
           </li>
           <li
             className="group-context-menu-danger"
-            onClick={() => handleStartDeleteGroup(groupContextMenu.group)}
+            onMouseEnter={() => openGroupDeleteSubmenu(groupContextMenu.group)}
+            onClick={() => openGroupDeleteSubmenu(groupContextMenu.group)}
           >
-            分组删除
+            <span>分组删除</span>
+            <span className="group-context-menu-arrow">›</span>
           </li>
         </ul>
       )}
@@ -6178,6 +6300,41 @@ function App() {
             onClick={() => handleMoveGroup('bottom')}
           >
             最下
+          </li>
+        </ul>
+      )}
+
+      {/* 分组删除子菜单 */}
+      {groupDeleteSubmenu && (
+        <ul
+          className="group-context-submenu"
+          style={{ left: groupDeleteSubmenu.left, top: groupDeleteSubmenu.top }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseEnter={() => {
+            if (groupDeleteSubmenuTimer.current) {
+              window.clearTimeout(groupDeleteSubmenuTimer.current)
+              groupDeleteSubmenuTimer.current = null
+            }
+          }}
+          onMouseLeave={scheduleCloseGroupDeleteSubmenu}
+        >
+          <li onClick={() => handleStartDeleteGroup(groupDeleteSubmenu.sourceGroup, 'group-only')}>
+            仅分组
+          </li>
+          <li
+            className={(groupDeleteSubmenu.sourceGroup.codes || []).length === 0 ? 'disabled' : ''}
+            onClick={() => {
+              if ((groupDeleteSubmenu.sourceGroup.codes || []).length === 0) return
+              handleStartDeleteGroup(groupDeleteSubmenu.sourceGroup, 'stocks-only')
+            }}
+          >
+            组内股票
+          </li>
+          <li
+            className="group-context-menu-danger"
+            onClick={() => handleStartDeleteGroup(groupDeleteSubmenu.sourceGroup, 'group-and-stocks')}
+          >
+            分组+股票
           </li>
         </ul>
       )}
@@ -6297,9 +6454,25 @@ function App() {
       {groupDelete && (
         <div className="group-modal-overlay" onClick={() => setGroupDelete(null)}>
           <div className="group-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="group-modal-title">删除分组</div>
+            <div className="group-modal-title">
+              {groupDelete.mode === 'group-only'
+                ? '删除分组'
+                : groupDelete.mode === 'stocks-only'
+                  ? '删除组内股票'
+                  : '删除分组及股票'}
+            </div>
             <div className="group-modal-body">
-              确定删除分组「{groupDelete.name}」吗？组内自选股不会被移除。
+              {groupDelete.mode === 'group-only' ? (
+                <>确定删除分组「{groupDelete.group.name}」吗？组内自选股将保留在未分组。</>
+              ) : groupDelete.mode === 'stocks-only' ? (
+                <>
+                  确定删除分组「{groupDelete.group.name}」内的 {(groupDelete.group.codes || []).length} 只自选股吗？分组本身将保留。
+                </>
+              ) : (
+                <>
+                  确定删除分组「{groupDelete.group.name}」及其内的 {(groupDelete.group.codes || []).length} 只自选股吗？
+                </>
+              )}
             </div>
             <div className="group-modal-actions">
               <button className="group-modal-btn" onClick={() => setGroupDelete(null)}>

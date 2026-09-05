@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/liusaipu/stockfinlens/ai_researcher"
@@ -18,7 +19,9 @@ import (
 
 // Storage 本地文件存储管理器
 type Storage struct {
-	dataDir string
+	dataDir     string
+	watchlistMu sync.Mutex
+	groupsMu    sync.Mutex
 }
 
 // NewStorage 创建存储管理器，目录位于 ~/.config/stock-analyzer
@@ -63,6 +66,8 @@ func (s *Storage) LoadWatchlist() ([]WatchlistItem, error) {
 
 // SaveWatchlist 保存自选列表
 func (s *Storage) SaveWatchlist(list []WatchlistItem) error {
+	s.watchlistMu.Lock()
+	defer s.watchlistMu.Unlock()
 	path := s.WatchlistPath()
 	data, err := json.MarshalIndent(list, "", "  ")
 	if err != nil {
@@ -1376,6 +1381,8 @@ func (s *Storage) LoadWatchlistGroups() ([]StockGroup, error) {
 
 // SaveWatchlistGroups 保存自选分组（整组替换）
 func (s *Storage) SaveWatchlistGroups(groups []StockGroup) error {
+	s.groupsMu.Lock()
+	defer s.groupsMu.Unlock()
 	path := s.WatchlistGroupsPath()
 	data, err := json.MarshalIndent(groups, "", "  ")
 	if err != nil {

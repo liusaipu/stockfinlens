@@ -46,7 +46,7 @@ body.light .settings-toggle:hover {
   position: fixed;
   top: 44px;
   right: 12px;
-  width: 280px;
+  width: 360px;
   max-height: calc(100vh - 60px);
   background: #141b24;
   border: 1px solid #2a3a4a;
@@ -261,11 +261,19 @@ body.light .settings-input-group span {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
 }
 
 .settings-item-inline > label {
   display: inline;
   margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.settings-item-inline select {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 120px;
 }
 
 /* 开关 */

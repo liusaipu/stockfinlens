@@ -3672,6 +3672,18 @@ body.light .group-context-menu .group-context-menu-danger:hover {
   background: rgba(239, 68, 68, 0.12);
 }
 
+.group-context-submenu .group-context-menu-danger {
+  color: #f87171;
+}
+
+.group-context-submenu .group-context-menu-danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+body.light .group-context-submenu .group-context-menu-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
 .group-context-submenu li.disabled {
   opacity: 0.4;
   cursor: not-allowed;
