@@ -85,7 +85,10 @@ func (fd *FinancialData) fixMissingData() {
 		asset := fd.GetValueOrZero(fd.BalanceSheet, "资产合计", period)
 		liability := fd.GetValueOrZero(fd.BalanceSheet, "负债合计", period)
 
-		// 兜底：如果总权益和归母权益都异常，用 资产 - 负债 推导总权益
+		// 判断归母权益是否异常：缺失/为 0，或被错误地映射为 -少数股东权益
+		parentAbnormal := math.Abs(parentEquity) < 1 || (minorityEquity != 0 && math.Abs(parentEquity+minorityEquity) < 1)
+
+		// 兜底 1：如果总权益异常，用 资产 - 负债 推导总权益
 		if math.Abs(totalEquity) < 1 && asset > 0 && liability > 0 {
 			calculatedTotal := asset - liability
 			if math.Abs(calculatedTotal) > 1 {
@@ -99,8 +102,8 @@ func (fd *FinancialData) fixMissingData() {
 			}
 		}
 
-		// 归母权益为0或缺失（或异常负数），但总权益有值
-		if (math.Abs(parentEquity) < 1 || math.Abs(parentEquity+minorityEquity) < 1) && totalEquity != 0 {
+		// 兜底 2：如果归母权益异常且总权益有效，用 总权益 - 少数股东权益 推导
+		if parentAbnormal && totalEquity != 0 {
 			calculatedParent := totalEquity - minorityEquity
 			if math.Abs(calculatedParent) > 1 {
 				fmt.Printf("[fixMissingData] %s %s: 归母权益从 %.0f 修复为 %.0f (总权益-少数股东权益)\n",

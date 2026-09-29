@@ -3,6 +3,7 @@ package downloader
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -351,9 +352,15 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 		if isAnnualReport(item.EndDate) {
 			yearSet[year] = struct{}{}
 		}
+		// 股东权益合计：优先取 total_hldr_eqy，为 0 时用资产 - 负债推导
+		totalHldrEqy := item.TotalHldrEqy
+		if math.Abs(totalHldrEqy) < 1 && item.TotalAssets > 0 && item.TotalLiab > 0 {
+			totalHldrEqy = item.TotalAssets - item.TotalLiab
+		}
+
 		setVal(result.BalanceSheet, "资产合计", year, item.TotalAssets)
 		setVal(result.BalanceSheet, "负债合计", year, item.TotalLiab)
-		setVal(result.BalanceSheet, "所有者权益合计", year, item.TotalHldrEqy)
+		setVal(result.BalanceSheet, "所有者权益合计", year, totalHldrEqy)
 		setVal(result.BalanceSheet, "货币资金", year, item.MoneyCap)
 		setVal(result.BalanceSheet, "交易性金融资产", year, item.TradAsset)
 		setVal(result.BalanceSheet, "应收票据", year, item.NotesReceiv)
@@ -394,7 +401,7 @@ func (r *DataRouter) ConvertToFinancialReportData(tfd *SFLFinancialData, symbol 
 		// 计算应付票据及应付账款 = 应付票据 + 应付账款
 		setVal(result.BalanceSheet, "应付票据及应付账款", year, item.NotesPayable+item.AccountsPay)
 		// 归母所有者权益 = 股东权益合计 - 少数股东权益
-		setVal(result.BalanceSheet, "归属于母公司所有者权益合计", year, item.TotalHldrEqy-item.MinorityInt)
+		setVal(result.BalanceSheet, "归属于母公司所有者权益合计", year, totalHldrEqy-item.MinorityInt)
 	}
 
 	// 现金流量表（年报 + 最近 N 个非年报季报）

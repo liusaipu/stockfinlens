@@ -51,7 +51,9 @@ var balanceSheetMap = map[string]string{
 	"CAPITAL_RESERVE":              "资本公积",
 	"SURPLUS_RESERVE":              "盈余公积",
 	"RETAINED_EARNINGS":            "未分配利润",
+	"UNASSIGN_RPOFIT":              "未分配利润",
 	"PARENT_EQUITY_BALANCE":        "归属于母公司所有者权益合计",
+	"TOTAL_PARENT_EQUITY":          "归属于母公司所有者权益合计",
 	"MINORITY_EQUITY":              "少数股东权益",
 }
 
@@ -127,27 +129,41 @@ func mergeBalanceSheet(target map[string]map[string]float64, src map[string]any,
 		}
 		target[stdName][year] = v
 	}
-	// 修复：东方财富 API 中 PARENT_EQUITY 经常为 0，用 TOTAL_EQUITY - MINORITY_EQUITY 近似
-	parentEquity := extractFloat(src["PARENT_EQUITY_BALANCE"])
-	// 兼容旧版 API 字段名
-	if math.Abs(parentEquity) < 1 {
-		parentEquity = extractFloat(src["PARENT_EQUITY"])
+
+	// 修复：东财新版 API 中 PARENT_EQUITY_BALANCE 常为 0，归母权益应使用 TOTAL_PARENT_EQUITY
+	if v, ok := src["TOTAL_PARENT_EQUITY"]; ok {
+		if totalParentEquity := extractFloat(v); math.Abs(totalParentEquity) > 1 {
+			target["归属于母公司所有者权益合计"][year] = totalParentEquity
+		}
 	}
+
+	// 修复：东财 API 中未分配利润字段为 UNASSIGN_RPOFIT，RETAINED_EARNINGS 可能为 0
+	if v, ok := src["UNASSIGN_RPOFIT"]; ok {
+		if unassignProfit := extractFloat(v); math.Abs(unassignProfit) > 1 {
+			target["未分配利润"][year] = unassignProfit
+		}
+	}
+
 	totalEquity := extractFloat(src["TOTAL_EQUITY"])
 	minorityEquity := extractFloat(src["MINORITY_EQUITY"])
+	parentEquity := target["归属于母公司所有者权益合计"][year]
+
+	// 兜底：如果归母权益仍为 0 但总权益有值，用总权益 - 少数股东权益推导
 	if math.Abs(parentEquity) < 1 && totalEquity != 0 {
 		calculatedParent := totalEquity - minorityEquity
 		if math.Abs(calculatedParent) > 1 {
 			target["归属于母公司所有者权益合计"][year] = calculatedParent
 		}
 	}
-	// 反向修复：TOTAL_EQUITY 为 0 但 PARENT_EQUITY 有值时
+
+	// 反向修复：TOTAL_EQUITY 为 0 但归母权益有值时
 	if math.Abs(totalEquity) < 1 && math.Abs(parentEquity) > 1 {
 		calculatedTotal := parentEquity + minorityEquity
 		if math.Abs(calculatedTotal) > 1 {
 			target["所有者权益合计"][year] = calculatedTotal
 		}
 	}
+
 	// 额外计算：应付票据及应付账款 = 应付票据 + 应付账款
 	// 应收票据及应收账款 = 应收票据 + 应收账款
 	notesReceivable := extractFloat(src["NOTES_RECEIVABLES"])
