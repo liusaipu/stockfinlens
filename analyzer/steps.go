@@ -279,6 +279,10 @@ func step6FixedAssets(data *FinancialData) StepResult {
 		construction := data.GetValueOrZero(data.BalanceSheet, "在建工程", year)
 		materials := data.GetValueOrZero(data.BalanceSheet, "工程物资", year)
 		total := fixed + construction + materials
+		fixedAssetRatio := 0.0
+		if asset != 0 {
+			fixedAssetRatio = fixed / asset * 100
+		}
 		ratio := 0.0
 		if asset != 0 {
 			ratio = total / asset * 100
@@ -287,7 +291,7 @@ func step6FixedAssets(data *FinancialData) StepResult {
 		if ratio >= 40 {
 			companyType = "重资产型"
 		}
-		result.YearlyData[year] = map[string]any{"totalFixed": total, "ratio": ratio, "companyType": companyType}
+		result.YearlyData[year] = map[string]any{"fixedAsset": fixed, "fixedAssetRatio": fixedAssetRatio, "totalFixed": total, "ratio": ratio, "companyType": companyType}
 		result.Pass[year] = ratio <= 40
 
 		trace := CalcTrace{
@@ -665,6 +669,10 @@ func step14CoreProfit(data *FinancialData) StepResult {
 		if revenue != 0 {
 			coreMargin = coreProfit / revenue * 100
 		}
+		operatingProfitMargin := 0.0
+		if revenue != 0 {
+			operatingProfitMargin = operatingProfit / revenue * 100
+		}
 		coreRatio := 0.0
 		if operatingProfit != 0 {
 			coreRatio = coreProfit / operatingProfit * 100
@@ -677,7 +685,7 @@ func step14CoreProfit(data *FinancialData) StepResult {
 		if coreRatio > 80 {
 			quality = "利润质量高"
 		}
-		result.YearlyData[year] = map[string]any{"coreProfit": coreProfit, "coreProfitMargin": coreMargin, "coreProfitRatio": coreRatio, "profitability": profitability, "quality": quality}
+		result.YearlyData[year] = map[string]any{"coreProfit": coreProfit, "coreProfitMargin": coreMargin, "operatingProfit": operatingProfit, "operatingProfitMargin": operatingProfitMargin, "coreProfitRatio": coreRatio, "profitability": profitability, "quality": quality}
 		result.Pass[year] = coreMargin >= 15 && coreRatio >= 80
 
 		traceCoreMargin := CalcTrace{
@@ -696,6 +704,19 @@ func step14CoreProfit(data *FinancialData) StepResult {
 			},
 			Result: coreMargin,
 		}
+		traceOperatingProfitMargin := CalcTrace{
+			Indicator: "营业利润率",
+			Year:      year,
+			Formula:   "营业利润 / 营业收入 × 100%",
+			Inputs: map[string]InputValue{
+				"operatingProfit": {Source: "利润表", Item: "营业利润", Year: year, Value: operatingProfit},
+				"revenue":         {Source: "利润表", Item: "营业收入", Year: year, Value: revenue},
+			},
+			Steps: []CalcStep{
+				{Desc: "计算营业利润率", Expr: fmt.Sprintf("%.0f / %.0f × 100%%", operatingProfit, revenue), Value: operatingProfitMargin},
+			},
+			Result: operatingProfitMargin,
+		}
 		traceCoreRatio := CalcTrace{
 			Indicator: "主营利润占营业利润比",
 			Year:      year,
@@ -709,7 +730,7 @@ func step14CoreProfit(data *FinancialData) StepResult {
 			},
 			Result: coreRatio,
 		}
-		result.Traces = append(result.Traces, traceCoreMargin, traceCoreRatio)
+		result.Traces = append(result.Traces, traceCoreMargin, traceOperatingProfitMargin, traceCoreRatio)
 	}
 	result.Conclusion = "主营利润率大于15%且主营利润占营业利润比大于80%，说明主业盈利能力强、利润质量高。"
 	return result

@@ -250,9 +250,9 @@ func writeEightIndicatorsHighlight(b *strings.Builder, steps []StepResult, lates
 		{"净利润现金比率", getStepValue(steps, 15, latest, "cashRatio"), "%", getStepValue(steps, 15, latest, "cashRatio") > 100, ">", 100},
 		{"资产负债率", getStepValue(steps, 3, latest, "debtRatio"), "%", getStepValue(steps, 3, latest, "debtRatio") < 60, "<", 60},
 		{"毛利率", getStepValue(steps, 10, latest, "grossMargin"), "%", getStepValue(steps, 10, latest, "grossMargin") > 40, ">", 40},
-		{"营业利润率", getStepValue(steps, 14, latest, "coreProfitMargin"), "%", getStepValue(steps, 14, latest, "coreProfitMargin") > 20, ">", 20},
+		{"营业利润率", getStepValue(steps, 14, latest, "operatingProfitMargin"), "%", getStepValue(steps, 14, latest, "operatingProfitMargin") > 20, ">", 20},
 		{"营业收入增长率", getStepValue(steps, 9, latest, "growthRate"), "%", getStepValue(steps, 9, latest, "growthRate") > 10, ">", 10},
-		{"固定资产比率", getStepValue(steps, 6, latest, "ratio"), "%", getStepValue(steps, 6, latest, "ratio") < 40, "<", 40},
+		{"固定资产比率", getStepValue(steps, 6, latest, "fixedAssetRatio"), "%", getStepValue(steps, 6, latest, "fixedAssetRatio") < 40, "<", 40},
 		{"分红占经营现金流比", getStepValue(steps, 18, latest, "ratio"), "%", getStepValue(steps, 18, latest, "ratio") >= 20 && getStepValue(steps, 18, latest, "ratio") <= 70, "20%~", 70},
 	}
 
