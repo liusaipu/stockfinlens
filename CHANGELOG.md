@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.9.2] - 2026-09-29
+
+### 修复 (Fixes)
+- **修复资产负债表所有者权益字段映射与推导**：
+  - 东方财富 HSF10 API 新版返回的归母权益字段由 `PARENT_EQUITY_BALANCE` 改为 `TOTAL_PARENT_EQUITY`；未分配利润字段由 `RETAINED_EARNINGS` 改为 `UNASSIGN_RPOFIT`，避免这两个科目被错误置 0。
+  - StockFinLens（tushare）数据源中 `total_hldr_eqy` 为 0 时，改用 `资产合计 - 负债合计` 推导所有者权益合计，并据此正确计算归属于母公司所有者权益合计。
+  - 分析引擎加载时增强兜底修复：能识别归母权益被错误映射为 `-少数股东权益` 的异常情况并自动修正。
+
+### 测试 (Tests)
+- 新增 `downloader/mapping_test.go`：验证东方财富资产负债表字段映射。
+- 新增 `downloader/data_router_test.go`：验证 SFL 数据源权益推导逻辑。
+
 ## [v1.9.1] - 2026-09-05
 
 ### 新增 (Features)
