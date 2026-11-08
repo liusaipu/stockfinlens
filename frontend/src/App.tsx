@@ -13,7 +13,7 @@ import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
 import { UpdateModal, UpdateInfo } from './UpdateModal'
 
-import { AnalyzeStockWithAI, LoadAIResearchReport, CancelAIResearch, ExportAIResearchTxt, ExportAIResearchMd, ExportAIResearchPdf } from './api'
+import { AnalyzeStockWithAI, LoadAIResearchReport, CancelAIResearch, ExportAIResearchTxt, ExportAIResearchMd, ExportAIResearchPdf, GetStockList, RefreshStockList } from './api'
 import html2pdf from 'html2pdf.js'
 import { EventsOn, WindowGetSize } from '../wailsjs/runtime'
 import { RiskBadge } from './components/RiskBadge'
@@ -600,6 +600,44 @@ function App() {
     toastTimerRef.current = window.setTimeout(() => setToast(null), 3500)
   }, [])
 
+  // 股票代码库：初始为打包内置列表，启动时拉取后端（含用户在线刷新产物）按代码合并
+  const [stocks, setStocks] = useState<Stock[]>(STOCKS)
+  const [stockListRefreshing, setStockListRefreshing] = useState(false)
+
+  useEffect(() => {
+    GetStockList()
+      .then((list) => {
+        if (list && list.length > 0) {
+          setStocks((prev) => {
+            const map = new Map(prev.map((s) => [s.code, s]))
+            list.forEach((s) => map.set(s.code, s))
+            return [...map.values()]
+          })
+        }
+      })
+      .catch((err) => console.error('[GetStockList] error', err))
+  }, [])
+
+  // 在线刷新股票代码库：拉取交易所最新名单，成功后全量替换并提示变更数量
+  const handleRefreshStockList = useCallback(async () => {
+    if (stockListRefreshing) return
+    setStockListRefreshing(true)
+    try {
+      const result = await RefreshStockList()
+      if (!result.success) {
+        showToast(`刷新股票列表失败：${result.error}`, 'error')
+        return
+      }
+      const list = await GetStockList()
+      if (list && list.length > 0) setStocks(list)
+      showToast(`股票列表已刷新：共 ${result.total} 只，新增 ${result.added}，移除 ${result.removed}`, 'success')
+    } catch (err) {
+      showToast(`刷新股票列表失败：${err}`, 'error')
+    } finally {
+      setStockListRefreshing(false)
+    }
+  }, [stockListRefreshing, showToast])
+
   // 拉取自选股分组 / 建议，失败静默降级为空，不影响现有加载
   const refreshWatchlistGroups = useCallback(() => {
     GetWatchlistGroups()
@@ -835,7 +873,7 @@ function App() {
   // 拼音首字母缓存
   const pinyinMap = useMemo(() => {
     const map = new Map<string, string>()
-    STOCKS.forEach((s) => {
+    stocks.forEach((s) => {
       try {
         const py = pinyin(s.name, { pattern: 'first', toneType: 'none', type: 'string' }).toLowerCase().replace(/\s+/g, '')
         map.set(s.code, py)
@@ -844,7 +882,7 @@ function App() {
       }
     })
     return map
-  }, [])
+  }, [stocks])
 
   // 初始化加载自选列表及活跃度
   useEffect(() => {
@@ -1028,13 +1066,13 @@ function App() {
     const q = query.trim()
     if (!q) return []
     const lower = q.toLowerCase()
-    return STOCKS.filter(
+    return stocks.filter(
       (s) =>
         s.code.toLowerCase().includes(lower) ||
         s.name.toLowerCase().includes(lower) ||
         (pinyinMap.get(s.code) || '').includes(lower)
     ).slice(0, 10)
-  }, [query, pinyinMap])
+  }, [query, stocks, pinyinMap])
 
   // 组内添加弹窗：候选股票过滤（已选项不再出现在下拉中）
   const groupAddStockSuggestions = useMemo(() => {
@@ -1042,14 +1080,14 @@ function App() {
     const selectedCodes = new Set(groupAddStockModal?.selected.map((s) => s.code) ?? [])
     if (!q) return []
     const lower = q.toLowerCase()
-    return STOCKS.filter(
+    return stocks.filter(
       (s) =>
         !selectedCodes.has(s.code) &&
         (s.code.toLowerCase().includes(lower) ||
           s.name.toLowerCase().includes(lower) ||
           (pinyinMap.get(s.code) || '').includes(lower))
     ).slice(0, 10)
-  }, [groupAddStockModal?.query, groupAddStockModal?.selected, pinyinMap])
+  }, [groupAddStockModal?.query, groupAddStockModal?.selected, stocks, pinyinMap])
 
   const selectedStock = useMemo(
     () => watchlist.find((s) => s.code === selectedCode) || null,
@@ -3136,7 +3174,7 @@ function App() {
     const q = compQuery.trim()
     if (!q) return []
     const lower = q.toLowerCase()
-    return STOCKS.filter(
+    return stocks.filter(
       (s) =>
         s.code !== selectedCode &&
         (
@@ -3145,7 +3183,7 @@ function App() {
           (pinyinMap.get(s.code) || '').includes(lower)
         )
     ).slice(0, 10)
-  }, [compQuery, selectedCode, pinyinMap])
+  }, [compQuery, selectedCode, stocks, pinyinMap])
 
   const handleAddComparable = async (stock: Stock) => {
     if (!selectedStock || stock.code === selectedStock.code) return
@@ -3804,6 +3842,20 @@ function App() {
                   </li>
                 ))}
               </ul>
+            )}
+            {showDropdown && !loading && query.trim() && suggestions.length === 0 && (
+              <div className="dropdown stocklist-refresh-hint">
+                <div className="stocklist-refresh-text">
+                  未找到「{query.trim()}」，可能是股票列表不是最新
+                </div>
+                <button
+                  className="stocklist-refresh-btn"
+                  disabled={stockListRefreshing}
+                  onClick={handleRefreshStockList}
+                >
+                  {stockListRefreshing ? '正在刷新，约需 1 分钟...' : '⟳ 刷新股票列表'}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -5167,7 +5219,7 @@ function App() {
                 {comparables.length > 0 && (
                   <div className="cp-list">
                     {comparables.map((c) => {
-                      const info = STOCKS.find((s) => s.code === c)
+                      const info = stocks.find((s) => s.code === c)
                       return (
                         <div key={c} className="cp-item">
                           <span className="cp-name">{info?.name || c}</span>
@@ -5214,7 +5266,7 @@ function App() {
                       </span>
                     </div>
                     {compRecommendations.map((r) => {
-                      const info = STOCKS.find((s) => s.code === r.symbol)
+                      const info = stocks.find((s) => s.code === r.symbol)
                       return (
                         <div
                           key={r.symbol}
@@ -6605,7 +6657,7 @@ function App() {
           </div>
           <div className="group-suggest-tooltip-list">
             {suggestTooltip.codes.map((code) => {
-              const stock = STOCKS.find((s) => s.code === code)
+              const stock = stocks.find((s) => s.code === code)
               return (
                 <div key={code}>
                   {stock ? `${stock.name} (${code})` : code}

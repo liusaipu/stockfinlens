@@ -124,6 +124,8 @@ export function GetStockHotPosts(arg1:string):Promise<Array<downloader.HotPost>>
 
 export function GetStockKlines(arg1:string,arg2:string):Promise<Array<downloader.KlineData>>;
 
+export function GetStockList():Promise<Array<main.StockInfo>>;
+
 export function GetStockMoneyflow(arg1:string,arg2:number):Promise<main.StockMoneyflowResult>;
 
 export function GetStockProfile(arg1:string):Promise<main.StockProfile>;
@@ -167,6 +169,8 @@ export function RefreshInteractQA(arg1:string):Promise<Array<analyzer.InteractQA
 export function RefreshMarketCache():Promise<string>;
 
 export function RefreshStockKlines(arg1:string,arg2:string):Promise<Array<downloader.KlineData>>;
+
+export function RefreshStockList():Promise<main.StockListRefreshResult>;
 
 export function RefreshStockProfile(arg1:string):Promise<main.StockProfile>;
 

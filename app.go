@@ -72,6 +72,7 @@ type App struct {
 	ctx             context.Context
 	storage         *Storage
 	stocks          []StockInfo            // 内存中的股票代码库
+	stocksMu        sync.RWMutex           // stocks 读写锁（在线刷新时热更新）
 	analysisGroup   singleflight.Group     // 同股票同 flag 的并发分析请求自动合并
 	dataRouter      *downloader.DataRouter // 数据源路由
 	riskSensitivity string                 // 风险警示敏感度
@@ -242,7 +243,7 @@ func (a *App) startup(ctx context.Context) {
 		fmt.Printf("[MarketCache] 缓存为空或已过期，启动后台更新...\n")
 		go a.startBackgroundMarketCacheUpdate()
 	} else {
-		fmt.Printf("[MarketCache] 缓存加载成功，共 %d 只股票，最后更新: %s\n", a.marketCache.Len(), a.marketCache.GetAll()[a.stocks[0].Code].UpdatedAt)
+		fmt.Printf("[MarketCache] 缓存加载成功，共 %d 只股票，最后更新: %s\n", a.marketCache.Len(), a.marketCache.GetAll()[a.getStocks()[0].Code].UpdatedAt)
 	}
 
 	// 启动后台概念板块成分反查表更新（推荐算法用，过期 7 天才刷新）
@@ -294,7 +295,21 @@ func (a *App) loadStockDB() error {
 	if err != nil {
 		return err
 	}
+	a.stocksMu.Lock()
+	defer a.stocksMu.Unlock()
 	return json.Unmarshal(bytes, &a.stocks)
+}
+
+// getStocks 返回当前股票代码库（RLock 保护切片头，在线刷新时安全）
+func (a *App) getStocks() []StockInfo {
+	a.stocksMu.RLock()
+	defer a.stocksMu.RUnlock()
+	return a.stocks
+}
+
+// GetStockList 返回当前内存中的完整股票代码库（前端启动时拉取，含用户在线刷新结果）
+func (a *App) GetStockList() []StockInfo {
+	return a.getStocks()
 }
 
 //go:embed wails.json
@@ -611,8 +626,8 @@ func (a *App) GetMarketCacheStatus() map[string]interface{} {
 		}
 	}
 	updatedAt := ""
-	if len(a.stocks) > 0 {
-		if item, ok := a.marketCache.Get(a.stocks[0].Code); ok {
+	if len(a.getStocks()) > 0 {
+		if item, ok := a.marketCache.Get(a.getStocks()[0].Code); ok {
 			updatedAt = item.UpdatedAt
 		}
 	}
@@ -658,7 +673,7 @@ func (a *App) SearchStocks(keyword string) []StockInfo {
 		return []StockInfo{}
 	}
 	var results []StockInfo
-	for _, s := range a.stocks {
+	for _, s := range a.getStocks() {
 		if strings.Contains(strings.ToLower(s.Code), q) ||
 			strings.Contains(strings.ToLower(s.Name), q) {
 			results = append(results, s)
@@ -1164,7 +1179,7 @@ func (a *App) AddToWatchlist(code string) error {
 		return fmt.Errorf("自选列表最多100只股票")
 	}
 	// 查找股票信息
-	for _, s := range a.stocks {
+	for _, s := range a.getStocks() {
 		if s.Code == code {
 			list = append([]WatchlistItem{{
 				Code:   s.Code,
@@ -1668,8 +1683,8 @@ func (a *App) UpdateModule4Only(symbol string) (*analyzer.AnalysisReport, error)
 
 	// 3. 获取可比公司分析数据（刚下载的数据）
 	comparables, _ := a.storage.GetComparables(symbol)
-	nameMap := make(map[string]string, len(a.stocks))
-	for _, s := range a.stocks {
+	nameMap := make(map[string]string, len(a.getStocks()))
+	for _, s := range a.getStocks() {
 		nameMap[s.Code] = s.Name
 	}
 	compAnalysis, _ := analyzer.BuildComparableAnalysis(a.storage.DataDir(), comparables, nameMap)
@@ -1763,8 +1778,8 @@ func (a *App) GetModule4Status(symbol string) (bool, error) {
 	}
 
 	// 检查是否已下载可比公司财报
-	nameMap := make(map[string]string, len(a.stocks))
-	for _, s := range a.stocks {
+	nameMap := make(map[string]string, len(a.getStocks()))
+	for _, s := range a.getStocks() {
 		nameMap[s.Code] = s.Name
 	}
 	compAnalysis, err := analyzer.BuildComparableAnalysis(a.storage.DataDir(), comparables, nameMap)
@@ -4016,7 +4031,7 @@ func (a *App) RecommendComparables(symbol string) ([]analyzer.ComparableRecommen
 	// 根据目标股票市场过滤候选池（A股只推荐A股，港股只推荐港股）
 	targetMarket := marketFromSymbol(symbol)
 	var allSymbols []string
-	for _, s := range a.stocks {
+	for _, s := range a.getStocks() {
 		if s.Code != symbol && marketFromSymbol(s.Code) == targetMarket {
 			allSymbols = append(allSymbols, s.Code)
 		}

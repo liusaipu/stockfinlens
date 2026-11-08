@@ -1981,6 +1981,28 @@ export namespace main {
 	        this.market = source["market"];
 	    }
 	}
+	export class StockListRefreshResult {
+	    success: boolean;
+	    total: number;
+	    added: number;
+	    removed: number;
+	    refreshedAt: string;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StockListRefreshResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.total = source["total"];
+	        this.added = source["added"];
+	        this.removed = source["removed"];
+	        this.refreshedAt = source["refreshedAt"];
+	        this.error = source["error"];
+	    }
+	}
 	export class StockMoneyflowItem {
 	    date: string;
 	    main_inflow: number;

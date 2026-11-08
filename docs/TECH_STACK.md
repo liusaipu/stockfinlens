@@ -93,6 +93,6 @@ cd frontend && npm test
 1. **版本号唯一来源**: `wails.json` 中的 `info.productVersion` 是应用版本的**唯一来源**。前端通过 `frontend/vite.config.ts` 在构建期读取并以 `define` 注入全局常量 `__APP_VERSION__`，`Settings.tsx` 直接引用该常量，**禁止重新硬编码**。构建脚本不再做一致性校验（版本自然一致）。当前版本为 `1.8.13`。
 2. **前端 dist 重建**: 如果前端代码有变更，构建前必须确保 `frontend/dist` 是最新的。Wails `build` 在 `dist` 已存在时可能跳过前端构建，导致打包旧代码。`build-release.sh` 会强制先执行 `cd frontend && npm run build`。Windows 构建建议同样手动前置该步骤。
 3. **打包产物必须包含**: `ml_models/` 和 `scripts/` 目录。Go 后端在运行时会从可执行文件同级目录查找这些路径。
-4. **开发模式 vs 生产模式**: `main.go` 中 `readStockJSON()` 优先读取本地 `data/stocks.json`，打包后 fallback 到 `embed.FS`。
+4. **开发模式 vs 生产模式**: `main.go` 中 `readStockJSON()` 读取优先级为：用户数据目录 `~/.config/stock-analyzer/stocks.json`（运行时在线刷新产物）→ 本地 `data/stocks.json` → `embed.FS`。前端搜索无结果时可调用 `RefreshStockList` 在线刷新（Python 脚本 `scripts/fetch_stock_list.py`，stdout JSON 协议），刷新结果写入用户数据目录并热更新内存代码库。
 5. **跨平台构建标签**: `main`、`analyzer`、`downloader` 三个包均包含 `sysproc_windows.go`（`//go:build windows`）和 `sysproc_other.go`（`//go:build !windows`），用于隔离 Windows 特有的 `syscall.SysProcAttr{HideWindow: true}`，避免 macOS/Linux 编译失败。新增包若需调用 Python 子进程，应遵循同样模式。
 6. **构建脚本硬编码路径**: `build-release.sh` 中 Wails CLI 路径硬编码为 `/Users/lobster/go/bin/wails`，在他人机器上构建时需确保路径存在或创建软链接。

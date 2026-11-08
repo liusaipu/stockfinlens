@@ -50,6 +50,16 @@
     "market": "BJ"
   },
   {
+    "code": "920011.BJ",
+    "name": "晨光电机",
+    "market": "BJ"
+  },
+  {
+    "code": "920012.BJ",
+    "name": "创达新材",
+    "market": "BJ"
+  },
+  {
     "code": "920014.BJ",
     "name": "特瑞斯",
     "market": "BJ"
@@ -96,7 +106,12 @@
   },
   {
     "code": "920023.BJ",
-    "name": "田野股份",
+    "name": "*ST田野",
+    "market": "BJ"
+  },
+  {
+    "code": "920025.BJ",
+    "name": "凯达重工",
     "market": "BJ"
   },
   {
@@ -145,6 +160,11 @@
     "market": "BJ"
   },
   {
+    "code": "920038.BJ",
+    "name": "森合高科",
+    "market": "BJ"
+  },
+  {
     "code": "920039.BJ",
     "name": "国义招标",
     "market": "BJ"
@@ -166,7 +186,7 @@
   },
   {
     "code": "920050.BJ",
-    "name": "爱舍伦",
+    "name": "爱伦医疗",
     "market": "BJ"
   },
   {
@@ -190,6 +210,11 @@
     "market": "BJ"
   },
   {
+    "code": "920059.BJ",
+    "name": "双英集团",
+    "market": "BJ"
+  },
+  {
     "code": "920060.BJ",
     "name": "万源通",
     "market": "BJ"
@@ -205,6 +230,11 @@
     "market": "BJ"
   },
   {
+    "code": "920065.BJ",
+    "name": "千岸科技",
+    "market": "BJ"
+  },
+  {
     "code": "920066.BJ",
     "name": "科拜尔",
     "market": "BJ"
@@ -217,6 +247,16 @@
   {
     "code": "920069.BJ",
     "name": "普昂医疗",
+    "market": "BJ"
+  },
+  {
+    "code": "920071.BJ",
+    "name": "金钛股份",
+    "market": "BJ"
+  },
+  {
+    "code": "920072.BJ",
+    "name": "科莱瑞迪",
     "market": "BJ"
   },
   {
@@ -240,13 +280,33 @@
     "market": "BJ"
   },
   {
+    "code": "920079.BJ",
+    "name": "乔路铭",
+    "market": "BJ"
+  },
+  {
     "code": "920080.BJ",
     "name": "奥美森",
     "market": "BJ"
   },
   {
+    "code": "920081.BJ",
+    "name": "欧伦电气",
+    "market": "BJ"
+  },
+  {
     "code": "920082.BJ",
     "name": "方正阀门",
+    "market": "BJ"
+  },
+  {
+    "code": "920083.BJ",
+    "name": "金戈新材",
+    "market": "BJ"
+  },
+  {
+    "code": "920085.BJ",
+    "name": "森峰",
     "market": "BJ"
   },
   {
@@ -271,7 +331,7 @@
   },
   {
     "code": "920090.BJ",
-    "name": "同辉信息",
+    "name": "*ST同辉",
     "market": "BJ"
   },
   {
@@ -282,6 +342,16 @@
   {
     "code": "920092.BJ",
     "name": "汉鑫科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920093.BJ",
+    "name": "信胜科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920096.BJ",
+    "name": "嘉晨智能",
     "market": "BJ"
   },
   {
@@ -310,6 +380,11 @@
     "market": "BJ"
   },
   {
+    "code": "920107.BJ",
+    "name": "恒兴股份",
+    "market": "BJ"
+  },
+  {
     "code": "920108.BJ",
     "name": "宏海科技",
     "market": "BJ"
@@ -332,6 +407,11 @@
   {
     "code": "920116.BJ",
     "name": "星图测控",
+    "market": "BJ"
+  },
+  {
+    "code": "920117.BJ",
+    "name": "龙鑫智能",
     "market": "BJ"
   },
   {
@@ -365,6 +445,16 @@
     "market": "BJ"
   },
   {
+    "code": "920125.BJ",
+    "name": "鸿仕达",
+    "market": "BJ"
+  },
+  {
+    "code": "920126.BJ",
+    "name": "永大股份",
+    "market": "BJ"
+  },
+  {
     "code": "920128.BJ",
     "name": "胜业电气",
     "market": "BJ"
@@ -377,6 +467,16 @@
   {
     "code": "920132.BJ",
     "name": "泰鹏智能",
+    "market": "BJ"
+  },
+  {
+    "code": "920136.BJ",
+    "name": "永励精密",
+    "market": "BJ"
+  },
+  {
+    "code": "920138.BJ",
+    "name": "杰理科技",
     "market": "BJ"
   },
   {
@@ -405,6 +505,16 @@
     "market": "BJ"
   },
   {
+    "code": "920156.BJ",
+    "name": "海昌智能",
+    "market": "BJ"
+  },
+  {
+    "code": "920157.BJ",
+    "name": "宇特光电",
+    "market": "BJ"
+  },
+  {
     "code": "920158.BJ",
     "name": "长江能科",
     "market": "BJ"
@@ -420,8 +530,23 @@
     "market": "BJ"
   },
   {
+    "code": "920161.BJ",
+    "name": "龙辰科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920162.BJ",
+    "name": "莫森泰克",
+    "market": "BJ"
+  },
+  {
     "code": "920163.BJ",
     "name": "方大新材",
+    "market": "BJ"
+  },
+  {
+    "code": "920165.BJ",
+    "name": "珈凯生物",
     "market": "BJ"
   },
   {
@@ -451,12 +576,27 @@
   },
   {
     "code": "920174.BJ",
-    "name": "五新隧装",
+    "name": "五新智能",
     "market": "BJ"
   },
   {
     "code": "920175.BJ",
     "name": "东方碳素",
+    "market": "BJ"
+  },
+  {
+    "code": "920176.BJ",
+    "name": "维琪科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920177.BJ",
+    "name": "恒道科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920178.BJ",
+    "name": "锐翔智能",
     "market": "BJ"
   },
   {
@@ -467,6 +607,11 @@
   {
     "code": "920180.BJ",
     "name": "爱得科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920181.BJ",
+    "name": "赛英电子",
     "market": "BJ"
   },
   {
@@ -485,6 +630,11 @@
     "market": "BJ"
   },
   {
+    "code": "920186.BJ",
+    "name": "中科仪",
+    "market": "BJ"
+  },
+  {
     "code": "920187.BJ",
     "name": "通领科技",
     "market": "BJ"
@@ -495,13 +645,33 @@
     "market": "BJ"
   },
   {
+    "code": "920189.BJ",
+    "name": "康美特",
+    "market": "BJ"
+  },
+  {
     "code": "920190.BJ",
     "name": "雷神科技",
     "market": "BJ"
   },
   {
+    "code": "920191.BJ",
+    "name": "瑞尔竞达",
+    "market": "BJ"
+  },
+  {
+    "code": "920193.BJ",
+    "name": "吉和昌",
+    "market": "BJ"
+  },
+  {
     "code": "920195.BJ",
     "name": "三祥科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920196.BJ",
+    "name": "南方乳业",
     "market": "BJ"
   },
   {
@@ -515,8 +685,28 @@
     "market": "BJ"
   },
   {
+    "code": "920200.BJ",
+    "name": "振宏股份",
+    "market": "BJ"
+  },
+  {
+    "code": "920201.BJ",
+    "name": "百瑞吉",
+    "market": "BJ"
+  },
+  {
+    "code": "920202.BJ",
+    "name": "安达股份",
+    "market": "BJ"
+  },
+  {
     "code": "920204.BJ",
     "name": "沪江材料",
+    "market": "BJ"
+  },
+  {
+    "code": "920206.BJ",
+    "name": "彩客科技",
     "market": "BJ"
   },
   {
@@ -530,13 +720,33 @@
     "market": "BJ"
   },
   {
+    "code": "920211.BJ",
+    "name": "新睿电子",
+    "market": "BJ"
+  },
+  {
     "code": "920212.BJ",
     "name": "智新电子",
     "market": "BJ"
   },
   {
+    "code": "920218.BJ",
+    "name": "新天力",
+    "market": "BJ"
+  },
+  {
+    "code": "920220.BJ",
+    "name": "朗信电气",
+    "market": "BJ"
+  },
+  {
     "code": "920221.BJ",
     "name": "易实精密",
+    "market": "BJ"
+  },
+  {
+    "code": "920222.BJ",
+    "name": "益坤电气",
     "market": "BJ"
   },
   {
@@ -555,6 +765,11 @@
     "market": "BJ"
   },
   {
+    "code": "920229.BJ",
+    "name": "世纪数码",
+    "market": "BJ"
+  },
+  {
     "code": "920230.BJ",
     "name": "欧康医药",
     "market": "BJ"
@@ -562,6 +777,11 @@
   {
     "code": "920237.BJ",
     "name": "力佳科技",
+    "market": "BJ"
+  },
+  {
+    "code": "920238.BJ",
+    "name": "长鹰硬科",
     "market": "BJ"
   },
   {
@@ -595,6 +815,11 @@
     "market": "BJ"
   },
   {
+    "code": "920258.BJ",
+    "name": "聚仁新材",
+    "market": "BJ"
+  },
+  {
     "code": "920260.BJ",
     "name": "中寰股份",
     "market": "BJ"
@@ -622,6 +847,16 @@
   {
     "code": "920267.BJ",
     "name": "鑫汇科",
+    "market": "BJ"
+  },
+  {
+    "code": "920268.BJ",
+    "name": "百迈科",
+    "market": "BJ"
+  },
+  {
+    "code": "920269.BJ",
+    "name": "杰锋动力",
     "market": "BJ"
   },
   {
@@ -660,6 +895,31 @@
     "market": "BJ"
   },
   {
+    "code": "920285.BJ",
+    "name": "远大健科",
+    "market": "BJ"
+  },
+  {
+    "code": "920288.BJ",
+    "name": "华大海天",
+    "market": "BJ"
+  },
+  {
+    "code": "920289.BJ",
+    "name": "华汇智能",
+    "market": "BJ"
+  },
+  {
+    "code": "920296.BJ",
+    "name": "文峰光电",
+    "market": "BJ"
+  },
+  {
+    "code": "920298.BJ",
+    "name": "腾信精密",
+    "market": "BJ"
+  },
+  {
     "code": "920299.BJ",
     "name": "灿能电力",
     "market": "BJ"
@@ -675,8 +935,8 @@
     "market": "BJ"
   },
   {
-    "code": "920305.BJ",
-    "name": "*ST云创",
+    "code": "920306.BJ",
+    "name": "天元重工",
     "market": "BJ"
   },
   {
@@ -996,7 +1256,7 @@
   },
   {
     "code": "920575.BJ",
-    "name": "康乐卫士",
+    "name": "*ST康乐",
     "market": "BJ"
   },
   {
@@ -1231,7 +1491,7 @@
   },
   {
     "code": "920779.BJ",
-    "name": "武汉蓝电",
+    "name": "XD武汉蓝",
     "market": "BJ"
   },
   {
@@ -1545,11 +1805,6 @@
     "market": "HK"
   },
   {
-    "code": "00007.HK",
-    "name": "智富资源投资",
-    "market": "HK"
-  },
-  {
     "code": "00008.HK",
     "name": "电讯盈科",
     "market": "HK"
@@ -1780,11 +2035,6 @@
     "market": "HK"
   },
   {
-    "code": "00064.HK",
-    "name": "结好控股",
-    "market": "HK"
-  },
-  {
     "code": "00065.HK",
     "name": "弘海高新资源",
     "market": "HK"
@@ -1792,6 +2042,11 @@
   {
     "code": "00066.HK",
     "name": "港铁公司",
+    "market": "HK"
+  },
+  {
+    "code": "00068.HK",
+    "name": "群核科技",
     "market": "HK"
   },
   {
@@ -2255,11 +2510,6 @@
     "market": "HK"
   },
   {
-    "code": "00176.HK",
-    "name": "先机企业集团",
-    "market": "HK"
-  },
-  {
     "code": "00177.HK",
     "name": "江苏宁沪高速公路",
     "market": "HK"
@@ -2337,11 +2587,6 @@
   {
     "code": "00194.HK",
     "name": "廖创兴企业",
-    "market": "HK"
-  },
-  {
-    "code": "00195.HK",
-    "name": "绿科科技国际",
     "market": "HK"
   },
   {
@@ -2482,11 +2727,6 @@
   {
     "code": "00229.HK",
     "name": "利民实业",
-    "market": "HK"
-  },
-  {
-    "code": "00232.HK",
-    "name": "大陆航空科技控股",
     "market": "HK"
   },
   {
@@ -2685,11 +2925,6 @@
     "market": "HK"
   },
   {
-    "code": "00286.HK",
-    "name": "爱帝宫",
-    "market": "HK"
-  },
-  {
     "code": "00287.HK",
     "name": "永发置业",
     "market": "HK"
@@ -2742,11 +2977,6 @@
   {
     "code": "00298.HK",
     "name": "庄士中国",
-    "market": "HK"
-  },
-  {
-    "code": "00299.HK",
-    "name": "宝新置地",
     "market": "HK"
   },
   {
@@ -2880,6 +3110,11 @@
     "market": "HK"
   },
   {
+    "code": "00330.HK",
+    "name": "思捷环球",
+    "market": "HK"
+  },
+  {
     "code": "00331.HK",
     "name": "丰盛生活服务",
     "market": "HK"
@@ -3007,11 +3242,6 @@
   {
     "code": "00361.HK",
     "name": "汉成发展控股",
-    "market": "HK"
-  },
-  {
-    "code": "00362.HK",
-    "name": "中国天化工",
     "market": "HK"
   },
   {
@@ -3275,11 +3505,6 @@
     "market": "HK"
   },
   {
-    "code": "00431.HK",
-    "name": "大中华金融",
-    "market": "HK"
-  },
-  {
     "code": "00432.HK",
     "name": "盈大地产",
     "market": "HK"
@@ -3410,6 +3635,11 @@
     "market": "HK"
   },
   {
+    "code": "00482.HK",
+    "name": "圣马丁国际",
+    "market": "HK"
+  },
+  {
     "code": "00483.HK",
     "name": "包浩斯国际",
     "market": "HK"
@@ -3447,11 +3677,6 @@
   {
     "code": "00493.HK",
     "name": "国美零售",
-    "market": "HK"
-  },
-  {
-    "code": "00495.HK",
-    "name": "PALADIN",
     "market": "HK"
   },
   {
@@ -3497,11 +3722,6 @@
   {
     "code": "00508.HK",
     "name": "鼎亿集团投资",
-    "market": "HK"
-  },
-  {
-    "code": "00509.HK",
-    "name": "世纪阳光",
     "market": "HK"
   },
   {
@@ -3607,6 +3827,11 @@
   {
     "code": "00536.HK",
     "name": "贸易通",
+    "market": "HK"
+  },
+  {
+    "code": "00537.HK",
+    "name": "普源精电",
     "market": "HK"
   },
   {
@@ -3945,6 +4170,11 @@
     "market": "HK"
   },
   {
+    "code": "00625.HK",
+    "name": "希音-W",
+    "market": "HK"
+  },
+  {
     "code": "00626.HK",
     "name": "大众金融控股",
     "market": "HK"
@@ -4100,6 +4330,11 @@
     "market": "HK"
   },
   {
+    "code": "00668.HK",
+    "name": "安克创新",
+    "market": "HK"
+  },
+  {
     "code": "00669.HK",
     "name": "创科实业",
     "market": "HK"
@@ -4245,11 +4480,6 @@
     "market": "HK"
   },
   {
-    "code": "00702.HK",
-    "name": "中国油气控股",
-    "market": "HK"
-  },
-  {
     "code": "00703.HK",
     "name": "FUTURE BRIGHT",
     "market": "HK"
@@ -4332,11 +4562,6 @@
   {
     "code": "00723.HK",
     "name": "信保环球控股",
-    "market": "HK"
-  },
-  {
-    "code": "00724.HK",
-    "name": "瑞鑫国际集团",
     "market": "HK"
   },
   {
@@ -4745,11 +4970,6 @@
     "market": "HK"
   },
   {
-    "code": "00845.HK",
-    "name": "恒盛地产",
-    "market": "HK"
-  },
-  {
     "code": "00846.HK",
     "name": "明发集团",
     "market": "HK"
@@ -4965,6 +5185,11 @@
     "market": "HK"
   },
   {
+    "code": "00901.HK",
+    "name": "华曦达",
+    "market": "HK"
+  },
+  {
     "code": "00902.HK",
     "name": "华能国际电力股份",
     "market": "HK"
@@ -5047,11 +5272,6 @@
   {
     "code": "00923.HK",
     "name": "综合环保集团",
-    "market": "HK"
-  },
-  {
-    "code": "00924.HK",
-    "name": "坤集团",
     "market": "HK"
   },
   {
@@ -5585,6 +5805,11 @@
     "market": "HK"
   },
   {
+    "code": "01081.HK",
+    "name": "大金重工",
+    "market": "HK"
+  },
+  {
     "code": "01082.HK",
     "name": "源宇宙教育",
     "market": "HK"
@@ -5657,11 +5882,6 @@
   {
     "code": "01100.HK",
     "name": "飞达控股",
-    "market": "HK"
-  },
-  {
-    "code": "01101.HK",
-    "name": "华荣能源",
     "market": "HK"
   },
   {
@@ -5840,11 +6060,6 @@
     "market": "HK"
   },
   {
-    "code": "01143.HK",
-    "name": "中国储能科技发展",
-    "market": "HK"
-  },
-  {
     "code": "01145.HK",
     "name": "勇利投资",
     "market": "HK"
@@ -6005,8 +6220,18 @@
     "market": "HK"
   },
   {
+    "code": "01187.HK",
+    "name": "可孚医疗",
+    "market": "HK"
+  },
+  {
     "code": "01188.HK",
     "name": "正道集团",
+    "market": "HK"
+  },
+  {
+    "code": "01191.HK",
+    "name": "海光芯正",
     "market": "HK"
   },
   {
@@ -6180,6 +6405,11 @@
     "market": "HK"
   },
   {
+    "code": "01236.HK",
+    "name": "乐动机器人",
+    "market": "HK"
+  },
+  {
     "code": "01237.HK",
     "name": "中科生物",
     "market": "HK"
@@ -6220,11 +6450,6 @@
     "market": "HK"
   },
   {
-    "code": "01246.HK",
-    "name": "保集健康",
-    "market": "HK"
-  },
-  {
     "code": "01247.HK",
     "name": "米格国际控股",
     "market": "HK"
@@ -6252,6 +6477,11 @@
   {
     "code": "01255.HK",
     "name": "ＴＡＴＡ健康",
+    "market": "HK"
+  },
+  {
+    "code": "01256.HK",
+    "name": "奕斯伟计算",
     "market": "HK"
   },
   {
@@ -6387,11 +6617,6 @@
   {
     "code": "01292.HK",
     "name": "长安民生物流",
-    "market": "HK"
-  },
-  {
-    "code": "01293.HK",
-    "name": "广汇宝信",
     "market": "HK"
   },
   {
@@ -6670,6 +6895,11 @@
     "market": "HK"
   },
   {
+    "code": "01377.HK",
+    "name": "鼎泰高科",
+    "market": "HK"
+  },
+  {
     "code": "01378.HK",
     "name": "中国宏桥",
     "market": "HK"
@@ -6707,6 +6937,11 @@
   {
     "code": "01389.HK",
     "name": "美捷汇控股",
+    "market": "HK"
+  },
+  {
+    "code": "01392.HK",
+    "name": "海清智元",
     "market": "HK"
   },
   {
@@ -7070,6 +7305,11 @@
     "market": "HK"
   },
   {
+    "code": "01511.HK",
+    "name": "驭势科技",
+    "market": "HK"
+  },
+  {
     "code": "01513.HK",
     "name": "丽珠医药",
     "market": "HK"
@@ -7385,11 +7625,6 @@
     "market": "HK"
   },
   {
-    "code": "01598.HK",
-    "name": "２１世纪教育",
-    "market": "HK"
-  },
-  {
     "code": "01599.HK",
     "name": "城建设计",
     "market": "HK"
@@ -7412,6 +7647,11 @@
   {
     "code": "01608.HK",
     "name": "伟能集团",
+    "market": "HK"
+  },
+  {
+    "code": "01609.HK",
+    "name": "天星医疗",
     "market": "HK"
   },
   {
@@ -7697,6 +7937,11 @@
   {
     "code": "01686.HK",
     "name": "新意网集团",
+    "market": "HK"
+  },
+  {
+    "code": "01688.HK",
+    "name": "领益智造",
     "market": "HK"
   },
   {
@@ -8035,6 +8280,11 @@
     "market": "HK"
   },
   {
+    "code": "01770.HK",
+    "name": "东方科脉",
+    "market": "HK"
+  },
+  {
     "code": "01771.HK",
     "name": "新丰泰集团",
     "market": "HK"
@@ -8067,6 +8317,11 @@
   {
     "code": "01778.HK",
     "name": "彩生活",
+    "market": "HK"
+  },
+  {
+    "code": "01779.HK",
+    "name": "天辰生物-B",
     "market": "HK"
   },
   {
@@ -8325,11 +8580,6 @@
     "market": "HK"
   },
   {
-    "code": "01849.HK",
-    "name": "秀商时代控股",
-    "market": "HK"
-  },
-  {
     "code": "01850.HK",
     "name": "鸿盛昌资源",
     "market": "HK"
@@ -8452,6 +8702,11 @@
   {
     "code": "01878.HK",
     "name": "南戈壁",
+    "market": "HK"
+  },
+  {
+    "code": "01879.HK",
+    "name": "曦智科技-P",
     "market": "HK"
   },
   {
@@ -8620,11 +8875,6 @@
     "market": "HK"
   },
   {
-    "code": "01922.HK",
-    "name": "瑞森生活服务",
-    "market": "HK"
-  },
-  {
     "code": "01925.HK",
     "name": "旷世芳香",
     "market": "HK"
@@ -8752,6 +9002,11 @@
   {
     "code": "01955.HK",
     "name": "庄臣控股",
+    "market": "HK"
+  },
+  {
+    "code": "01956.HK",
+    "name": "中科闻歌",
     "market": "HK"
   },
   {
@@ -9060,6 +9315,11 @@
     "market": "HK"
   },
   {
+    "code": "02041.HK",
+    "name": "麦科田",
+    "market": "HK"
+  },
+  {
     "code": "02048.HK",
     "name": "易居企业控股",
     "market": "HK"
@@ -9102,11 +9362,6 @@
   {
     "code": "02086.HK",
     "name": "高维科技",
-    "market": "HK"
-  },
-  {
-    "code": "02088.HK",
-    "name": "西王置业",
     "market": "HK"
   },
   {
@@ -9650,6 +9905,11 @@
     "market": "HK"
   },
   {
+    "code": "02249.HK",
+    "name": "晶合集成",
+    "market": "HK"
+  },
+  {
     "code": "02250.HK",
     "name": "小黄鸭德盈",
     "market": "HK"
@@ -9695,6 +9955,11 @@
     "market": "HK"
   },
   {
+    "code": "02261.HK",
+    "name": "拿森科技",
+    "market": "HK"
+  },
+  {
     "code": "02262.HK",
     "name": "梁志天设计集团",
     "market": "HK"
@@ -9732,6 +9997,11 @@
   {
     "code": "02271.HK",
     "name": "众安智慧生活",
+    "market": "HK"
+  },
+  {
+    "code": "02272.HK",
+    "name": "科拓股份",
     "market": "HK"
   },
   {
@@ -9787,6 +10057,11 @@
   {
     "code": "02289.HK",
     "name": "创美药业",
+    "market": "HK"
+  },
+  {
+    "code": "02290.HK",
+    "name": "龙丰集团",
     "market": "HK"
   },
   {
@@ -9895,11 +10170,6 @@
     "market": "HK"
   },
   {
-    "code": "02323.HK",
-    "name": "融科控股",
-    "market": "HK"
-  },
-  {
     "code": "02324.HK",
     "name": "首都创投",
     "market": "HK"
@@ -9942,6 +10212,11 @@
   {
     "code": "02333.HK",
     "name": "长城汽车",
+    "market": "HK"
+  },
+  {
+    "code": "02335.HK",
+    "name": "麦科医药-B",
     "market": "HK"
   },
   {
@@ -10117,6 +10392,11 @@
   {
     "code": "02383.HK",
     "name": "ＴＯＭ集团",
+    "market": "HK"
+  },
+  {
+    "code": "02384.HK",
+    "name": "东山精密",
     "market": "HK"
   },
   {
@@ -10365,6 +10645,16 @@
     "market": "HK"
   },
   {
+    "code": "02475.HK",
+    "name": "立讯精密",
+    "market": "HK"
+  },
+  {
+    "code": "02476.HK",
+    "name": "胜宏科技",
+    "market": "HK"
+  },
+  {
     "code": "02477.HK",
     "name": "经纬天地",
     "market": "HK"
@@ -10417,6 +10707,11 @@
   {
     "code": "02490.HK",
     "name": "乐舱物流",
+    "market": "HK"
+  },
+  {
+    "code": "02493.HK",
+    "name": "迈威生物-B",
     "market": "HK"
   },
   {
@@ -10637,6 +10932,11 @@
   {
     "code": "02552.HK",
     "name": "华领医药－Ｂ",
+    "market": "HK"
+  },
+  {
+    "code": "02553.HK",
+    "name": "首钢朗泽",
     "market": "HK"
   },
   {
@@ -10950,6 +11250,11 @@
     "market": "HK"
   },
   {
+    "code": "02636.HK",
+    "name": "传音控股",
+    "market": "HK"
+  },
+  {
     "code": "02637.HK",
     "name": "海西新药",
     "market": "HK"
@@ -11040,6 +11345,11 @@
     "market": "HK"
   },
   {
+    "code": "02667.HK",
+    "name": "同仁堂医养",
+    "market": "HK"
+  },
+  {
     "code": "02668.HK",
     "name": "百德国际",
     "market": "HK"
@@ -11057,6 +11367,11 @@
   {
     "code": "02671.HK",
     "name": "美联股份",
+    "market": "HK"
+  },
+  {
+    "code": "02672.HK",
+    "name": "白鸽在线",
     "market": "HK"
   },
   {
@@ -11140,6 +11455,11 @@
     "market": "HK"
   },
   {
+    "code": "02697.HK",
+    "name": "真健康医疗-B",
+    "market": "HK"
+  },
+  {
     "code": "02698.HK",
     "name": "乐舒适",
     "market": "HK"
@@ -11187,6 +11507,11 @@
   {
     "code": "02722.HK",
     "name": "重庆机电",
+    "market": "HK"
+  },
+  {
+    "code": "02723.HK",
+    "name": "深演智能(新)",
     "market": "HK"
   },
   {
@@ -11242,6 +11567,11 @@
   {
     "code": "02789.HK",
     "name": "远大中国",
+    "market": "HK"
+  },
+  {
+    "code": "02797.HK",
+    "name": "齐云山食品",
     "market": "HK"
   },
   {
@@ -11345,38 +11675,63 @@
     "market": "HK"
   },
   {
-    "code": "02910.HK",
-    "name": "挚达科技（旧）",
-    "market": "HK"
-  },
-  {
-    "code": "02911.HK",
-    "name": "希迪智驾（旧）",
-    "market": "HK"
-  },
-  {
-    "code": "02929.HK",
-    "name": "STERLING GP-OLD",
-    "market": "HK"
-  },
-  {
-    "code": "02931.HK",
-    "name": "诺比侃（旧）",
-    "market": "HK"
-  },
-  {
     "code": "02934.HK",
     "name": "圣马丁国际",
     "market": "HK"
   },
   {
-    "code": "02935.HK",
-    "name": "环球华商（一万）",
+    "code": "02936.HK",
+    "name": "桦欣控股(旧)",
     "market": "HK"
   },
   {
-    "code": "02938.HK",
-    "name": "派格－Ｂ（五百）",
+    "code": "02942.HK",
+    "name": "星星集团(旧)",
+    "market": "HK"
+  },
+  {
+    "code": "02943.HK",
+    "name": "百宏实业(旧)",
+    "market": "HK"
+  },
+  {
+    "code": "02947.HK",
+    "name": "深演智能(旧)",
+    "market": "HK"
+  },
+  {
+    "code": "02948.HK",
+    "name": "天瑞汽车内饰-旧",
+    "market": "HK"
+  },
+  {
+    "code": "02949.HK",
+    "name": "绿色电能集团股权",
+    "market": "HK"
+  },
+  {
+    "code": "02952.HK",
+    "name": "植华集团",
+    "market": "HK"
+  },
+  {
+    "code": "02955.HK",
+    "name": "金浔资源(二百)",
+    "market": "HK"
+  },
+  {
+    "code": "02956.HK",
+    "name": "辉煌明天",
+    "market": "HK"
+  },
+  {
+    "code": "02996.HK",
+    "name": "金力集团股权",
+    "market": "HK"
+  },
+  {
+    "code": "02998.HK",
+    "name": "金力集团(四千)",
     "market": "HK"
   },
   {
@@ -11385,13 +11740,38 @@
     "market": "HK"
   },
   {
+    "code": "03223.HK",
+    "name": "君正股份",
+    "market": "HK"
+  },
+  {
+    "code": "03228.HK",
+    "name": "景旺电子",
+    "market": "HK"
+  },
+  {
+    "code": "03231.HK",
+    "name": "优地机器人",
+    "market": "HK"
+  },
+  {
     "code": "03268.HK",
     "name": "美格智能",
     "market": "HK"
   },
   {
+    "code": "03277.HK",
+    "name": "长光辰芯",
+    "market": "HK"
+  },
+  {
     "code": "03288.HK",
     "name": "海天味业",
+    "market": "HK"
+  },
+  {
+    "code": "03296.HK",
+    "name": "华勤技术",
     "market": "HK"
   },
   {
@@ -11420,8 +11800,18 @@
     "market": "HK"
   },
   {
+    "code": "03308.HK",
+    "name": "中际旭创",
+    "market": "HK"
+  },
+  {
     "code": "03309.HK",
     "name": "希玛医疗",
+    "market": "HK"
+  },
+  {
+    "code": "03310.HK",
+    "name": "云英谷科技",
     "market": "HK"
   },
   {
@@ -11580,6 +11970,11 @@
     "market": "HK"
   },
   {
+    "code": "03388.HK",
+    "name": "创想三维",
+    "market": "HK"
+  },
+  {
     "code": "03389.HK",
     "name": "亨得利",
     "market": "HK"
@@ -11702,6 +12097,11 @@
   {
     "code": "03660.HK",
     "name": "奇富科技－Ｓ",
+    "market": "HK"
+  },
+  {
+    "code": "03661.HK",
+    "name": "圣邦股份",
     "market": "HK"
   },
   {
@@ -11830,6 +12230,16 @@
     "market": "HK"
   },
   {
+    "code": "03752.HK",
+    "name": "珞石机器人",
+    "market": "HK"
+  },
+  {
+    "code": "03757.HK",
+    "name": "罗博特科",
+    "market": "HK"
+  },
+  {
     "code": "03759.HK",
     "name": "康龙化成",
     "market": "HK"
@@ -11842,6 +12252,11 @@
   {
     "code": "03773.HK",
     "name": "银盛数惠",
+    "market": "HK"
+  },
+  {
+    "code": "03774.HK",
+    "name": "亮晴控股",
     "market": "HK"
   },
   {
@@ -12080,6 +12495,11 @@
     "market": "HK"
   },
   {
+    "code": "03952.HK",
+    "name": "来福谐波",
+    "market": "HK"
+  },
+  {
     "code": "03958.HK",
     "name": "东方证券",
     "market": "HK"
@@ -12220,6 +12640,11 @@
     "market": "HK"
   },
   {
+    "code": "06051.HK",
+    "name": "有赞",
+    "market": "HK"
+  },
+  {
     "code": "06055.HK",
     "name": "中烟香港",
     "market": "HK"
@@ -12242,6 +12667,11 @@
   {
     "code": "06066.HK",
     "name": "中信建投证券",
+    "market": "HK"
+  },
+  {
+    "code": "06067.HK",
+    "name": "星源材质",
     "market": "HK"
   },
   {
@@ -12310,6 +12740,11 @@
     "market": "HK"
   },
   {
+    "code": "06106.HK",
+    "name": "仙工智能",
+    "market": "HK"
+  },
+  {
     "code": "06108.HK",
     "name": "新锐医药",
     "market": "HK"
@@ -12352,6 +12787,11 @@
   {
     "code": "06128.HK",
     "name": "烯石电车新材料",
+    "market": "HK"
+  },
+  {
+    "code": "06132.HK",
+    "name": "华健未来-B",
     "market": "HK"
   },
   {
@@ -12465,6 +12905,16 @@
     "market": "HK"
   },
   {
+    "code": "06228.HK",
+    "name": "自由黄金-DRS",
+    "market": "HK"
+  },
+  {
+    "code": "06288.HK",
+    "name": "迅销有限公司-预托证券",
+    "market": "HK"
+  },
+  {
     "code": "06600.HK",
     "name": "卧安机器人",
     "market": "HK"
@@ -12560,8 +13010,18 @@
     "market": "HK"
   },
   {
+    "code": "06656.HK",
+    "name": "思格新能",
+    "market": "HK"
+  },
+  {
     "code": "06657.HK",
     "name": "百望股份",
+    "market": "HK"
+  },
+  {
+    "code": "06658.HK",
+    "name": "溜溜梅",
     "market": "HK"
   },
   {
@@ -12597,6 +13057,11 @@
   {
     "code": "06669.HK",
     "name": "先瑞达医疗－Ｂ",
+    "market": "HK"
+  },
+  {
+    "code": "06675.HK",
+    "name": "琻捷电子",
     "market": "HK"
   },
   {
@@ -12665,6 +13130,31 @@
     "market": "HK"
   },
   {
+    "code": "06715.HK",
+    "name": "鲟龙科技",
+    "market": "HK"
+  },
+  {
+    "code": "06727.HK",
+    "name": "星环科技",
+    "market": "HK"
+  },
+  {
+    "code": "06731.HK",
+    "name": "本末科技",
+    "market": "HK"
+  },
+  {
+    "code": "06745.HK",
+    "name": "滨化股份",
+    "market": "HK"
+  },
+  {
+    "code": "06802.HK",
+    "name": "欢创科技",
+    "market": "HK"
+  },
+  {
     "code": "06805.HK",
     "name": "金茂源环保",
     "market": "HK"
@@ -12682,6 +13172,11 @@
   {
     "code": "06809.HK",
     "name": "澜起科技",
+    "market": "HK"
+  },
+  {
+    "code": "06810.HK",
+    "name": "商米科技-W",
     "market": "HK"
   },
   {
@@ -12805,13 +13300,23 @@
     "market": "HK"
   },
   {
+    "code": "06871.HK",
+    "name": "翼菲科技",
+    "market": "HK"
+  },
+  {
+    "code": "06872.HK",
+    "name": "丹诺医药-B",
+    "market": "HK"
+  },
+  {
     "code": "06877.HK",
     "name": "TE HEALTHCARE",
     "market": "HK"
   },
   {
-    "code": "06878.HK",
-    "name": "鼎丰集团汽车",
+    "code": "06880.HK",
+    "name": "MOMENTA-W",
     "market": "HK"
   },
   {
@@ -12900,6 +13405,11 @@
     "market": "HK"
   },
   {
+    "code": "06915.HK",
+    "name": "江西生物",
+    "market": "HK"
+  },
+  {
     "code": "06918.HK",
     "name": "奇士达",
     "market": "HK"
@@ -12942,6 +13452,11 @@
   {
     "code": "06939.HK",
     "name": "美佳音控股",
+    "market": "HK"
+  },
+  {
+    "code": "06951.HK",
+    "name": "三环集团",
     "market": "HK"
   },
   {
@@ -13042,6 +13557,31 @@
   {
     "code": "07618.HK",
     "name": "京东工业",
+    "market": "HK"
+  },
+  {
+    "code": "07630.HK",
+    "name": "英派药业-B",
+    "market": "HK"
+  },
+  {
+    "code": "07656.HK",
+    "name": "瑞为技术",
+    "market": "HK"
+  },
+  {
+    "code": "07666.HK",
+    "name": "剂泰科技-P",
+    "market": "HK"
+  },
+  {
+    "code": "07687.HK",
+    "name": "易控智驾",
+    "market": "HK"
+  },
+  {
+    "code": "07688.HK",
+    "name": "拓璞数控",
     "market": "HK"
   },
   {
@@ -13150,11 +13690,6 @@
     "market": "HK"
   },
   {
-    "code": "08039.HK",
-    "name": "中国来骑哦",
-    "market": "HK"
-  },
-  {
     "code": "08040.HK",
     "name": "快意智能",
     "market": "HK"
@@ -13172,16 +13707,6 @@
   {
     "code": "08043.HK",
     "name": "ATLINKS",
-    "market": "HK"
-  },
-  {
-    "code": "08047.HK",
-    "name": "中国海洋发展",
-    "market": "HK"
-  },
-  {
-    "code": "08048.HK",
-    "name": "御德国际控股",
     "market": "HK"
   },
   {
@@ -13295,13 +13820,13 @@
     "market": "HK"
   },
   {
-    "code": "08083.HK",
-    "name": "有赞",
+    "code": "08087.HK",
+    "name": "中国三三传媒",
     "market": "HK"
   },
   {
-    "code": "08087.HK",
-    "name": "中国三三传媒",
+    "code": "08090.HK",
+    "name": "宝盖新材",
     "market": "HK"
   },
   {
@@ -13402,11 +13927,6 @@
   {
     "code": "08125.HK",
     "name": "中新控股",
-    "market": "HK"
-  },
-  {
-    "code": "08126.HK",
-    "name": "Ｇ．Ａ．控股",
     "market": "HK"
   },
   {
@@ -14475,13 +14995,33 @@
     "market": "HK"
   },
   {
-    "code": "08601.HK",
-    "name": "宝燵控股",
+    "code": "08552.HK",
+    "name": "新华联合投资-旧",
     "market": "HK"
   },
   {
-    "code": "08603.HK",
-    "name": "亮晴控股",
+    "code": "08556.HK",
+    "name": "神通机器人(旧)",
+    "market": "HK"
+  },
+  {
+    "code": "08557.HK",
+    "name": "浙江联合投资",
+    "market": "HK"
+  },
+  {
+    "code": "08572.HK",
+    "name": "朝威控股(旧)",
+    "market": "HK"
+  },
+  {
+    "code": "08585.HK",
+    "name": "首都金融控股-旧",
+    "market": "HK"
+  },
+  {
+    "code": "08601.HK",
+    "name": "宝燵控股",
     "market": "HK"
   },
   {
@@ -14600,6 +15140,11 @@
     "market": "HK"
   },
   {
+    "code": "09607.HK",
+    "name": "彤程新材",
+    "market": "HK"
+  },
+  {
     "code": "09608.HK",
     "name": "宋都服务",
     "market": "HK"
@@ -14615,6 +15160,11 @@
     "market": "HK"
   },
   {
+    "code": "09615.HK",
+    "name": "梅卡曼德机器人",
+    "market": "HK"
+  },
+  {
     "code": "09616.HK",
     "name": "东软睿新集团",
     "market": "HK"
@@ -14625,8 +15175,18 @@
     "market": "HK"
   },
   {
+    "code": "09621.HK",
+    "name": "远信储能",
+    "market": "HK"
+  },
+  {
     "code": "09626.HK",
     "name": "哔哩哔哩－Ｗ",
+    "market": "HK"
+  },
+  {
+    "code": "09630.HK",
+    "name": "芯碁微装",
     "market": "HK"
   },
   {
@@ -14637,6 +15197,11 @@
   {
     "code": "09636.HK",
     "name": "九方智投控股",
+    "market": "HK"
+  },
+  {
+    "code": "09637.HK",
+    "name": "礼邦医药-B",
     "market": "HK"
   },
   {
@@ -14727,6 +15292,11 @@
   {
     "code": "09699.HK",
     "name": "顺丰同城",
+    "market": "HK"
+  },
+  {
+    "code": "09856.HK",
+    "name": "纳真科技",
     "market": "HK"
   },
   {
@@ -15005,8 +15575,18 @@
     "market": "HK"
   },
   {
+    "code": "09971.HK",
+    "name": "基本半导体",
+    "market": "HK"
+  },
+  {
     "code": "09973.HK",
     "name": "奇瑞汽车",
+    "market": "HK"
+  },
+  {
+    "code": "09976.HK",
+    "name": "江波龙",
     "market": "HK"
   },
   {
@@ -15406,7 +15986,7 @@
   },
   {
     "code": "600053.SH",
-    "name": "九鼎投资",
+    "name": "*ST九鼎",
     "market": "SH"
   },
   {
@@ -15511,7 +16091,7 @@
   },
   {
     "code": "600080.SH",
-    "name": "金花股份",
+    "name": "ST金花",
     "market": "SH"
   },
   {
@@ -15521,12 +16101,12 @@
   },
   {
     "code": "600082.SH",
-    "name": "海泰发展",
+    "name": "ST海泰",
     "market": "SH"
   },
   {
     "code": "600084.SH",
-    "name": "中信尼雅",
+    "name": "*ST尼雅",
     "market": "SH"
   },
   {
@@ -15606,7 +16186,7 @@
   },
   {
     "code": "600107.SH",
-    "name": "ST尔雅",
+    "name": "*ST尔雅",
     "market": "SH"
   },
   {
@@ -15661,7 +16241,7 @@
   },
   {
     "code": "600119.SH",
-    "name": "长江投资",
+    "name": "*ST长投",
     "market": "SH"
   },
   {
@@ -15706,7 +16286,7 @@
   },
   {
     "code": "600130.SH",
-    "name": "*ST波导",
+    "name": "波导股份",
     "market": "SH"
   },
   {
@@ -15831,7 +16411,7 @@
   },
   {
     "code": "600165.SH",
-    "name": "ST宁科",
+    "name": "宁科生物",
     "market": "SH"
   },
   {
@@ -15896,7 +16476,7 @@
   },
   {
     "code": "600180.SH",
-    "name": "瑞茂通",
+    "name": "*ST瑞茂",
     "market": "SH"
   },
   {
@@ -15926,7 +16506,7 @@
   },
   {
     "code": "600187.SH",
-    "name": "国中水务",
+    "name": "*ST国中",
     "market": "SH"
   },
   {
@@ -15947,11 +16527,6 @@
   {
     "code": "600192.SH",
     "name": "长城电工",
-    "market": "SH"
-  },
-  {
-    "code": "600193.SH",
-    "name": "*ST创兴",
     "market": "SH"
   },
   {
@@ -16076,7 +16651,7 @@
   },
   {
     "code": "600228.SH",
-    "name": "*ST返利",
+    "name": "返利科技",
     "market": "SH"
   },
   {
@@ -16126,12 +16701,12 @@
   },
   {
     "code": "600238.SH",
-    "name": "*ST椰岛",
+    "name": "ST椰岛",
     "market": "SH"
   },
   {
     "code": "600239.SH",
-    "name": "云南城投",
+    "name": "ST云城",
     "market": "SH"
   },
   {
@@ -16211,7 +16786,7 @@
   },
   {
     "code": "600265.SH",
-    "name": "ST景谷",
+    "name": "*ST景谷",
     "market": "SH"
   },
   {
@@ -16346,7 +16921,7 @@
   },
   {
     "code": "600302.SH",
-    "name": "标准股份",
+    "name": "ST标准",
     "market": "SH"
   },
   {
@@ -16481,7 +17056,7 @@
   },
   {
     "code": "600337.SH",
-    "name": "美克家居",
+    "name": "ST美克",
     "market": "SH"
   },
   {
@@ -16496,7 +17071,7 @@
   },
   {
     "code": "600340.SH",
-    "name": "华夏幸福",
+    "name": "*ST华幸",
     "market": "SH"
   },
   {
@@ -16545,18 +17120,13 @@
     "market": "SH"
   },
   {
-    "code": "600355.SH",
-    "name": "*ST精伦",
-    "market": "SH"
-  },
-  {
     "code": "600356.SH",
     "name": "恒丰纸业",
     "market": "SH"
   },
   {
     "code": "600358.SH",
-    "name": "ST联合",
+    "name": "国旅联合",
     "market": "SH"
   },
   {
@@ -16566,7 +17136,7 @@
   },
   {
     "code": "600360.SH",
-    "name": "*ST华微",
+    "name": "华微电子",
     "market": "SH"
   },
   {
@@ -16581,7 +17151,7 @@
   },
   {
     "code": "600363.SH",
-    "name": "联创光电",
+    "name": "ST联光",
     "market": "SH"
   },
   {
@@ -16611,7 +17181,7 @@
   },
   {
     "code": "600370.SH",
-    "name": "三房巷",
+    "name": "*ST三房",
     "market": "SH"
   },
   {
@@ -16681,7 +17251,7 @@
   },
   {
     "code": "600388.SH",
-    "name": "龙净环保",
+    "name": "紫金龙净",
     "market": "SH"
   },
   {
@@ -16790,18 +17360,13 @@
     "market": "SH"
   },
   {
-    "code": "600421.SH",
-    "name": "*ST华嵘",
-    "market": "SH"
-  },
-  {
     "code": "600422.SH",
     "name": "昆药集团",
     "market": "SH"
   },
   {
     "code": "600423.SH",
-    "name": "柳化股份",
+    "name": "*ST柳化",
     "market": "SH"
   },
   {
@@ -16846,7 +17411,7 @@
   },
   {
     "code": "600439.SH",
-    "name": "瑞贝卡",
+    "name": "ST瑞贝卡",
     "market": "SH"
   },
   {
@@ -16891,7 +17456,7 @@
   },
   {
     "code": "600459.SH",
-    "name": "贵研铂业",
+    "name": "XD贵研铂",
     "market": "SH"
   },
   {
@@ -16936,7 +17501,7 @@
   },
   {
     "code": "600476.SH",
-    "name": "湘邮科技",
+    "name": "*ST湘邮",
     "market": "SH"
   },
   {
@@ -17001,7 +17566,7 @@
   },
   {
     "code": "600491.SH",
-    "name": "龙元建设",
+    "name": "ST龙元",
     "market": "SH"
   },
   {
@@ -17106,7 +17671,7 @@
   },
   {
     "code": "600516.SH",
-    "name": "方大炭素",
+    "name": "XD方大炭",
     "market": "SH"
   },
   {
@@ -17146,7 +17711,7 @@
   },
   {
     "code": "600525.SH",
-    "name": "ST长园",
+    "name": "长园集团",
     "market": "SH"
   },
   {
@@ -17171,7 +17736,7 @@
   },
   {
     "code": "600530.SH",
-    "name": "交大昂立",
+    "name": "ST交昂",
     "market": "SH"
   },
   {
@@ -17196,7 +17761,7 @@
   },
   {
     "code": "600537.SH",
-    "name": "亿晶光电",
+    "name": "*ST亿晶",
     "market": "SH"
   },
   {
@@ -17216,7 +17781,7 @@
   },
   {
     "code": "600543.SH",
-    "name": "莫高股份",
+    "name": "*ST莫高",
     "market": "SH"
   },
   {
@@ -17251,7 +17816,7 @@
   },
   {
     "code": "600551.SH",
-    "name": "时代出版",
+    "name": "XD时代出",
     "market": "SH"
   },
   {
@@ -17455,11 +18020,6 @@
     "market": "SH"
   },
   {
-    "code": "600599.SH",
-    "name": "*ST熊猫",
-    "market": "SH"
-  },
-  {
     "code": "600600.SH",
     "name": "青岛啤酒",
     "market": "SH"
@@ -17492,11 +18052,6 @@
   {
     "code": "600606.SH",
     "name": "绿地控股",
-    "market": "SH"
-  },
-  {
-    "code": "600608.SH",
-    "name": "*ST沪科",
     "market": "SH"
   },
   {
@@ -17602,11 +18157,6 @@
   {
     "code": "600635.SH",
     "name": "大众公用",
-    "market": "SH"
-  },
-  {
-    "code": "600636.SH",
-    "name": "*ST国化",
     "market": "SH"
   },
   {
@@ -17766,12 +18316,12 @@
   },
   {
     "code": "600676.SH",
-    "name": "交运股份",
+    "name": "久事动娱",
     "market": "SH"
   },
   {
     "code": "600678.SH",
-    "name": "四川金顶",
+    "name": "ST金顶",
     "market": "SH"
   },
   {
@@ -17842,11 +18392,6 @@
   {
     "code": "600694.SH",
     "name": "大商股份",
-    "market": "SH"
-  },
-  {
-    "code": "600696.SH",
-    "name": "*ST岩石",
     "market": "SH"
   },
   {
@@ -17986,12 +18531,12 @@
   },
   {
     "code": "600729.SH",
-    "name": "重庆百货",
+    "name": "重百集团",
     "market": "SH"
   },
   {
     "code": "600730.SH",
-    "name": "中国高科",
+    "name": "*ST高科",
     "market": "SH"
   },
   {
@@ -18011,7 +18556,7 @@
   },
   {
     "code": "600734.SH",
-    "name": "实达集团",
+    "name": "*ST实达",
     "market": "SH"
   },
   {
@@ -18066,7 +18611,7 @@
   },
   {
     "code": "600745.SH",
-    "name": "闻泰科技",
+    "name": "*ST闻泰",
     "market": "SH"
   },
   {
@@ -18096,7 +18641,7 @@
   },
   {
     "code": "600753.SH",
-    "name": "*ST海钦",
+    "name": "ST海钦",
     "market": "SH"
   },
   {
@@ -18126,7 +18671,7 @@
   },
   {
     "code": "600759.SH",
-    "name": "洲际油气",
+    "name": "ST洲际",
     "market": "SH"
   },
   {
@@ -18156,7 +18701,7 @@
   },
   {
     "code": "600768.SH",
-    "name": "宁波富邦",
+    "name": "富邦新材",
     "market": "SH"
   },
   {
@@ -18196,7 +18741,7 @@
   },
   {
     "code": "600777.SH",
-    "name": "*ST新潮",
+    "name": "新潮能源",
     "market": "SH"
   },
   {
@@ -18361,7 +18906,7 @@
   },
   {
     "code": "600818.SH",
-    "name": "中路股份",
+    "name": "ST中路",
     "market": "SH"
   },
   {
@@ -18661,12 +19206,12 @@
   },
   {
     "code": "600889.SH",
-    "name": "南京化纤",
+    "name": "*ST京化",
     "market": "SH"
   },
   {
     "code": "600892.SH",
-    "name": "*ST大晟",
+    "name": "大晟文化",
     "market": "SH"
   },
   {
@@ -18846,7 +19391,7 @@
   },
   {
     "code": "600965.SH",
-    "name": "福成股份",
+    "name": "*ST福成",
     "market": "SH"
   },
   {
@@ -19041,7 +19586,7 @@
   },
   {
     "code": "601010.SH",
-    "name": "文峰股份",
+    "name": "ST文峰",
     "market": "SH"
   },
   {
@@ -19110,11 +19655,6 @@
     "market": "SH"
   },
   {
-    "code": "601059.SH",
-    "name": "信达证券",
-    "market": "SH"
-  },
-  {
     "code": "601061.SH",
     "name": "中信金属",
     "market": "SH"
@@ -19162,6 +19702,11 @@
   {
     "code": "601089.SH",
     "name": "福元医药",
+    "market": "SH"
+  },
+  {
+    "code": "601091.SH",
+    "name": "沈鼓集团",
     "market": "SH"
   },
   {
@@ -19237,6 +19782,11 @@
   {
     "code": "601121.SH",
     "name": "宝地矿业",
+    "market": "SH"
+  },
+  {
+    "code": "601123.SH",
+    "name": "马矿股份",
     "market": "SH"
   },
   {
@@ -19342,11 +19892,6 @@
   {
     "code": "601188.SH",
     "name": "龙江交通",
-    "market": "SH"
-  },
-  {
-    "code": "601198.SH",
-    "name": "东兴证券",
     "market": "SH"
   },
   {
@@ -19456,7 +20001,7 @@
   },
   {
     "code": "601319.SH",
-    "name": "中国人保",
+    "name": "XD中国人",
     "market": "SH"
   },
   {
@@ -19586,12 +20131,12 @@
   },
   {
     "code": "601567.SH",
-    "name": "三星医疗",
+    "name": "三星电气",
     "market": "SH"
   },
   {
     "code": "601568.SH",
-    "name": "北元集团",
+    "name": "北元化工",
     "market": "SH"
   },
   {
@@ -19746,7 +20291,7 @@
   },
   {
     "code": "601696.SH",
-    "name": "中银证券",
+    "name": "XD中银证",
     "market": "SH"
   },
   {
@@ -19776,7 +20321,7 @@
   },
   {
     "code": "601718.SH",
-    "name": "际华集团",
+    "name": "ST际华",
     "market": "SH"
   },
   {
@@ -20151,12 +20696,12 @@
   },
   {
     "code": "603007.SH",
-    "name": "*ST花王",
+    "name": "顺景科技",
     "market": "SH"
   },
   {
     "code": "603008.SH",
-    "name": "喜临门",
+    "name": "ST喜临门",
     "market": "SH"
   },
   {
@@ -20221,7 +20766,7 @@
   },
   {
     "code": "603021.SH",
-    "name": "ST华鹏",
+    "name": "*ST华鹏",
     "market": "SH"
   },
   {
@@ -20906,7 +21451,7 @@
   },
   {
     "code": "603189.SH",
-    "name": "网达软件",
+    "name": "*ST网达",
     "market": "SH"
   },
   {
@@ -21181,7 +21726,7 @@
   },
   {
     "code": "603261.SH",
-    "name": "*ST立航",
+    "name": "立航科技",
     "market": "SH"
   },
   {
@@ -21201,7 +21746,7 @@
   },
   {
     "code": "603268.SH",
-    "name": "*ST松发",
+    "name": "松发股份",
     "market": "SH"
   },
   {
@@ -21221,7 +21766,7 @@
   },
   {
     "code": "603272.SH",
-    "name": "联翔股份",
+    "name": "*ST联翔",
     "market": "SH"
   },
   {
@@ -21307,6 +21852,11 @@
   {
     "code": "603291.SH",
     "name": "联合水务",
+    "market": "SH"
+  },
+  {
+    "code": "603293.SH",
+    "name": "埃泰克",
     "market": "SH"
   },
   {
@@ -21426,7 +21976,7 @@
   },
   {
     "code": "603322.SH",
-    "name": "超讯通信",
+    "name": "超讯科技",
     "market": "SH"
   },
   {
@@ -21481,7 +22031,7 @@
   },
   {
     "code": "603333.SH",
-    "name": "尚纬股份",
+    "name": "福华尚纬",
     "market": "SH"
   },
   {
@@ -21576,7 +22126,7 @@
   },
   {
     "code": "603359.SH",
-    "name": "东珠生态",
+    "name": "*ST东珠",
     "market": "SH"
   },
   {
@@ -21641,7 +22191,7 @@
   },
   {
     "code": "603378.SH",
-    "name": "亚士创能",
+    "name": "*ST亚士",
     "market": "SH"
   },
   {
@@ -21686,7 +22236,7 @@
   },
   {
     "code": "603389.SH",
-    "name": "*ST亚振",
+    "name": "亚振家居",
     "market": "SH"
   },
   {
@@ -21745,6 +22295,11 @@
     "market": "SH"
   },
   {
+    "code": "603407.SH",
+    "name": "长裕集团",
+    "market": "SH"
+  },
+  {
     "code": "603408.SH",
     "name": "建霖家居",
     "market": "SH"
@@ -21775,6 +22330,11 @@
     "market": "SH"
   },
   {
+    "code": "603435.SH",
+    "name": "嘉德利",
+    "market": "SH"
+  },
+  {
     "code": "603439.SH",
     "name": "三力制药",
     "market": "SH"
@@ -21782,6 +22342,11 @@
   {
     "code": "603444.SH",
     "name": "吉比特",
+    "market": "SH"
+  },
+  {
+    "code": "603448.SH",
+    "name": "天博智能",
     "market": "SH"
   },
   {
@@ -21795,8 +22360,18 @@
     "market": "SH"
   },
   {
+    "code": "603459.SH",
+    "name": "红板科技",
+    "market": "SH"
+  },
+  {
     "code": "603466.SH",
     "name": "风语筑",
+    "market": "SH"
+  },
+  {
+    "code": "603468.SH",
+    "name": "津富士达",
     "market": "SH"
   },
   {
@@ -21876,7 +22451,7 @@
   },
   {
     "code": "603517.SH",
-    "name": "ST绝味",
+    "name": "绝味食品",
     "market": "SH"
   },
   {
@@ -21946,7 +22521,7 @@
   },
   {
     "code": "603557.SH",
-    "name": "ST起步",
+    "name": "*ST起步",
     "market": "SH"
   },
   {
@@ -21956,7 +22531,7 @@
   },
   {
     "code": "603559.SH",
-    "name": "ST通脉",
+    "name": "中通国脉",
     "market": "SH"
   },
   {
@@ -22001,7 +22576,7 @@
   },
   {
     "code": "603580.SH",
-    "name": "*ST艾艾",
+    "name": "艾艾精工",
     "market": "SH"
   },
   {
@@ -22026,7 +22601,7 @@
   },
   {
     "code": "603588.SH",
-    "name": "高能环境",
+    "name": "高能时代",
     "market": "SH"
   },
   {
@@ -22091,7 +22666,7 @@
   },
   {
     "code": "603608.SH",
-    "name": "天创时尚",
+    "name": "天创股份",
     "market": "SH"
   },
   {
@@ -22426,7 +23001,7 @@
   },
   {
     "code": "603718.SH",
-    "name": "海利生物",
+    "name": "*ST海利",
     "market": "SH"
   },
   {
@@ -22436,7 +23011,7 @@
   },
   {
     "code": "603721.SH",
-    "name": "*ST天择",
+    "name": "中广天择",
     "market": "SH"
   },
   {
@@ -22466,7 +23041,7 @@
   },
   {
     "code": "603729.SH",
-    "name": "龙韵股份",
+    "name": "ST龙韵",
     "market": "SH"
   },
   {
@@ -22571,7 +23146,7 @@
   },
   {
     "code": "603789.SH",
-    "name": "*ST星农",
+    "name": "ST星农",
     "market": "SH"
   },
   {
@@ -22636,7 +23211,7 @@
   },
   {
     "code": "603813.SH",
-    "name": "*ST原尚",
+    "name": "原尚股份",
     "market": "SH"
   },
   {
@@ -22686,7 +23261,7 @@
   },
   {
     "code": "603828.SH",
-    "name": "ST柯利达",
+    "name": "*ST利达",
     "market": "SH"
   },
   {
@@ -22706,7 +23281,7 @@
   },
   {
     "code": "603838.SH",
-    "name": "*ST四通",
+    "name": "四通股份",
     "market": "SH"
   },
   {
@@ -22811,7 +23386,7 @@
   },
   {
     "code": "603881.SH",
-    "name": "数据港",
+    "name": "XD数据港",
     "market": "SH"
   },
   {
@@ -22951,7 +23526,7 @@
   },
   {
     "code": "603922.SH",
-    "name": "金鸿顺",
+    "name": "ST金鸿顺",
     "market": "SH"
   },
   {
@@ -23036,7 +23611,7 @@
   },
   {
     "code": "603959.SH",
-    "name": "百利科技",
+    "name": "ST百利",
     "market": "SH"
   },
   {
@@ -23136,7 +23711,7 @@
   },
   {
     "code": "603991.SH",
-    "name": "至正股份",
+    "name": "领先股份",
     "market": "SH"
   },
   {
@@ -23282,11 +23857,6 @@
   {
     "code": "605080.SH",
     "name": "浙江自然",
-    "market": "SH"
-  },
-  {
-    "code": "605081.SH",
-    "name": "*ST太和",
     "market": "SH"
   },
   {
@@ -23591,7 +24161,7 @@
   },
   {
     "code": "605336.SH",
-    "name": "帅丰电器",
+    "name": "*ST帅电",
     "market": "SH"
   },
   {
@@ -23836,7 +24406,7 @@
   },
   {
     "code": "688022.SH",
-    "name": "瀚川智能",
+    "name": "ST瀚川",
     "market": "SH"
   },
   {
@@ -23886,7 +24456,7 @@
   },
   {
     "code": "688033.SH",
-    "name": "天宜新材",
+    "name": "*ST天宜",
     "market": "SH"
   },
   {
@@ -24016,7 +24586,7 @@
   },
   {
     "code": "688066.SH",
-    "name": "航天宏图",
+    "name": "*ST航图",
     "market": "SH"
   },
   {
@@ -24121,7 +24691,7 @@
   },
   {
     "code": "688089.SH",
-    "name": "嘉必优",
+    "name": "ST嘉必优",
     "market": "SH"
   },
   {
@@ -24271,7 +24841,7 @@
   },
   {
     "code": "688121.SH",
-    "name": "卓然股份",
+    "name": "*ST卓然",
     "market": "SH"
   },
   {
@@ -24561,7 +25131,7 @@
   },
   {
     "code": "688189.SH",
-    "name": "南新制药",
+    "name": "ST南新",
     "market": "SH"
   },
   {
@@ -24616,7 +25186,7 @@
   },
   {
     "code": "688201.SH",
-    "name": "信安世纪",
+    "name": "ST信安",
     "market": "SH"
   },
   {
@@ -24901,7 +25471,7 @@
   },
   {
     "code": "688270.SH",
-    "name": "臻镭科技",
+    "name": "ST臻镭",
     "market": "SH"
   },
   {
@@ -24972,11 +25542,6 @@
   {
     "code": "688286.SH",
     "name": "敏芯股份",
-    "market": "SH"
-  },
-  {
-    "code": "688287.SH",
-    "name": "*ST观典",
     "market": "SH"
   },
   {
@@ -25076,7 +25641,7 @@
   },
   {
     "code": "688309.SH",
-    "name": "恒誉环保",
+    "name": "恒誉科技",
     "market": "SH"
   },
   {
@@ -25206,7 +25771,7 @@
   },
   {
     "code": "688336.SH",
-    "name": "三生国健",
+    "name": "XD三生国",
     "market": "SH"
   },
   {
@@ -25236,7 +25801,7 @@
   },
   {
     "code": "688347.SH",
-    "name": "华虹公司",
+    "name": "华虹宏力",
     "market": "SH"
   },
   {
@@ -25671,7 +26236,7 @@
   },
   {
     "code": "688496.SH",
-    "name": "清越科技",
+    "name": "*ST清越",
     "market": "SH"
   },
   {
@@ -25736,7 +26301,7 @@
   },
   {
     "code": "688511.SH",
-    "name": "*ST天微",
+    "name": "天微电子",
     "market": "SH"
   },
   {
@@ -26116,7 +26681,7 @@
   },
   {
     "code": "688607.SH",
-    "name": "康众医疗",
+    "name": "康众科技",
     "market": "SH"
   },
   {
@@ -26186,7 +26751,7 @@
   },
   {
     "code": "688622.SH",
-    "name": "禾信仪器",
+    "name": "*ST禾信",
     "market": "SH"
   },
   {
@@ -26235,6 +26800,11 @@
     "market": "SH"
   },
   {
+    "code": "688635.SH",
+    "name": "长进光子",
+    "market": "SH"
+  },
+  {
     "code": "688636.SH",
     "name": "智明达",
     "market": "SH"
@@ -26251,7 +26821,7 @@
   },
   {
     "code": "688646.SH",
-    "name": "ST逸飞",
+    "name": "逸飞激光",
     "market": "SH"
   },
   {
@@ -26700,6 +27270,11 @@
     "market": "SH"
   },
   {
+    "code": "688797.SH",
+    "name": "臻宝科技",
+    "market": "SH"
+  },
+  {
     "code": "688798.SH",
     "name": "艾为电子",
     "market": "SH"
@@ -26715,6 +27290,11 @@
     "market": "SH"
   },
   {
+    "code": "688801.SH",
+    "name": "燧原科技",
+    "market": "SH"
+  },
+  {
     "code": "688802.SH",
     "name": "沐曦股份",
     "market": "SH"
@@ -26725,8 +27305,18 @@
     "market": "SH"
   },
   {
+    "code": "688806.SH",
+    "name": "泰诺麦博",
+    "market": "SH"
+  },
+  {
     "code": "688807.SH",
     "name": "优迅股份",
+    "market": "SH"
+  },
+  {
+    "code": "688808.SH",
+    "name": "联讯仪器",
     "market": "SH"
   },
   {
@@ -26735,8 +27325,13 @@
     "market": "SH"
   },
   {
+    "code": "688811.SH",
+    "name": "有研复材",
+    "market": "SH"
+  },
+  {
     "code": "688813.SH",
-    "name": "C泰金",
+    "name": "泰金新能",
     "market": "SH"
   },
   {
@@ -26752,6 +27347,41 @@
   {
     "code": "688819.SH",
     "name": "天能股份",
+    "market": "SH"
+  },
+  {
+    "code": "688820.SH",
+    "name": "盛合晶微",
+    "market": "SH"
+  },
+  {
+    "code": "688825.SH",
+    "name": "长鑫科技",
+    "market": "SH"
+  },
+  {
+    "code": "688826.SH",
+    "name": "频准激光",
+    "market": "SH"
+  },
+  {
+    "code": "688828.SH",
+    "name": "国仪公司",
+    "market": "SH"
+  },
+  {
+    "code": "688835.SH",
+    "name": "高凯技术",
+    "market": "SH"
+  },
+  {
+    "code": "688836.SH",
+    "name": "宇树科技",
+    "market": "SH"
+  },
+  {
+    "code": "688837.SH",
+    "name": "信诺维",
     "market": "SH"
   },
   {
@@ -26771,12 +27401,7 @@
   },
   {
     "code": "000002.SZ",
-    "name": "万科Ａ",
-    "market": "SZ"
-  },
-  {
-    "code": "000004.SZ",
-    "name": "*ST国华",
+    "name": "万  科Ａ",
     "market": "SZ"
   },
   {
@@ -26801,7 +27426,7 @@
   },
   {
     "code": "000010.SZ",
-    "name": "美丽生态",
+    "name": "*ST美丽",
     "market": "SZ"
   },
   {
@@ -26811,17 +27436,12 @@
   },
   {
     "code": "000012.SZ",
-    "name": "南玻Ａ",
+    "name": "南  玻Ａ",
     "market": "SZ"
   },
   {
     "code": "000014.SZ",
     "name": "沙河股份",
-    "market": "SZ"
-  },
-  {
-    "code": "000016.SZ",
-    "name": "深康佳Ａ",
     "market": "SZ"
   },
   {
@@ -26846,7 +27466,7 @@
   },
   {
     "code": "000025.SZ",
-    "name": "特力Ａ",
+    "name": "特  力Ａ",
     "market": "SZ"
   },
   {
@@ -26941,12 +27561,12 @@
   },
   {
     "code": "000056.SZ",
-    "name": "皇庭国际",
+    "name": "*ST皇庭",
     "market": "SZ"
   },
   {
     "code": "000058.SZ",
-    "name": "深赛格",
+    "name": "深 赛 格",
     "market": "SZ"
   },
   {
@@ -26961,7 +27581,7 @@
   },
   {
     "code": "000061.SZ",
-    "name": "农产品",
+    "name": "农 产 品",
     "market": "SZ"
   },
   {
@@ -27001,12 +27621,12 @@
   },
   {
     "code": "000078.SZ",
-    "name": "海王生物",
+    "name": "ST海王",
     "market": "SZ"
   },
   {
     "code": "000088.SZ",
-    "name": "盐田港",
+    "name": "盐 田 港",
     "market": "SZ"
   },
   {
@@ -27101,7 +27721,7 @@
   },
   {
     "code": "000402.SZ",
-    "name": "金融街",
+    "name": "金 融 街",
     "market": "SZ"
   },
   {
@@ -27196,7 +27816,7 @@
   },
   {
     "code": "000430.SZ",
-    "name": "ST张家界",
+    "name": "张家界",
     "market": "SZ"
   },
   {
@@ -27221,7 +27841,7 @@
   },
   {
     "code": "000504.SZ",
-    "name": "*ST生物",
+    "name": "南华生物",
     "market": "SZ"
   },
   {
@@ -27256,7 +27876,7 @@
   },
   {
     "code": "000514.SZ",
-    "name": "渝开发",
+    "name": "渝 开 发",
     "market": "SZ"
   },
   {
@@ -27271,7 +27891,7 @@
   },
   {
     "code": "000518.SZ",
-    "name": "*ST四环",
+    "name": "四环生物",
     "market": "SZ"
   },
   {
@@ -27311,7 +27931,7 @@
   },
   {
     "code": "000528.SZ",
-    "name": "柳工",
+    "name": "柳    工",
     "market": "SZ"
   },
   {
@@ -27551,7 +28171,7 @@
   },
   {
     "code": "000595.SZ",
-    "name": "*ST宝实",
+    "name": "新能股份",
     "market": "SZ"
   },
   {
@@ -27601,17 +28221,17 @@
   },
   {
     "code": "000608.SZ",
-    "name": "*ST阳光",
+    "name": "阳光股份",
     "market": "SZ"
   },
   {
     "code": "000609.SZ",
-    "name": "ST中迪",
+    "name": "*ST中迪",
     "market": "SZ"
   },
   {
     "code": "000610.SZ",
-    "name": "西安旅游",
+    "name": "*ST西旅",
     "market": "SZ"
   },
   {
@@ -27676,7 +28296,7 @@
   },
   {
     "code": "000632.SZ",
-    "name": "三木集团",
+    "name": "ST三木",
     "market": "SZ"
   },
   {
@@ -27686,7 +28306,7 @@
   },
   {
     "code": "000635.SZ",
-    "name": "英力特",
+    "name": "英 力 特",
     "market": "SZ"
   },
   {
@@ -27700,13 +28320,8 @@
     "market": "SZ"
   },
   {
-    "code": "000638.SZ",
-    "name": "*ST万方",
-    "market": "SZ"
-  },
-  {
     "code": "000639.SZ",
-    "name": "西王食品",
+    "name": "ST西王",
     "market": "SZ"
   },
   {
@@ -27731,7 +28346,7 @@
   },
   {
     "code": "000656.SZ",
-    "name": "*ST金科",
+    "name": "金科股份",
     "market": "SZ"
   },
   {
@@ -27761,7 +28376,7 @@
   },
   {
     "code": "000668.SZ",
-    "name": "*ST荣控",
+    "name": "荣丰控股",
     "market": "SZ"
   },
   {
@@ -27776,7 +28391,7 @@
   },
   {
     "code": "000672.SZ",
-    "name": "上峰水泥",
+    "name": "上峰材料",
     "market": "SZ"
   },
   {
@@ -27786,7 +28401,7 @@
   },
   {
     "code": "000677.SZ",
-    "name": "恒天海龙",
+    "name": "ST海龙",
     "market": "SZ"
   },
   {
@@ -27841,7 +28456,7 @@
   },
   {
     "code": "000691.SZ",
-    "name": "*ST亚太",
+    "name": "亚太实业",
     "market": "SZ"
   },
   {
@@ -27856,7 +28471,7 @@
   },
   {
     "code": "000697.SZ",
-    "name": "ST炼石",
+    "name": "炼石航空",
     "market": "SZ"
   },
   {
@@ -27911,7 +28526,7 @@
   },
   {
     "code": "000711.SZ",
-    "name": "ST京蓝",
+    "name": "京蓝科技",
     "market": "SZ"
   },
   {
@@ -27976,7 +28591,7 @@
   },
   {
     "code": "000726.SZ",
-    "name": "鲁泰Ａ",
+    "name": "鲁  泰Ａ",
     "market": "SZ"
   },
   {
@@ -28006,12 +28621,12 @@
   },
   {
     "code": "000735.SZ",
-    "name": "罗牛山",
+    "name": "罗 牛 山",
     "market": "SZ"
   },
   {
     "code": "000736.SZ",
-    "name": "*ST中地",
+    "name": "中交发展",
     "market": "SZ"
   },
   {
@@ -28041,7 +28656,7 @@
   },
   {
     "code": "000752.SZ",
-    "name": "ST西发",
+    "name": "*ST西发",
     "market": "SZ"
   },
   {
@@ -28166,7 +28781,7 @@
   },
   {
     "code": "000793.SZ",
-    "name": "*ST华闻",
+    "name": "ST华闻",
     "market": "SZ"
   },
   {
@@ -28266,7 +28881,7 @@
   },
   {
     "code": "000820.SZ",
-    "name": "*ST节能",
+    "name": "神雾节能",
     "market": "SZ"
   },
   {
@@ -28291,7 +28906,7 @@
   },
   {
     "code": "000826.SZ",
-    "name": "启迪环境",
+    "name": "*ST启环",
     "market": "SZ"
   },
   {
@@ -28326,7 +28941,7 @@
   },
   {
     "code": "000838.SZ",
-    "name": "财信发展",
+    "name": "*ST发展",
     "market": "SZ"
   },
   {
@@ -28356,7 +28971,7 @@
   },
   {
     "code": "000858.SZ",
-    "name": "五粮液",
+    "name": "五 粮 液",
     "market": "SZ"
   },
   {
@@ -28386,7 +29001,7 @@
   },
   {
     "code": "000869.SZ",
-    "name": "张裕Ａ",
+    "name": "张  裕Ａ",
     "market": "SZ"
   },
   {
@@ -28396,7 +29011,7 @@
   },
   {
     "code": "000876.SZ",
-    "name": "新希望",
+    "name": "新 希 望",
     "market": "SZ"
   },
   {
@@ -28521,7 +29136,7 @@
   },
   {
     "code": "000908.SZ",
-    "name": "ST景峰",
+    "name": "石药景峰",
     "market": "SZ"
   },
   {
@@ -28536,7 +29151,7 @@
   },
   {
     "code": "000911.SZ",
-    "name": "广农糖业",
+    "name": "*ST广糖",
     "market": "SZ"
   },
   {
@@ -28606,7 +29221,7 @@
   },
   {
     "code": "000929.SZ",
-    "name": "*ST兰黄",
+    "name": "兰州黄河",
     "market": "SZ"
   },
   {
@@ -28616,7 +29231,7 @@
   },
   {
     "code": "000931.SZ",
-    "name": "中关村",
+    "name": "中 关 村",
     "market": "SZ"
   },
   {
@@ -28676,7 +29291,7 @@
   },
   {
     "code": "000953.SZ",
-    "name": "河化股份",
+    "name": "中哲精化",
     "market": "SZ"
   },
   {
@@ -28821,7 +29436,7 @@
   },
   {
     "code": "000997.SZ",
-    "name": "新大陆",
+    "name": "新 大 陆",
     "market": "SZ"
   },
   {
@@ -28975,6 +29590,11 @@
     "market": "SZ"
   },
   {
+    "code": "001232.SZ",
+    "name": "嘉立创",
+    "market": "SZ"
+  },
+  {
     "code": "001233.SZ",
     "name": "海安集团",
     "market": "SZ"
@@ -28990,6 +29610,11 @@
     "market": "SZ"
   },
   {
+    "code": "001237.SZ",
+    "name": "惠康科技",
+    "market": "SZ"
+  },
+  {
     "code": "001238.SZ",
     "name": "浙江正特",
     "market": "SZ"
@@ -28997,6 +29622,16 @@
   {
     "code": "001239.SZ",
     "name": "永达股份",
+    "market": "SZ"
+  },
+  {
+    "code": "001246.SZ",
+    "name": "力勤资源",
+    "market": "SZ"
+  },
+  {
+    "code": "001248.SZ",
+    "name": "华润新能源",
     "market": "SZ"
   },
   {
@@ -29011,7 +29646,7 @@
   },
   {
     "code": "001257.SZ",
-    "name": "C盛龙股份",
+    "name": "盛龙股份",
     "market": "SZ"
   },
   {
@@ -29051,7 +29686,7 @@
   },
   {
     "code": "001270.SZ",
-    "name": "*ST铖昌",
+    "name": "铖昌科技",
     "market": "SZ"
   },
   {
@@ -29152,6 +29787,11 @@
   {
     "code": "001311.SZ",
     "name": "多利科技",
+    "market": "SZ"
+  },
+  {
+    "code": "001312.SZ",
+    "name": "福恩股份",
     "market": "SZ"
   },
   {
@@ -29280,6 +29920,11 @@
     "market": "SZ"
   },
   {
+    "code": "001365.SZ",
+    "name": "天海电子",
+    "market": "SZ"
+  },
+  {
     "code": "001366.SZ",
     "name": "播恩集团",
     "market": "SZ"
@@ -29325,6 +29970,11 @@
     "market": "SZ"
   },
   {
+    "code": "001381.SZ",
+    "name": "皇冠新材",
+    "market": "SZ"
+  },
+  {
     "code": "001382.SZ",
     "name": "新亚电缆",
     "market": "SZ"
@@ -29360,6 +30010,11 @@
     "market": "SZ"
   },
   {
+    "code": "001393.SZ",
+    "name": "维通利",
+    "market": "SZ"
+  },
+  {
     "code": "001395.SZ",
     "name": "亚联机械",
     "market": "SZ"
@@ -29367,6 +30022,11 @@
   {
     "code": "001396.SZ",
     "name": "誉帆科技",
+    "market": "SZ"
+  },
+  {
+    "code": "001399.SZ",
+    "name": "惠科股份",
     "market": "SZ"
   },
   {
@@ -29406,7 +30066,7 @@
   },
   {
     "code": "002001.SZ",
-    "name": "新和成",
+    "name": "新 和 成",
     "market": "SZ"
   },
   {
@@ -29421,7 +30081,7 @@
   },
   {
     "code": "002005.SZ",
-    "name": "ST德豪",
+    "name": "德豪润达",
     "market": "SZ"
   },
   {
@@ -29531,7 +30191,7 @@
   },
   {
     "code": "002029.SZ",
-    "name": "七匹狼",
+    "name": "七 匹 狼",
     "market": "SZ"
   },
   {
@@ -29546,7 +30206,7 @@
   },
   {
     "code": "002032.SZ",
-    "name": "苏泊尔",
+    "name": "苏 泊 尔",
     "market": "SZ"
   },
   {
@@ -29586,7 +30246,7 @@
   },
   {
     "code": "002040.SZ",
-    "name": "南京港",
+    "name": "南 京 港",
     "market": "SZ"
   },
   {
@@ -29601,7 +30261,7 @@
   },
   {
     "code": "002043.SZ",
-    "name": "兔宝宝",
+    "name": "兔 宝 宝",
     "market": "SZ"
   },
   {
@@ -29621,7 +30281,7 @@
   },
   {
     "code": "002047.SZ",
-    "name": "*ST宝鹰",
+    "name": "宝鹰股份",
     "market": "SZ"
   },
   {
@@ -29676,7 +30336,7 @@
   },
   {
     "code": "002058.SZ",
-    "name": "*ST威尔",
+    "name": "紫竹高科",
     "market": "SZ"
   },
   {
@@ -29756,7 +30416,7 @@
   },
   {
     "code": "002076.SZ",
-    "name": "*ST星光",
+    "name": "星光股份",
     "market": "SZ"
   },
   {
@@ -29781,12 +30441,12 @@
   },
   {
     "code": "002081.SZ",
-    "name": "金螳螂",
+    "name": "金 螳 螂",
     "market": "SZ"
   },
   {
     "code": "002082.SZ",
-    "name": "万邦德",
+    "name": "ST万邦",
     "market": "SZ"
   },
   {
@@ -29841,7 +30501,7 @@
   },
   {
     "code": "002095.SZ",
-    "name": "生意宝",
+    "name": "生 意 宝",
     "market": "SZ"
   },
   {
@@ -29876,7 +30536,7 @@
   },
   {
     "code": "002102.SZ",
-    "name": "能特科技",
+    "name": "ST能特",
     "market": "SZ"
   },
   {
@@ -29911,7 +30571,7 @@
   },
   {
     "code": "002109.SZ",
-    "name": "兴化股份",
+    "name": "ST兴化",
     "market": "SZ"
   },
   {
@@ -30036,7 +30696,7 @@
   },
   {
     "code": "002136.SZ",
-    "name": "安纳达",
+    "name": "安 纳 达",
     "market": "SZ"
   },
   {
@@ -30116,7 +30776,7 @@
   },
   {
     "code": "002154.SZ",
-    "name": "报喜鸟",
+    "name": "报 喜 鸟",
     "market": "SZ"
   },
   {
@@ -30151,7 +30811,7 @@
   },
   {
     "code": "002161.SZ",
-    "name": "远望谷",
+    "name": "远 望 谷",
     "market": "SZ"
   },
   {
@@ -30171,7 +30831,7 @@
   },
   {
     "code": "002165.SZ",
-    "name": "红宝丽",
+    "name": "红 宝 丽",
     "market": "SZ"
   },
   {
@@ -30186,7 +30846,7 @@
   },
   {
     "code": "002168.SZ",
-    "name": "*ST惠程",
+    "name": "ST惠程",
     "market": "SZ"
   },
   {
@@ -30221,7 +30881,7 @@
   },
   {
     "code": "002175.SZ",
-    "name": "东方智造",
+    "name": "*ST东智",
     "market": "SZ"
   },
   {
@@ -30246,12 +30906,12 @@
   },
   {
     "code": "002180.SZ",
-    "name": "纳思达",
+    "name": "奔图科技",
     "market": "SZ"
   },
   {
     "code": "002181.SZ",
-    "name": "粤传媒",
+    "name": "粤 传 媒",
     "market": "SZ"
   },
   {
@@ -30261,7 +30921,7 @@
   },
   {
     "code": "002183.SZ",
-    "name": "怡亚通",
+    "name": "怡 亚 通",
     "market": "SZ"
   },
   {
@@ -30276,7 +30936,7 @@
   },
   {
     "code": "002186.SZ",
-    "name": "全聚德",
+    "name": "全 聚 德",
     "market": "SZ"
   },
   {
@@ -30311,7 +30971,7 @@
   },
   {
     "code": "002193.SZ",
-    "name": "如意集团",
+    "name": "ST如意",
     "market": "SZ"
   },
   {
@@ -30336,17 +30996,17 @@
   },
   {
     "code": "002198.SZ",
-    "name": "嘉应制药",
+    "name": "ST嘉应",
     "market": "SZ"
   },
   {
     "code": "002199.SZ",
-    "name": "*ST东晶",
+    "name": "东晶电子",
     "market": "SZ"
   },
   {
     "code": "002200.SZ",
-    "name": "*ST交投",
+    "name": "交投生态",
     "market": "SZ"
   },
   {
@@ -30376,12 +31036,12 @@
   },
   {
     "code": "002206.SZ",
-    "name": "海利得",
+    "name": "海 利 得",
     "market": "SZ"
   },
   {
     "code": "002207.SZ",
-    "name": "准油股份",
+    "name": "*ST准油",
     "market": "SZ"
   },
   {
@@ -30391,7 +31051,7 @@
   },
   {
     "code": "002209.SZ",
-    "name": "达意隆",
+    "name": "达 意 隆",
     "market": "SZ"
   },
   {
@@ -30416,12 +31076,12 @@
   },
   {
     "code": "002214.SZ",
-    "name": "*ST大立",
+    "name": "大立科技",
     "market": "SZ"
   },
   {
     "code": "002215.SZ",
-    "name": "诺普信",
+    "name": "诺 普 信",
     "market": "SZ"
   },
   {
@@ -30431,7 +31091,7 @@
   },
   {
     "code": "002217.SZ",
-    "name": "合力泰",
+    "name": "ST合力泰",
     "market": "SZ"
   },
   {
@@ -30461,7 +31121,7 @@
   },
   {
     "code": "002224.SZ",
-    "name": "三力士",
+    "name": "三 力 士",
     "market": "SZ"
   },
   {
@@ -30476,7 +31136,7 @@
   },
   {
     "code": "002227.SZ",
-    "name": "奥特迅",
+    "name": "*ST特迅",
     "market": "SZ"
   },
   {
@@ -30601,7 +31261,7 @@
   },
   {
     "code": "002253.SZ",
-    "name": "*ST智胜",
+    "name": "川大智胜",
     "market": "SZ"
   },
   {
@@ -30646,7 +31306,7 @@
   },
   {
     "code": "002264.SZ",
-    "name": "新华都",
+    "name": "新 华 都",
     "market": "SZ"
   },
   {
@@ -30761,7 +31421,7 @@
   },
   {
     "code": "002289.SZ",
-    "name": "*ST宇顺",
+    "name": "宇顺电子",
     "market": "SZ"
   },
   {
@@ -30846,7 +31506,7 @@
   },
   {
     "code": "002306.SZ",
-    "name": "*ST云网",
+    "name": "ST云网",
     "market": "SZ"
   },
   {
@@ -30926,7 +31586,7 @@
   },
   {
     "code": "002323.SZ",
-    "name": "雅博股份",
+    "name": "*ST雅博",
     "market": "SZ"
   },
   {
@@ -31076,7 +31736,7 @@
   },
   {
     "code": "002356.SZ",
-    "name": "赫美集团",
+    "name": "鹏飞绿能",
     "market": "SZ"
   },
   {
@@ -31091,7 +31751,7 @@
   },
   {
     "code": "002360.SZ",
-    "name": "同德化工",
+    "name": "ST同德",
     "market": "SZ"
   },
   {
@@ -31436,7 +32096,7 @@
   },
   {
     "code": "002431.SZ",
-    "name": "棕榈股份",
+    "name": "ST棕榈",
     "market": "SZ"
   },
   {
@@ -31521,7 +32181,7 @@
   },
   {
     "code": "002452.SZ",
-    "name": "长高电新",
+    "name": "长高电气",
     "market": "SZ"
   },
   {
@@ -31631,7 +32291,7 @@
   },
   {
     "code": "002476.SZ",
-    "name": "宝莫股份",
+    "name": "新叶股份",
     "market": "SZ"
   },
   {
@@ -31726,7 +32386,7 @@
   },
   {
     "code": "002496.SZ",
-    "name": "*ST辉丰",
+    "name": "辉丰股份",
     "market": "SZ"
   },
   {
@@ -31746,7 +32406,7 @@
   },
   {
     "code": "002501.SZ",
-    "name": "利源股份",
+    "name": "*ST利源",
     "market": "SZ"
   },
   {
@@ -31786,7 +32446,7 @@
   },
   {
     "code": "002514.SZ",
-    "name": "宝馨科技",
+    "name": "*ST宝馨",
     "market": "SZ"
   },
   {
@@ -31851,12 +32511,12 @@
   },
   {
     "code": "002528.SZ",
-    "name": "ST英飞拓",
+    "name": "*ST英飞",
     "market": "SZ"
   },
   {
     "code": "002529.SZ",
-    "name": "*ST海源",
+    "name": "海源复材",
     "market": "SZ"
   },
   {
@@ -31921,7 +32581,7 @@
   },
   {
     "code": "002542.SZ",
-    "name": "中化岩土",
+    "name": "*ST中岩",
     "market": "SZ"
   },
   {
@@ -31946,7 +32606,7 @@
   },
   {
     "code": "002547.SZ",
-    "name": "春兴精工",
+    "name": "*ST春兴",
     "market": "SZ"
   },
   {
@@ -32116,7 +32776,7 @@
   },
   {
     "code": "002581.SZ",
-    "name": "ST未名",
+    "name": "*ST未名",
     "market": "SZ"
   },
   {
@@ -32141,7 +32801,7 @@
   },
   {
     "code": "002586.SZ",
-    "name": "ST围海",
+    "name": "围海股份",
     "market": "SZ"
   },
   {
@@ -32201,7 +32861,7 @@
   },
   {
     "code": "002598.SZ",
-    "name": "山东章鼓",
+    "name": "ST章鼓",
     "market": "SZ"
   },
   {
@@ -32291,7 +32951,7 @@
   },
   {
     "code": "002620.SZ",
-    "name": "ST瑞和",
+    "name": "*ST瑞和",
     "market": "SZ"
   },
   {
@@ -32336,7 +32996,7 @@
   },
   {
     "code": "002630.SZ",
-    "name": "ST华西",
+    "name": "*ST华西",
     "market": "SZ"
   },
   {
@@ -32356,7 +33016,7 @@
   },
   {
     "code": "002634.SZ",
-    "name": "棒杰股份",
+    "name": "*ST棒杰",
     "market": "SZ"
   },
   {
@@ -32421,7 +33081,7 @@
   },
   {
     "code": "002647.SZ",
-    "name": "*ST仁东",
+    "name": "仁东控股",
     "market": "SZ"
   },
   {
@@ -32466,7 +33126,7 @@
   },
   {
     "code": "002656.SZ",
-    "name": "*ST摩登",
+    "name": "摩登大道",
     "market": "SZ"
   },
   {
@@ -32516,7 +33176,7 @@
   },
   {
     "code": "002667.SZ",
-    "name": "威领股份",
+    "name": "*ST威领",
     "market": "SZ"
   },
   {
@@ -32626,7 +33286,7 @@
   },
   {
     "code": "002691.SZ",
-    "name": "冀凯股份",
+    "name": "*ST冀凯",
     "market": "SZ"
   },
   {
@@ -32636,12 +33296,12 @@
   },
   {
     "code": "002693.SZ",
-    "name": "*ST双成",
+    "name": "双成药业",
     "market": "SZ"
   },
   {
     "code": "002694.SZ",
-    "name": "顾地科技",
+    "name": "*ST顾地",
     "market": "SZ"
   },
   {
@@ -32716,7 +33376,7 @@
   },
   {
     "code": "002713.SZ",
-    "name": "*ST东易",
+    "name": "东易日盛",
     "market": "SZ"
   },
   {
@@ -32736,7 +33396,7 @@
   },
   {
     "code": "002717.SZ",
-    "name": "ST岭南",
+    "name": "*ST岭南",
     "market": "SZ"
   },
   {
@@ -32746,7 +33406,7 @@
   },
   {
     "code": "002719.SZ",
-    "name": "麦趣尔",
+    "name": "ST麦趣",
     "market": "SZ"
   },
   {
@@ -32776,7 +33436,7 @@
   },
   {
     "code": "002726.SZ",
-    "name": "龙大美食",
+    "name": "ST龙大",
     "market": "SZ"
   },
   {
@@ -32801,7 +33461,7 @@
   },
   {
     "code": "002731.SZ",
-    "name": "ST萃华",
+    "name": "萃华退",
     "market": "SZ"
   },
   {
@@ -32841,7 +33501,7 @@
   },
   {
     "code": "002739.SZ",
-    "name": "万达电影",
+    "name": "儒意电影",
     "market": "SZ"
   },
   {
@@ -32851,12 +33511,12 @@
   },
   {
     "code": "002742.SZ",
-    "name": "*ST三圣",
+    "name": "冀衡医药",
     "market": "SZ"
   },
   {
     "code": "002743.SZ",
-    "name": "富煌钢构",
+    "name": "ST富煌",
     "market": "SZ"
   },
   {
@@ -32916,7 +33576,7 @@
   },
   {
     "code": "002759.SZ",
-    "name": "天际股份",
+    "name": "ST天际",
     "market": "SZ"
   },
   {
@@ -32931,7 +33591,7 @@
   },
   {
     "code": "002762.SZ",
-    "name": "*ST金比",
+    "name": "金发拉比",
     "market": "SZ"
   },
   {
@@ -33125,11 +33785,6 @@
     "market": "SZ"
   },
   {
-    "code": "002808.SZ",
-    "name": "*ST恒久",
-    "market": "SZ"
-  },
-  {
     "code": "002809.SZ",
     "name": "红墙股份",
     "market": "SZ"
@@ -33311,7 +33966,7 @@
   },
   {
     "code": "002848.SZ",
-    "name": "*ST高斯",
+    "name": "高斯贝尔",
     "market": "SZ"
   },
   {
@@ -33346,7 +34001,7 @@
   },
   {
     "code": "002856.SZ",
-    "name": "美芝股份",
+    "name": "*ST美芝",
     "market": "SZ"
   },
   {
@@ -33406,7 +34061,7 @@
   },
   {
     "code": "002868.SZ",
-    "name": "*ST绿康",
+    "name": "绿康生化",
     "market": "SZ"
   },
   {
@@ -33476,7 +34131,7 @@
   },
   {
     "code": "002883.SZ",
-    "name": "中设股份",
+    "name": "*ST中设",
     "market": "SZ"
   },
   {
@@ -33542,11 +34197,6 @@
   {
     "code": "002897.SZ",
     "name": "意华股份",
-    "market": "SZ"
-  },
-  {
-    "code": "002898.SZ",
-    "name": "*ST赛隆",
     "market": "SZ"
   },
   {
@@ -33701,7 +34351,7 @@
   },
   {
     "code": "002932.SZ",
-    "name": "明德生物",
+    "name": "*ST明德",
     "market": "SZ"
   },
   {
@@ -33826,7 +34476,7 @@
   },
   {
     "code": "002960.SZ",
-    "name": "青鸟消防",
+    "name": "青鸟智控",
     "market": "SZ"
   },
   {
@@ -33901,7 +34551,7 @@
   },
   {
     "code": "002977.SZ",
-    "name": "天箭科技",
+    "name": "*ST天箭",
     "market": "SZ"
   },
   {
@@ -34031,7 +34681,7 @@
   },
   {
     "code": "003004.SZ",
-    "name": "*ST声迅",
+    "name": "声迅股份",
     "market": "SZ"
   },
   {
@@ -34161,7 +34811,7 @@
   },
   {
     "code": "003032.SZ",
-    "name": "*ST传智",
+    "name": "传智教育",
     "market": "SZ"
   },
   {
@@ -34266,7 +34916,7 @@
   },
   {
     "code": "300010.SZ",
-    "name": "豆神教育",
+    "name": "ST豆神",
     "market": "SZ"
   },
   {
@@ -34346,12 +34996,7 @@
   },
   {
     "code": "300027.SZ",
-    "name": "华谊兄弟",
-    "market": "SZ"
-  },
-  {
-    "code": "300029.SZ",
-    "name": "*ST天龙",
+    "name": "ST华谊",
     "market": "SZ"
   },
   {
@@ -34421,7 +35066,7 @@
   },
   {
     "code": "300044.SZ",
-    "name": "ST赛为",
+    "name": "*ST赛为",
     "market": "SZ"
   },
   {
@@ -34461,7 +35106,7 @@
   },
   {
     "code": "300052.SZ",
-    "name": "ST中青宝",
+    "name": "中青宝",
     "market": "SZ"
   },
   {
@@ -34531,7 +35176,7 @@
   },
   {
     "code": "300068.SZ",
-    "name": "南都电源",
+    "name": "ST南都",
     "market": "SZ"
   },
   {
@@ -34571,7 +35216,7 @@
   },
   {
     "code": "300076.SZ",
-    "name": "GQY视讯",
+    "name": "*ST宁视",
     "market": "SZ"
   },
   {
@@ -34596,7 +35241,7 @@
   },
   {
     "code": "300081.SZ",
-    "name": "恒信东方",
+    "name": "ST恒信",
     "market": "SZ"
   },
   {
@@ -34626,7 +35271,7 @@
   },
   {
     "code": "300087.SZ",
-    "name": "荃银高科",
+    "name": "ST荃银",
     "market": "SZ"
   },
   {
@@ -34646,7 +35291,7 @@
   },
   {
     "code": "300093.SZ",
-    "name": "*ST金刚",
+    "name": "金刚光伏",
     "market": "SZ"
   },
   {
@@ -34661,7 +35306,7 @@
   },
   {
     "code": "300096.SZ",
-    "name": "ST易联众",
+    "name": "易联众",
     "market": "SZ"
   },
   {
@@ -34771,7 +35416,7 @@
   },
   {
     "code": "300123.SZ",
-    "name": "亚光科技",
+    "name": "ST亚光",
     "market": "SZ"
   },
   {
@@ -34781,7 +35426,7 @@
   },
   {
     "code": "300125.SZ",
-    "name": "*ST聆达",
+    "name": "聆达股份",
     "market": "SZ"
   },
   {
@@ -34816,7 +35461,7 @@
   },
   {
     "code": "300132.SZ",
-    "name": "青松股份",
+    "name": "诺斯贝尔",
     "market": "SZ"
   },
   {
@@ -34891,7 +35536,7 @@
   },
   {
     "code": "300147.SZ",
-    "name": "ST香雪",
+    "name": "*ST香雪",
     "market": "SZ"
   },
   {
@@ -34916,7 +35561,7 @@
   },
   {
     "code": "300152.SZ",
-    "name": "ST新动力",
+    "name": "*ST动力",
     "market": "SZ"
   },
   {
@@ -34946,7 +35591,7 @@
   },
   {
     "code": "300159.SZ",
-    "name": "*ST新研",
+    "name": "新研股份",
     "market": "SZ"
   },
   {
@@ -35026,7 +35671,7 @@
   },
   {
     "code": "300175.SZ",
-    "name": "ST朗源",
+    "name": "朗源股份",
     "market": "SZ"
   },
   {
@@ -35131,7 +35776,7 @@
   },
   {
     "code": "300198.SZ",
-    "name": "ST纳川",
+    "name": "*ST纳川",
     "market": "SZ"
   },
   {
@@ -35186,12 +35831,12 @@
   },
   {
     "code": "300211.SZ",
-    "name": "*ST亿通",
+    "name": "亿通科技",
     "market": "SZ"
   },
   {
     "code": "300212.SZ",
-    "name": "易华录",
+    "name": "*ST易录",
     "market": "SZ"
   },
   {
@@ -35241,7 +35886,7 @@
   },
   {
     "code": "300223.SZ",
-    "name": "北京君正",
+    "name": "君正股份",
     "market": "SZ"
   },
   {
@@ -35251,7 +35896,7 @@
   },
   {
     "code": "300225.SZ",
-    "name": "*ST金泰",
+    "name": "金力泰",
     "market": "SZ"
   },
   {
@@ -35311,7 +35956,7 @@
   },
   {
     "code": "300237.SZ",
-    "name": "ST美晨",
+    "name": "美晨科技",
     "market": "SZ"
   },
   {
@@ -35351,7 +35996,7 @@
   },
   {
     "code": "300245.SZ",
-    "name": "天玑科技",
+    "name": "ST天玑",
     "market": "SZ"
   },
   {
@@ -35461,7 +36106,7 @@
   },
   {
     "code": "300268.SZ",
-    "name": "*ST佳沃",
+    "name": "佳沃食品",
     "market": "SZ"
   },
   {
@@ -35556,7 +36201,7 @@
   },
   {
     "code": "300290.SZ",
-    "name": "荣科科技",
+    "name": "ST荣科",
     "market": "SZ"
   },
   {
@@ -35581,7 +36226,7 @@
   },
   {
     "code": "300295.SZ",
-    "name": "三六五网",
+    "name": "*ST三六五",
     "market": "SZ"
   },
   {
@@ -35651,12 +36296,12 @@
   },
   {
     "code": "300311.SZ",
-    "name": "ST任子行",
+    "name": "任子行",
     "market": "SZ"
   },
   {
     "code": "300313.SZ",
-    "name": "*ST天山",
+    "name": "天山生物",
     "market": "SZ"
   },
   {
@@ -35766,7 +36411,7 @@
   },
   {
     "code": "300338.SZ",
-    "name": "ST开元",
+    "name": "*ST开元",
     "market": "SZ"
   },
   {
@@ -35791,12 +36436,7 @@
   },
   {
     "code": "300343.SZ",
-    "name": "ST联创",
-    "market": "SZ"
-  },
-  {
-    "code": "300344.SZ",
-    "name": "立方退",
+    "name": "联创股份",
     "market": "SZ"
   },
   {
@@ -35836,7 +36476,7 @@
   },
   {
     "code": "300352.SZ",
-    "name": "北信源",
+    "name": "ST信源",
     "market": "SZ"
   },
   {
@@ -35971,7 +36611,7 @@
   },
   {
     "code": "300385.SZ",
-    "name": "雪浪环境",
+    "name": "ST雪浪",
     "market": "SZ"
   },
   {
@@ -36000,11 +36640,6 @@
     "market": "SZ"
   },
   {
-    "code": "300391.SZ",
-    "name": "长药退",
-    "market": "SZ"
-  },
-  {
     "code": "300393.SZ",
     "name": "中来股份",
     "market": "SZ"
@@ -36021,7 +36656,7 @@
   },
   {
     "code": "300396.SZ",
-    "name": "迪瑞医疗",
+    "name": "ST迪瑞",
     "market": "SZ"
   },
   {
@@ -36191,7 +36826,7 @@
   },
   {
     "code": "300430.SZ",
-    "name": "诚益通",
+    "name": "*ST益通",
     "market": "SZ"
   },
   {
@@ -36396,7 +37031,7 @@
   },
   {
     "code": "300472.SZ",
-    "name": "*ST新元",
+    "name": "ST新元",
     "market": "SZ"
   },
   {
@@ -36516,7 +37151,7 @@
   },
   {
     "code": "300497.SZ",
-    "name": "富祥药业",
+    "name": "富祥股份",
     "market": "SZ"
   },
   {
@@ -36561,7 +37196,7 @@
   },
   {
     "code": "300506.SZ",
-    "name": "ST名家汇",
+    "name": "名家汇",
     "market": "SZ"
   },
   {
@@ -36656,7 +37291,7 @@
   },
   {
     "code": "300527.SZ",
-    "name": "ST应急",
+    "name": "中船应急",
     "market": "SZ"
   },
   {
@@ -36821,12 +37456,12 @@
   },
   {
     "code": "300561.SZ",
-    "name": "*ST汇科",
+    "name": "汇金科技",
     "market": "SZ"
   },
   {
     "code": "300562.SZ",
-    "name": "乐心医疗",
+    "name": "乐心股份",
     "market": "SZ"
   },
   {
@@ -36981,7 +37616,7 @@
   },
   {
     "code": "300594.SZ",
-    "name": "朗进科技",
+    "name": "ST朗进",
     "market": "SZ"
   },
   {
@@ -37341,7 +37976,7 @@
   },
   {
     "code": "300668.SZ",
-    "name": "杰恩设计",
+    "name": "杰恩股份",
     "market": "SZ"
   },
   {
@@ -37571,7 +38206,7 @@
   },
   {
     "code": "300716.SZ",
-    "name": "ST泉为",
+    "name": "*ST泉为",
     "market": "SZ"
   },
   {
@@ -37786,7 +38421,7 @@
   },
   {
     "code": "300765.SZ",
-    "name": "新诺威",
+    "name": "石药创新",
     "market": "SZ"
   },
   {
@@ -38106,7 +38741,7 @@
   },
   {
     "code": "300831.SZ",
-    "name": "派瑞股份",
+    "name": "ST派瑞",
     "market": "SZ"
   },
   {
@@ -38441,7 +39076,7 @@
   },
   {
     "code": "300899.SZ",
-    "name": "*ST凯鑫",
+    "name": "上海凯鑫",
     "market": "SZ"
   },
   {
@@ -39061,7 +39696,7 @@
   },
   {
     "code": "301030.SZ",
-    "name": "仕净科技",
+    "name": "*ST仕净",
     "market": "SZ"
   },
   {
@@ -39451,7 +40086,7 @@
   },
   {
     "code": "301117.SZ",
-    "name": "佳缘科技",
+    "name": "ST佳缘",
     "market": "SZ"
   },
   {
@@ -39547,11 +40182,6 @@
   {
     "code": "301138.SZ",
     "name": "华研精机",
-    "market": "SZ"
-  },
-  {
-    "code": "301139.SZ",
-    "name": "元道通信",
     "market": "SZ"
   },
   {
@@ -40046,7 +40676,7 @@
   },
   {
     "code": "301265.SZ",
-    "name": "华新环保",
+    "name": "华新科技",
     "market": "SZ"
   },
   {
@@ -40146,7 +40776,7 @@
   },
   {
     "code": "301288.SZ",
-    "name": "*ST清研",
+    "name": "清研环境",
     "market": "SZ"
   },
   {
@@ -40381,7 +41011,7 @@
   },
   {
     "code": "301339.SZ",
-    "name": "通行宝",
+    "name": "苏交数智",
     "market": "SZ"
   },
   {
@@ -40775,6 +41405,11 @@
     "market": "SZ"
   },
   {
+    "code": "301513.SZ",
+    "name": "尚水智能",
+    "market": "SZ"
+  },
+  {
     "code": "301515.SZ",
     "name": "港通医疗",
     "market": "SZ"
@@ -40827,6 +41462,11 @@
   {
     "code": "301529.SZ",
     "name": "福赛科技",
+    "market": "SZ"
+  },
+  {
+    "code": "301531.SZ",
+    "name": "春光集团",
     "market": "SZ"
   },
   {
@@ -40901,7 +41541,7 @@
   },
   {
     "code": "301560.SZ",
-    "name": "众捷汽车",
+    "name": "众捷股份",
     "market": "SZ"
   },
   {
@@ -40927,6 +41567,11 @@
   {
     "code": "301568.SZ",
     "name": "思泰克",
+    "market": "SZ"
+  },
+  {
+    "code": "301569.SZ",
+    "name": "联亚药业",
     "market": "SZ"
   },
   {
@@ -40957,6 +41602,11 @@
   {
     "code": "301581.SZ",
     "name": "黄山谷捷",
+    "market": "SZ"
+  },
+  {
+    "code": "301583.SZ",
+    "name": "托伦斯",
     "market": "SZ"
   },
   {
@@ -41020,6 +41670,11 @@
     "market": "SZ"
   },
   {
+    "code": "301599.SZ",
+    "name": "理奇智能",
+    "market": "SZ"
+  },
+  {
     "code": "301600.SZ",
     "name": "慧翰股份",
     "market": "SZ"
@@ -41076,7 +41731,7 @@
   },
   {
     "code": "301617.SZ",
-    "name": "博苑股份",
+    "name": "博苑新材",
     "market": "SZ"
   },
   {
@@ -41135,6 +41790,11 @@
     "market": "SZ"
   },
   {
+    "code": "301655.SZ",
+    "name": "绿控传动",
+    "market": "SZ"
+  },
+  {
     "code": "301656.SZ",
     "name": "联合动力",
     "market": "SZ"
@@ -41142,6 +41802,11 @@
   {
     "code": "301658.SZ",
     "name": "首航新能",
+    "market": "SZ"
+  },
+  {
+    "code": "301660.SZ",
+    "name": "粤芯半导体-U",
     "market": "SZ"
   },
   {
@@ -41155,6 +41820,11 @@
     "market": "SZ"
   },
   {
+    "code": "301666.SZ",
+    "name": "大普微-UW",
+    "market": "SZ"
+  },
+  {
     "code": "301667.SZ",
     "name": "纳百川",
     "market": "SZ"
@@ -41162,6 +41832,16 @@
   {
     "code": "301668.SZ",
     "name": "昊创瑞通",
+    "market": "SZ"
+  },
+  {
+    "code": "301669.SZ",
+    "name": "高特电子",
+    "market": "SZ"
+  },
+  {
+    "code": "301677.SZ",
+    "name": "欣兴工具",
     "market": "SZ"
   },
   {
@@ -41181,12 +41861,62 @@
   },
   {
     "code": "301683.SZ",
-    "name": "C慧谷新材",
+    "name": "慧谷新材",
+    "market": "SZ"
+  },
+  {
+    "code": "301686.SZ",
+    "name": "中塑股份",
     "market": "SZ"
   },
   {
     "code": "301687.SZ",
     "name": "新广益",
+    "market": "SZ"
+  },
+  {
+    "code": "301688.SZ",
+    "name": "格林生物",
+    "market": "SZ"
+  },
+  {
+    "code": "301689.SZ",
+    "name": "电科思仪",
+    "market": "SZ"
+  },
+  {
+    "code": "301696.SZ",
+    "name": "三瑞智能",
+    "market": "SZ"
+  },
+  {
+    "code": "301697.SZ",
+    "name": "贝特利",
+    "market": "SZ"
+  },
+  {
+    "code": "301699.SZ",
+    "name": "洛轴股份",
+    "market": "SZ"
+  },
+  {
+    "code": "301707.SZ",
+    "name": "展芯股份",
+    "market": "SZ"
+  },
+  {
+    "code": "301716.SZ",
+    "name": "鸿富诚",
+    "market": "SZ"
+  },
+  {
+    "code": "301717.SZ",
+    "name": "超纯应材",
+    "market": "SZ"
+  },
+  {
+    "code": "301718.SZ",
+    "name": "通则康威",
     "market": "SZ"
   },
   {

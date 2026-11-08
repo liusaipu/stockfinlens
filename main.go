@@ -21,8 +21,16 @@ var stockDB embed.FS
 //go:embed ml_models/inference.py ml_models/engine_a_sentiment/*.onnx ml_models/engine_b_financial/*.onnx ml_models/engine_b_financial/*.pkl ml_models/engine_d_risk/model/*.pkl
 var mlModels embed.FS
 
-// readStockJSON 读取股票代码库，开发模式优先读本地文件，打包后 fallback 到 embed
+// readStockJSON 读取股票代码库，优先级：
+// 1. 用户数据目录 stocks.json（运行时在线刷新的产物，最新）
+// 2. 开发模式本地 data/stocks.json
+// 3. 打包内置 embed
 func readStockJSON() ([]byte, error) {
+	if path := userStockListPath(); path != "" {
+		if b, err := os.ReadFile(path); err == nil {
+			return b, nil
+		}
+	}
 	if b, err := os.ReadFile("data/stocks.json"); err == nil {
 		return b, nil
 	}

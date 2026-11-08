@@ -238,6 +238,10 @@ export function GetStockKlines(arg1, arg2) {
   return window['go']['main']['App']['GetStockKlines'](arg1, arg2);
 }
 
+export function GetStockList() {
+  return window['go']['main']['App']['GetStockList']();
+}
+
 export function GetStockMoneyflow(arg1, arg2) {
   return window['go']['main']['App']['GetStockMoneyflow'](arg1, arg2);
 }
@@ -324,6 +328,10 @@ export function RefreshMarketCache() {
 
 export function RefreshStockKlines(arg1, arg2) {
   return window['go']['main']['App']['RefreshStockKlines'](arg1, arg2);
+}
+
+export function RefreshStockList() {
+  return window['go']['main']['App']['RefreshStockList']();
 }
 
 export function RefreshStockProfile(arg1) {
