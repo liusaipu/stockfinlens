@@ -20,6 +20,8 @@ export function ApplyUpdate(arg1:string):Promise<void>;
 
 export function CancelAIResearch(arg1:string):Promise<void>;
 
+export function CancelDownload():Promise<void>;
+
 export function CheckAnalysisCache(arg1:string):Promise<main.CacheStatus>;
 
 export function CheckForUpdate():Promise<updater.UpdateInfo>;

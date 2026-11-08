@@ -3,7 +3,9 @@ package updater
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +23,9 @@ const (
 	apiTimeout      = 10 * time.Second
 	downloadTimeout = 60 * time.Second
 )
+
+// ErrDownloadCanceled 用户主动取消下载
+var ErrDownloadCanceled = errors.New("下载已取消")
 
 // ProxyConfig 网络代理配置
 type ProxyConfig struct {
@@ -178,9 +183,13 @@ func matchPlatformAsset(assets []githubAsset) (url, name string) {
 
 // DownloadUpdate 下载更新包，返回本地文件路径
 // progressFn 可选，用于报告下载进度 (0-100)
-func DownloadUpdate(assetURL, tag string, updateDir string, progressFn func(percent int)) (string, error) {
+// ctx 用于支持用户主动取消（CancelDownload）；取消时返回 ErrDownloadCanceled
+func DownloadUpdate(ctx context.Context, assetURL, tag string, updateDir string, progressFn func(percent int)) (string, error) {
 	if assetURL == "" {
 		return "", fmt.Errorf("没有可用的下载链接")
+	}
+	if err := ctx.Err(); err != nil {
+		return "", ErrDownloadCanceled
 	}
 
 	// 清理并创建更新目录
@@ -197,11 +206,17 @@ func DownloadUpdate(assetURL, tag string, updateDir string, progressFn func(perc
 	sources := buildDownloadSources(assetURL, tag, assetName)
 	var lastErr error
 	for i, src := range sources {
+		if err := ctx.Err(); err != nil {
+			return "", ErrDownloadCanceled
+		}
 		fmt.Printf("[Updater] 尝试下载源 %d/%d: %s...\n", i+1, len(sources), truncateURL(src))
-		path, err := downloadFile(src, localPath, downloadTimeout, progressFn)
+		path, err := downloadFile(ctx, src, localPath, downloadTimeout, progressFn)
 		if err == nil {
 			fmt.Printf("[Updater] 下载成功: %s\n", path)
 			return path, nil
+		}
+		if errors.Is(err, ErrDownloadCanceled) {
+			return "", err
 		}
 		lastErr = err
 		fmt.Printf("[Updater] 源 %d 失败: %v\n", i+1, err)
@@ -221,9 +236,10 @@ func buildDownloadSources(originalURL, tag, assetName string) []string {
 }
 
 // downloadFile 从 URL 下载文件到本地路径
-func downloadFile(url, localPath string, timeout time.Duration, progressFn func(int)) (string, error) {
+// ctx 取消时返回 ErrDownloadCanceled
+func downloadFile(ctx context.Context, url, localPath string, timeout time.Duration, progressFn func(int)) (string, error) {
 	client := createHTTPClient(timeout)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -231,6 +247,9 @@ func downloadFile(url, localPath string, timeout time.Duration, progressFn func(
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return "", ErrDownloadCanceled
+		}
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -250,6 +269,9 @@ func downloadFile(url, localPath string, timeout time.Duration, progressFn func(
 		// 未知大小，直接复制
 		_, err = io.Copy(out, resp.Body)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return "", ErrDownloadCanceled
+			}
 			return "", err
 		}
 		return localPath, nil
@@ -260,6 +282,12 @@ func downloadFile(url, localPath string, timeout time.Duration, progressFn func(
 	buf := make([]byte, 32*1024)
 	lastPercent := -1
 	for {
+		// 每轮读取前检查取消，避免慢速下载时无法及时响应
+		select {
+		case <-ctx.Done():
+			return "", ErrDownloadCanceled
+		default:
+		}
 		nr, rerr := resp.Body.Read(buf)
 		if nr > 0 {
 			nw, werr := out.Write(buf[:nr])
@@ -278,6 +306,9 @@ func downloadFile(url, localPath string, timeout time.Duration, progressFn func(
 		if rerr != nil {
 			if rerr == io.EOF {
 				break
+			}
+			if errors.Is(rerr, context.Canceled) {
+				return "", ErrDownloadCanceled
 			}
 			return "", rerr
 		}

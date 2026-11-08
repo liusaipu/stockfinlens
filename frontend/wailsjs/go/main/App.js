@@ -30,6 +30,10 @@ export function CancelAIResearch(arg1) {
   return window['go']['main']['App']['CancelAIResearch'](arg1);
 }
 
+export function CancelDownload() {
+  return window['go']['main']['App']['CancelDownload']();
+}
+
 export function CheckAnalysisCache(arg1) {
   return window['go']['main']['App']['CheckAnalysisCache'](arg1);
 }

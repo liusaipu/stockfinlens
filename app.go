@@ -101,6 +101,10 @@ type App struct {
 	// AI 投研取消函数（按 symbol 存储）
 	aiCancelFuncs   map[string]context.CancelFunc
 	aiCancelFuncsMu sync.Mutex
+
+	// 更新下载取消函数（DownloadUpdate 进行中有效）
+	downloadMu     sync.Mutex
+	downloadCancel context.CancelFunc
 }
 
 // trayQuoteItem tray 滚动显示用的股票数据
@@ -3934,12 +3938,36 @@ func (a *App) CheckForUpdate() (*updater.UpdateInfo, error) {
 }
 
 // DownloadUpdate 下载更新包（Wails 绑定）
-// progressFn 通过 Wails Event 推送进度
+// progressFn 通过 Wails Event 推送进度；支持 CancelDownload 主动取消
 func (a *App) DownloadUpdate(assetURL, tag string) (string, error) {
 	updateDir := filepath.Join(a.storage.DataDir(), "update")
-	return updater.DownloadUpdate(assetURL, tag, updateDir, func(percent int) {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.downloadMu.Lock()
+	// 若已有进行中的下载（重复点击），先取消旧任务
+	if a.downloadCancel != nil {
+		a.downloadCancel()
+	}
+	a.downloadCancel = cancel
+	a.downloadMu.Unlock()
+	defer func() {
+		a.downloadMu.Lock()
+		a.downloadCancel = nil
+		a.downloadMu.Unlock()
+		cancel()
+	}()
+
+	return updater.DownloadUpdate(ctx, assetURL, tag, updateDir, func(percent int) {
 		runtime.EventsEmit(a.ctx, "update:progress", percent)
 	})
+}
+
+// CancelDownload 取消进行中的更新下载（Wails 绑定）
+func (a *App) CancelDownload() {
+	a.downloadMu.Lock()
+	defer a.downloadMu.Unlock()
+	if a.downloadCancel != nil {
+		a.downloadCancel()
+	}
 }
 
 // ApplyUpdate 应用已下载的更新包（Wails 绑定）

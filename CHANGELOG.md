@@ -9,9 +9,11 @@
 - **股票列表在线刷新**：搜索不到股票时，下拉提示"可能是股票列表不是最新"，一键在线刷新（数据源：交易所官网 + 港交所名单 + 腾讯行情，约 1 分钟）。
   - 刷新结果写入用户数据目录 `~/.config/stock-analyzer/stocks.json`，下次启动优先加载。
   - 新增后端绑定 `GetStockList` / `RefreshStockList`，内存代码库热更新。
+- **更新下载可取消**：发现新版本下载更新包时显示「取消下载」按钮，慢速网络下可中途取消，取消后静默回到初始状态可重试。
 
 ### 测试 (Tests)
 - 新增 `stocklist_refresher_test.go`：验证股票列表三级读取优先级（用户目录 → 本地 data → embed）。
+- 新增 `TestDownloadUpdateCancel`：验证慢速下载场景下主动取消返回 `ErrDownloadCanceled`。
 
 ## [v1.9.5] - 2026-09-29
 

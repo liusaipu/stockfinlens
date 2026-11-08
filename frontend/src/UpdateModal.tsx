@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import './App.css'
 import {
   DownloadUpdate,
+  CancelDownload,
   ApplyUpdate,
   SkipVersion,
 } from './api'
@@ -69,9 +70,22 @@ export function UpdateModal({ isOpen, info, onClose }: UpdateModalProps) {
       setDownloadedPath(path)
       setDownloadProgress(100)
     } catch (e: any) {
+      // 用户主动取消：静默回到初始状态，不展示错误
+      if ((e?.message || '').includes('已取消')) {
+        setDownloadProgress(0)
+        return
+      }
       setDownloadError('下载失败: ' + (e?.message || String(e)))
     } finally {
       setDownloading(false)
+    }
+  }
+
+  const handleCancelDownload = async () => {
+    try {
+      await CancelDownload()
+    } catch {
+      // ignore：下载可能已自然结束
     }
   }
 
@@ -235,9 +249,16 @@ export function UpdateModal({ isOpen, info, onClose }: UpdateModalProps) {
           )}
 
           {(downloading || applying) && (
-            <button className="btn btn-secondary" disabled>
-              {downloading ? '下载中...' : '安装中...'}
-            </button>
+            <>
+              {downloading && (
+                <button className="btn btn-secondary" onClick={handleCancelDownload}>
+                  取消下载
+                </button>
+              )}
+              <button className="btn btn-secondary" disabled>
+                {downloading ? '下载中...' : '安装中...'}
+              </button>
+            </>
           )}
         </div>
       </div>

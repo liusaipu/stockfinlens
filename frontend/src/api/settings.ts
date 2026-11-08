@@ -19,6 +19,7 @@ export const {
   CheckForUpdate,
   SkipVersion,
   DownloadUpdate,
+  CancelDownload,
   ApplyUpdate,
   GetCurrentVersion,
   GetProxyConfig,

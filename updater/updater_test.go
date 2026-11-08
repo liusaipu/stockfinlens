@@ -1,8 +1,13 @@
 package updater
 
 import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"runtime"
 	"testing"
+	"time"
 )
 
 // TestCompareVersion 验证版本号比对逻辑
@@ -155,5 +160,37 @@ func TestTruncateURL(t *testing.T) {
 	}
 	if truncated == long {
 		t.Error("长 URL 应被截断")
+	}
+}
+
+// TestDownloadUpdateCancel 验证主动取消下载返回 ErrDownloadCanceled
+func TestDownloadUpdateCancel(t *testing.T) {
+	// 慢速流式响应服务器：每 50ms 写 1KB，总 1MB（足够触发取消）
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1048576")
+		chunk := make([]byte, 1024)
+		for i := 0; i < 1024; i++ {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
+			if _, err := w.Write(chunk); err != nil {
+				return
+			}
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		cancel()
+	}()
+
+	dir := t.TempDir()
+	_, err := DownloadUpdate(ctx, server.URL+"/pkg.zip", "v0.0.1", dir, nil)
+	if !errors.Is(err, ErrDownloadCanceled) {
+		t.Fatalf("应返回 ErrDownloadCanceled, 实际: %v", err)
 	}
 }
