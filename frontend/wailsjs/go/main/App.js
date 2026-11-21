@@ -42,6 +42,10 @@ export function CheckForUpdate() {
   return window['go']['main']['App']['CheckForUpdate']();
 }
 
+export function CheckNewReport(arg1) {
+  return window['go']['main']['App']['CheckNewReport'](arg1);
+}
+
 export function CheckPythonDependencies() {
   return window['go']['main']['App']['CheckPythonDependencies']();
 }

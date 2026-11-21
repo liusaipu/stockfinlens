@@ -26,6 +26,8 @@ export function CheckAnalysisCache(arg1:string):Promise<main.CacheStatus>;
 
 export function CheckForUpdate():Promise<updater.UpdateInfo>;
 
+export function CheckNewReport(arg1:string):Promise<main.NewReportInfo>;
+
 export function CheckPythonDependencies():Promise<main.PythonEnvResult>;
 
 export function ClipboardGetText():Promise<string>;

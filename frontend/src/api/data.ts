@@ -9,4 +9,5 @@ export const {
   ExportFinancialDataToExcel,
   ExportHistoricalFinancialData,
   GetStockDataHistory,
+  CheckNewReport,
 } = Go_

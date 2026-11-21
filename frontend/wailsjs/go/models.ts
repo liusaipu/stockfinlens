@@ -1726,6 +1726,30 @@ export namespace main {
 	        this.cashFlow = source["cashFlow"];
 	    }
 	}
+	export class NewReportInfo {
+	    supported: boolean;
+	    hasCache: boolean;
+	    hasNew: boolean;
+	    cachedLatest: string;
+	    cachedPeriodName: string;
+	    latestReportDate: string;
+	    latestPeriodName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new NewReportInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.supported = source["supported"];
+	        this.hasCache = source["hasCache"];
+	        this.hasNew = source["hasNew"];
+	        this.cachedLatest = source["cachedLatest"];
+	        this.cachedPeriodName = source["cachedPeriodName"];
+	        this.latestReportDate = source["latestReportDate"];
+	        this.latestPeriodName = source["latestPeriodName"];
+	    }
+	}
 	export class ProxyConfig {
 	    enabled: boolean;
 	    url: string;

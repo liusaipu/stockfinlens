@@ -310,6 +310,19 @@ func getReportDates(ctx context.Context, code string, maxYears int) ([]string, e
 	return dates, nil
 }
 
+// FetchLatestReportDate 获取某只股票最新已披露的报告期（yyyy-mm-dd）。
+// 用于轻量检测是否有新财报发布，避免完整下载三张表。
+func FetchLatestReportDate(ctx context.Context, code string) (string, error) {
+	dates, err := getReportDates(ctx, code, 1)
+	if err != nil {
+		return "", err
+	}
+	if len(dates) == 0 {
+		return "", fmt.Errorf("未找到任何财报报告期")
+	}
+	return dates[0], nil
+}
+
 // filterAnnualDates 从所有报告日期中过滤出年报（12-31结尾）
 func filterAnnualDates(dates []string) []string {
 	var annuals []string

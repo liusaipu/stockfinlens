@@ -209,6 +209,7 @@ import {
   AnalyzeStock,
   AnalyzeStockWithRIM,
   CheckAnalysisCache,
+  CheckNewReport,
   DownloadReport,
   ExportReportPDF,
   ExportReportImage,
@@ -256,6 +257,7 @@ type AnalysisReport = analyzer.AnalysisReport
 type StepResult = analyzer.StepResult
 type DownloadResult = main.DownloadResult
 type HistoryMeta = main.HistoryMeta
+type NewReportInfo = main.NewReportInfo
 type StockProfile = main.StockProfile
 type StockQuote = downloader.StockQuote
 type WatchlistFilterItem = main.WatchlistFilterItem
@@ -343,6 +345,7 @@ function App() {
   const [downloading, setDownloading] = useState(false)
   const [downloadStatus, setDownloadStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
   const [downloadSuggestion, setDownloadSuggestion] = useState<string>('')
+  const [newReportInfo, setNewReportInfo] = useState<NewReportInfo | null>(null)
   const [report, setReport] = useState<AnalysisReport | null>(null)
   const [snapshots, setSnapshots] = useState<Record<string, AnalysisReport>>({})
 
@@ -1271,6 +1274,20 @@ function App() {
     } catch (err: any) {
       console.error('[loadDataHistory] Error:', err)
       setDataHistory([])
+    }
+  }, [])
+
+  // 后台检测是否有新季报/年报（对比本地缓存的最新报告期），失败时静默忽略
+  const checkNewReport = useCallback(async (code: string) => {
+    try {
+      const info = await CheckNewReport(code)
+      if (code === selectedCodeRef.current) {
+        setNewReportInfo(info && info.hasCache ? info : null)
+      }
+    } catch {
+      if (code === selectedCodeRef.current) {
+        setNewReportInfo(null)
+      }
     }
   }, [])
 
@@ -2508,8 +2525,10 @@ function App() {
     setCompRecommendations([])
     setDataHistory([])
     setDataMissing(false)
+    setNewReportInfo(null)
     loadReportHistory(s.code, true)
     loadDataHistory(s.code)
+    checkNewReport(s.code)
     loadProfile(s.code).then((p) => loadRiskRadar(s.code, p?.industry || ''))
     loadConcepts(s.code)
     loadMoneyflow(s.code)
@@ -2546,6 +2565,7 @@ function App() {
       if (result && result.success) {
         showToast(`导入成功！\n${result.message}\n资产负债表年份: ${result.balanceSheet?.join(', ') || '无'}\n利润表年份: ${result.income?.join(', ') || '无'}\n现金流量表年份: ${result.cashFlow?.join(', ') || '无'}`, 'success')
         await loadDataHistory(selectedStock.code)
+        checkNewReport(selectedStock.code)
         const cache = await CheckAnalysisCache(selectedStock.code)
         setDataMissing(!!cache?.dataMissing)
       } else {
@@ -2591,6 +2611,7 @@ function App() {
         setDownloadSuggestion(result.sourceSuggestion || '')
         console.log('[handleDownload] Reloading data history for:', selectedStock.code)
         await loadDataHistory(selectedStock.code)
+        checkNewReport(selectedStock.code)
         const cache = await CheckAnalysisCache(selectedStock.code)
         setDataMissing(!!cache?.dataMissing)
         console.log('[handleDownload] Data history reloaded, count:', dataHistory.length)
@@ -4912,6 +4933,34 @@ function App() {
                   财报透镜
                 </button>
               </div>
+
+              {/* 新财报提醒 / 缓存财报日期 */}
+              {newReportInfo && (
+                newReportInfo.hasNew ? (
+                  <div style={{
+                    marginTop: 8,
+                    padding: '6px 10px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    borderLeft: '3px solid #f59e0b',
+                    borderRadius: '0 6px 6px 0',
+                    fontSize: 12,
+                    color: '#fbbf24',
+                    lineHeight: 1.5,
+                  }}>
+                    📢 检测到新财报：{newReportInfo.latestPeriodName}已发布（本地缓存至{newReportInfo.cachedPeriodName}），点击「财报下载」更新
+                  </div>
+                ) : (
+                  <div style={{
+                    marginTop: 8,
+                    fontSize: 11,
+                    color: 'var(--text-muted)',
+                    textAlign: 'center',
+                  }}>
+                    本地财报缓存至{newReportInfo.cachedPeriodName}
+                    {newReportInfo.latestPeriodName ? '，暂无新财报' : ''}
+                  </div>
+                )
+              )}
 
               {/* 状态显示 - 按钮下方一行 */}
               <div className="action-status-line">
