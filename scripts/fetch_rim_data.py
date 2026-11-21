@@ -49,7 +49,12 @@ def _fetch_eps_forecast_em(symbol: str):
         matches = (code_col == symbol) | code_col.str.startswith(f"{symbol}.")
         row = df[matches]
         if len(row) > 0:
-            return _extract_eps_forecast(row.iloc[0]), None
+            current_year = str(datetime.now().year)
+            forecast = _extract_eps_forecast(row.iloc[0])
+            forecast = {year: value for year, value in forecast.items() if year >= current_year}
+            if forecast:
+                return forecast, None
+            return None, f"no current or future eps forecast for {symbol}"
         return None, f"symbol {symbol} not found in profit forecast, rows={len(df)}, samples={list(code_col.head(3))}"
     except Exception as e:
         return None, str(e)
@@ -62,53 +67,42 @@ def _parse_number(val):
     s = str(val).strip().replace(",", "")
     if s.endswith("%"):
         try:
-            return float(s[:-1]) / 100
+            value = float(s[:-1]) / 100
+            return value if math.isfinite(value) else 0.0
         except (ValueError, TypeError):
             return 0.0
     try:
-        return float(s)
+        value = float(s)
+        return value if math.isfinite(value) else 0.0
     except (ValueError, TypeError):
         return 0.0
 
 
 def _fetch_eps_forecast_ths(symbol: str):
-    """同花顺盈利预测。该接口的'业绩预测详表-详细指标预测'没有直接 EPS，但有每股净资产和净资产收益率，可推导 EPS = BPS * ROE。"""
+    """同花顺盈利预测：直接读取汇总表的预测年报每股收益均值。"""
     try:
-        df = ak.stock_profit_forecast_ths(symbol=symbol, indicator="业绩预测详表-详细指标预测")
+        df = ak.stock_profit_forecast_ths(symbol=symbol, indicator="预测年报每股收益")
         if df is None or len(df) == 0:
             return None, "empty response from stock_profit_forecast_ths"
+        if "年度" not in df.columns or "均值" not in df.columns:
+            return None, f"ths missing 年度 or 均值 column, columns={list(df.columns)}"
 
-        # 查找每股净资产(BPS)和净资产收益率(ROE)行
-        bps_row = None
-        roe_row = None
-        indicators = []
-        for _, row in df.iterrows():
-            indicator_name = str(row.get("预测指标", ""))
-            indicators.append(indicator_name)
-            if "每股净资产" in indicator_name:
-                bps_row = row
-            elif "净资产收益率" in indicator_name and "净资产收益率" not in indicator_name.replace("净资产收益率", ""):
-                roe_row = row
-            elif indicator_name.strip() == "净资产收益率":
-                roe_row = row
-
-        if bps_row is None or roe_row is None:
-            return None, f"ths missing bps or roe row, indicators={indicators}"
-
+        current_year = datetime.now().year
         forecast = {}
-        for col in df.columns:
-            col_str = str(col)
-            m = re.search(r"预测(\d{4})-平均", col_str)
-            if m:
-                year = m.group(1)
-                bps_val = _parse_number(bps_row[col])
-                roe_val = _parse_number(roe_row[col])
-                if bps_val > 0 and roe_val > 0:
-                    forecast[year] = bps_val * roe_val
+        for _, row in df.iterrows():
+            try:
+                year = int(str(row["年度"]).strip())
+            except (ValueError, TypeError):
+                continue
+            if year < current_year:
+                continue
+            eps_val = _parse_number(row["均值"])
+            if eps_val != 0:
+                forecast[str(year)] = eps_val
 
         if forecast:
             return forecast, None
-        return None, f"no eps forecast derived from ths bps*roe, bps={bps_row.to_dict()}, roe={roe_row.to_dict()}"
+        return None, "no current or future eps forecast from ths"
     except Exception as e:
         return None, str(e)
 

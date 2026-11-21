@@ -474,6 +474,22 @@ func writeModule5(b *strings.Builder, policy *PolicyMatchData) {
 	b.WriteString("---\n\n")
 }
 
+func rimEPSSourceDesc(rim *RIMData) string {
+	if rim == nil {
+		return "未知来源"
+	}
+	switch rim.EPSSource {
+	case "ths":
+		return "同花顺机构一致预期"
+	case "eastmoney":
+		return "东方财富机构一致预期"
+	case "manual":
+		return "手动输入"
+	default:
+		return "机构一致预期"
+	}
+}
+
 func writeModule6(b *strings.Builder, steps []StepResult, latest string, quote *QuoteData, rim *RIMData) {
 	b.WriteString("# 模块6: 剩余收益模型估值(RIM)\n\n")
 
@@ -513,7 +529,10 @@ func writeModule6(b *strings.Builder, steps []StepResult, latest string, quote *
 				}
 				epsLine += fmt.Sprintf("%s %.2f", yearLabel, d.EPS)
 			}
-			b.WriteString(fmt.Sprintf("| **预测期 EPS** | - | %s | 机构一致预期 |\n", epsLine))
+			b.WriteString(fmt.Sprintf("| **预测期 EPS** | - | %s | %s |\n", epsLine, rimEPSSourceDesc(rim)))
+			if rim.EPSSource != "manual" && len(rim.Result.Details) > len(rim.EPSRaw) {
+				b.WriteString("\n> 注：机构预测不足6年，后续年度按5%增长外推。\n")
+			}
 		}
 	} else {
 		b.WriteString("| **每股净资产** | BPS | 待计算 | 需接入实时行情与财报 |\n")
@@ -522,6 +541,9 @@ func writeModule6(b *strings.Builder, steps []StepResult, latest string, quote *
 		b.WriteString("| **当前股价** | P | - | 待接入实时行情 |\n")
 	}
 	b.WriteString("\n")
+	if rim != nil && rim.Error != "" {
+		b.WriteString(fmt.Sprintf("> **RIM 估值未生成**：%s。本次未使用历史 EPS 替代机构预测；请重新分析或手动调整 RIM 参数。\n\n", rim.Error))
+	}
 
 	b.WriteString("## 6.2 估值情景\n\n")
 	if hasRIM {

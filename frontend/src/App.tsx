@@ -12,6 +12,7 @@ import { Settings, loadSettings, AppSettings } from './Settings'
 import { ModuleCopyButton, setGlobalMarkdownContent } from './ModuleCopyButton'
 import { PythonDepsModal } from './PythonDepsModal'
 import { UpdateModal, UpdateInfo } from './UpdateModal'
+import { prepareRIMModalForecast, rimEPSSourceLabel } from './rim'
 
 import { AnalyzeStockWithAI, LoadAIResearchReport, CancelAIResearch, ExportAIResearchTxt, ExportAIResearchMd, ExportAIResearchPdf, GetStockList, RefreshStockList } from './api'
 import html2pdf from 'html2pdf.js'
@@ -721,6 +722,9 @@ function App() {
   const [rimBetaDate, setRimBetaDate] = useState('')
   const [rimG, setRimG] = useState(5.0)
   const [rimEPS, setRimEPS] = useState<(number | string)[]>(['0', '0', '0', '0', '0', '0'])
+  const [rimEPSYears, setRimEPSYears] = useState<string[]>([])
+  const [rimEPSSource, setRimEPSSource] = useState('')
+  const [rimEPSError, setRimEPSError] = useState('')
   const [rimBPS0, setRimBPS0] = useState(0)
   const [rimPrice, setRimPrice] = useState(0)
   const [rimLoading, setRimLoading] = useState(false)
@@ -2772,6 +2776,7 @@ function App() {
     if (!selectedStock) return
     // 优先用当前报告中的RIM数据预填充，否则用默认值
     const rim = report?.rim
+    setRimEPSError(rim?.error ?? '')
     if (rim && rim.hasData) {
       setRimBeta(rim.beta ?? 0.98)
       setRimRf((rim.rf ?? 0.0183) * 100)
@@ -2782,16 +2787,17 @@ function App() {
       setRimG((rim.params?.GTerminal ?? 0.05) * 100)
       setRimBPS0(rim.params?.BPS0 ?? 0)
       setRimPrice(rim.params?.CurrentPrice ?? 0)
-      let eps: (number | string)[] = []
+      let forecastInput: { EPS?: number[]; Years?: string[] } | undefined
       if (rim.epsRaw && Object.keys(rim.epsRaw).length > 0) {
-        const years = Object.keys(rim.epsRaw).sort()
-        eps = years.slice(0, 6).map((y) => rim.epsRaw![y].toFixed(2))
+        const rawYears = Object.keys(rim.epsRaw).sort()
+        forecastInput = { EPS: rawYears.map((y) => rim.epsRaw![y]), Years: rawYears }
+      } else {
+        forecastInput = { EPS: rim.params?.Forecast?.EPS ?? [], Years: rim.params?.Forecast?.Years ?? [] }
       }
-      const forecast = rim.params?.Forecast?.EPS?.slice(0, 6) || []
-      while (eps.length < 6) {
-        eps.push((forecast[eps.length] ?? 0).toFixed(2))
-      }
+      const { eps, years } = prepareRIMModalForecast(forecastInput)
       setRimEPS(eps)
+      setRimEPSYears(years)
+      setRimEPSSource(rim.epsSource ?? '')
     } else if (quote) {
       // 从行情推算默认值
       setRimBeta(0.98)
@@ -2804,6 +2810,8 @@ function App() {
       setRimBPS0(quote.pb > 0 ? quote.currentPrice / quote.pb : 0)
       setRimPrice(quote.currentPrice)
       setRimEPS([0, 0, 0, 0, 0, 0])
+      setRimEPSYears([])
+      setRimEPSSource('')
     }
     setShowRIMModal(true)
   }
@@ -2816,11 +2824,14 @@ function App() {
       setRimProgress((p) => (p >= 90 ? 90 : p + 3))
     }, 400)
     try {
+      const epsPairs = rimEPS
+        .map((v, i) => ({ eps: Number(v), year: rimEPSYears[i] ?? '' }))
+        .filter((p) => p.eps > 0)
       const params = {
         BPS0: rimBPS0,
         KE: rimRf / 100 + rimBeta * (rimRmRf / 100),
         GTerminal: rimG / 100,
-        Forecast: { EPS: rimEPS.map(Number).filter((v) => v > 0), DPS: [] },
+        Forecast: { EPS: epsPairs.map((p) => p.eps), DPS: [], Years: epsPairs.map((p) => p.year) },
         CurrentPrice: rimPrice,
       }
       const rimData = {
@@ -6151,11 +6162,23 @@ function App() {
                 <label>当前股价</label>
                 <input type="number" step={0.01} value={rimPrice} onChange={(e) => setRimPrice(Number(e.target.value))} />
               </div>
-              <div className="rim-eps-title">预测期 EPS（至少填前3年）</div>
+              <div className="rim-eps-title">
+                预测期 EPS（至少填前3年）
+                {rimEPSSource && (
+                  <span style={{ fontSize: 11, fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: 8 }}>
+                    来源：{rimEPSSourceLabel(rimEPSSource)}
+                  </span>
+                )}
+              </div>
+              {rimEPSError && (
+                <div style={{ fontSize: 12, color: 'var(--danger, #e5534b)', marginBottom: 8 }}>
+                  ⚠️ 上次自动获取失败：{rimEPSError}
+                </div>
+              )}
               <div className="rim-eps-grid">
                 {rimEPS.map((v, i) => (
                   <div className="rim-eps-item" key={i}>
-                    <label>第{i + 1}年</label>
+                    <label>{rimEPSYears[i] ? `${rimEPSYears[i]}年` : `第${i + 1}年`}</label>
                     <input type="text" inputMode="decimal" value={v} onChange={(e) => {
                       const val = e.target.value
                       if (!/^\d*\.?\d*$/.test(val)) return

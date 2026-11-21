@@ -611,6 +611,7 @@ export namespace analyzer {
 	    result?: RIMResult;
 	    error?: string;
 	    epsRaw?: Record<string, number>;
+	    epsSource?: string;
 	    rf: number;
 	    rfDate?: string;
 	    beta: number;
@@ -629,6 +630,7 @@ export namespace analyzer {
 	        this.result = this.convertValues(source["result"], RIMResult);
 	        this.error = source["error"];
 	        this.epsRaw = source["epsRaw"];
+	        this.epsSource = source["epsSource"];
 	        this.rf = source["rf"];
 	        this.rfDate = source["rfDate"];
 	        this.beta = source["beta"];

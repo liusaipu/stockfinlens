@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +29,41 @@ func rimHash(rim *analyzer.RIMData) string {
 	}
 	sum := sha1.Sum(b)
 	return hex.EncodeToString(sum[:])
+}
+
+func buildRIMEPSForecast(raw map[string]float64, currentYear int) ([]float64, []string, int) {
+	years := make([]string, 0, len(raw))
+	for year := range raw {
+		years = append(years, year)
+	}
+	sort.Strings(years)
+
+	epsSeq := make([]float64, 0, 6)
+	yearLabels := make([]string, 0, 6)
+	for _, year := range years {
+		yearInt, err := strconv.Atoi(year)
+		if err != nil || yearInt < currentYear {
+			continue
+		}
+		if eps := raw[year]; eps > 0 {
+			epsSeq = append(epsSeq, eps)
+			yearLabels = append(yearLabels, year)
+		}
+	}
+
+	available := len(epsSeq)
+	if available < 3 {
+		return nil, nil, available
+	}
+	growthRates := []float64{0.10, 0.10, 0.08, 0.05, 0.05, 0.05}
+	for len(epsSeq) < 6 {
+		last := epsSeq[len(epsSeq)-1]
+		g := growthRates[len(epsSeq)%len(growthRates)]
+		epsSeq = append(epsSeq, last*(1+g))
+		lastYear, _ := strconv.Atoi(yearLabels[len(yearLabels)-1])
+		yearLabels = append(yearLabels, strconv.Itoa(lastYear+1))
+	}
+	return epsSeq, yearLabels, available
 }
 
 // analyzeStockInternal 是 AnalyzeStock / AnalyzeStockWithRIM 的统一实现。
@@ -603,6 +639,9 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 	var rimData *analyzer.RIMData
 	if customRIM != nil {
 		rimData = customRIM
+		if rimData.EPSSource == "" {
+			rimData.EPSSource = "manual"
+		}
 	} else if quoteData != nil {
 		rimData = &analyzer.RIMData{}
 		if extRIM != nil {
@@ -613,6 +652,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 			rimData.RmRf = extRIM.RmRf
 			rimData.RmRfDate = extRIM.RmRfDate
 			rimData.EPSRaw = extRIM.EPSForecast
+			rimData.EPSSource = extRIM.EPSForecastSource
 		} else {
 			// 使用默认参数（即使外部数据获取失败也尝试计算）
 			rimData.Rf = 0.0183
@@ -646,95 +686,21 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 			}
 		}
 
-		var epsSeq []float64
-		var yearLabels []string
-		if extRIM != nil && len(extRIM.EPSForecast) > 0 {
-			years := make([]string, 0, len(extRIM.EPSForecast))
-			for y := range extRIM.EPSForecast {
-				years = append(years, y)
-			}
-			for i := 0; i < len(years)-1; i++ {
-				for j := i + 1; j < len(years); j++ {
-					if years[i] > years[j] {
-						years[i], years[j] = years[j], years[i]
-					}
-				}
-			}
-			currentYear := time.Now().Year()
-			for _, y := range years {
-				yearInt, err := strconv.Atoi(y)
-				if err != nil || yearInt < currentYear {
-					continue // 跳过已披露的历史年份，RIM只预测未来
-				}
-				if v, ok := extRIM.EPSForecast[y]; ok && v > 0 {
-					epsSeq = append(epsSeq, v)
-					yearLabels = append(yearLabels, y)
-				}
-			}
+		var rawEPS map[string]float64
+		if extRIM != nil {
+			rawEPS = extRIM.EPSForecast
 		}
-		// 如果外部没有预测数据，用 trailing EPS 做起点然后外推
-		if len(epsSeq) == 0 {
-			trailingEPS := 0.0
-			if finData != nil && len(finData.Years) > 0 {
-				finYear := finData.Years[0]
-				finProfit := finData.GetValueOrZero(finData.IncomeStatement, "归母净利润", finYear)
-				if finProfit == 0 {
-					finProfit = finData.GetValueOrZero(finData.IncomeStatement, "净利润", finYear)
-				}
-				totalShares := 0.0
-				if extRIM != nil && extRIM.TotalShares > 0 {
-					totalShares = extRIM.TotalShares
-				} else if quoteData.CurrentPrice > 0 && quoteData.MarketCap > 0 {
-					totalShares = quoteData.MarketCap / quoteData.CurrentPrice
-				}
-				if finProfit > 0 && totalShares > 0 {
-					trailingEPS = finProfit / 1e8 / (totalShares / 1e8)
-				}
-				if trailingEPS <= 0 && bps0 > 0 {
-					netProfit := finData.GetValueOrZero(finData.IncomeStatement, "归母净利润", finYear)
-					if netProfit == 0 {
-						netProfit = finData.GetValueOrZero(finData.IncomeStatement, "净利润", finYear)
-					}
-					equity := finData.GetValueOrZero(finData.BalanceSheet, "归母所有者权益合计", finYear)
-					if equity == 0 {
-						equity = finData.GetValueOrZero(finData.BalanceSheet, "所有者权益合计", finYear)
-					}
-					roe := 0.0
-					if equity > 0 {
-						roe = netProfit / equity * 100
-					}
-					if roe > 0 {
-						trailingEPS = bps0 * (roe / 100)
-					}
-				}
-			}
-			if trailingEPS > 0 {
-				epsSeq = append(epsSeq, trailingEPS)
-				yearLabels = append(yearLabels, fmt.Sprintf("%d", time.Now().Year()))
-			}
-		}
-		// 如果预测年份不足6年，用最后一年增长率外推（默认增长率 10% -> 5%）
-		growthRates := []float64{0.10, 0.10, 0.08, 0.05, 0.05, 0.05}
-		for len(epsSeq) < 6 {
-			last := 0.0
-			if len(epsSeq) > 0 {
-				last = epsSeq[len(epsSeq)-1]
-			}
-			g := growthRates[len(epsSeq)%len(growthRates)]
-			if last > 0 {
-				epsSeq = append(epsSeq, last*(1+g))
-			} else {
-				epsSeq = append(epsSeq, 0)
-			}
-			// 外推年份
-			if len(yearLabels) > 0 {
-				if lastY, err := strconv.Atoi(yearLabels[len(yearLabels)-1]); err == nil {
-					yearLabels = append(yearLabels, fmt.Sprintf("%d", lastY+1))
-				} else {
-					yearLabels = append(yearLabels, fmt.Sprintf("%d", time.Now().Year()+len(yearLabels)))
-				}
-			} else {
-				yearLabels = append(yearLabels, fmt.Sprintf("%d", time.Now().Year()+len(yearLabels)))
+		epsSeq, yearLabels, available := buildRIMEPSForecast(rawEPS, time.Now().Year())
+		if available < 3 {
+			switch {
+			case rimErr != nil:
+				rimData.Error = fmt.Sprintf("机构盈利预测获取失败：%v", rimErr)
+			case extRIM != nil && extRIM.EPSForecastError != "":
+				rimData.Error = fmt.Sprintf("机构盈利预测获取失败：%s", extRIM.EPSForecastError)
+			case available == 0:
+				rimData.Error = "未取得当年及未来年度的机构盈利预测"
+			default:
+				rimData.Error = fmt.Sprintf("机构盈利预测仅有%d个有效未来年度，至少需要3年", available)
 			}
 		}
 
@@ -745,7 +711,7 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 			price = extRIM.Price
 		}
 
-		if bps0 > 0 && ke > gTerminal {
+		if len(epsSeq) >= 3 && bps0 > 0 && ke > gTerminal {
 			params := analyzer.RIMParams{
 				BPS0:         bps0,
 				KE:           ke,
@@ -759,8 +725,8 @@ func (a *App) runAnalysisLocked(symbol string, overwriteLatest bool, customRIM *
 				rimData.HasData = true
 			}
 		}
-		if !rimData.HasData {
-			rimData = nil
+		if !rimData.HasData && rimData.Error == "" {
+			rimData.Error = "缺少有效的每股净资产或资本成本参数，无法计算 RIM 估值"
 		}
 	}
 
